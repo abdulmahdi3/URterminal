@@ -1,0 +1,360 @@
+.workspace-root {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background: var(--bg-sunken);
+}
+
+/* ---- empty state ---- */
+.workspace-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  color: var(--text-dim);
+}
+.empty-glyph {
+  color: var(--border-strong);
+  margin-bottom: var(--sp-2);
+}
+.empty-pane-actions {
+  display: flex;
+  gap: var(--sp-4);
+}
+.empty-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  margin-top: var(--sp-2);
+}
+
+/* ---- pane bodies ---- */
+.pane-body {
+  height: 100%;
+  width: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pane-body.active {
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+.pane-placeholder {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+.empty-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  color: var(--text-dim);
+}
+.empty-pane-label {
+  font-size: var(--fs-sm);
+}
+
+.agent-pane {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* loader shown while the agent CLI boots (until its first output) */
+.agent-booting {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg);
+  color: var(--text-dim);
+}
+.agent-booting .spin {
+  color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+.booting-text {
+  font-size: var(--fs-sm);
+}
+.booting-text b {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.booting-path {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- agent launcher form ---- */
+.agent-launcher {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-6);
+  background: var(--bg);
+}
+.launcher-card {
+  width: min(440px, 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-elev);
+  padding: var(--sp-6);
+  box-shadow: var(--shadow-md);
+}
+.launcher-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-body);
+}
+.launcher-head b {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.launcher-spark {
+  color: var(--accent);
+}
+.launcher-hint {
+  margin: 6px 0 14px;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.launcher-row {
+  display: flex;
+  gap: 6px;
+}
+.launcher-row .input {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+.launcher-row .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.launcher-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.launcher-actions .btn.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.launcher-last {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.shell-pane {
+  height: 100%;
+  width: 100%;
+  padding: var(--sp-3) 0 var(--sp-3) var(--sp-4);
+  background: var(--bg);
+}
+.shell-pane .xterm {
+  height: 100%;
+}
+
+/* ---- custom pane header (replaces the default mosaic toolbar) ---- */
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: var(--pane-header-h);
+  padding: 0 6px 0 10px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  cursor: grab;
+  overflow: hidden;
+}
+.pane-header.active {
+  background: var(--bg-elev-2);
+}
+.pane-icon {
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+.pane-icon.ai {
+  color: var(--accent);
+}
+.pane-icon.shell {
+  color: var(--ok);
+}
+.pane-title {
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+.pane-title-edit {
+  background: var(--bg-sunken);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  padding: 1px 6px;
+  outline: none;
+  max-width: 180px;
+}
+.pane-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
+  color: var(--text-faint);
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-faint);
+}
+.pane-status.streaming {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+.pane-status .pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.1s var(--ease) infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.pane-header-spacer {
+  flex: 1;
+}
+.pane-controls {
+  display: flex;
+  gap: 1px;
+  cursor: default;
+}
+
+/* ---- react-mosaic: edge-to-edge, modern splits ---- */
+.mosaic-uregant {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-sunken);
+}
+.mosaic-uregant .mosaic-root {
+  inset: var(--gap);
+}
+.mosaic-uregant .mosaic-tile {
+  margin: calc(var(--gap) / 2);
+}
+.mosaic-uregant .mosaic-window,
+.mosaic-uregant .mosaic-preview {
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+/* highlight the focused pane's whole border */
+.mosaic-uregant .mosaic-window:has(.pane-header.active) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+/* neutralize the default toolbar chrome — our .pane-header owns the look */
+.mosaic-uregant .mosaic-window-toolbar {
+  height: var(--pane-header-h) !important;
+  width: 100% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  display: flex !important;
+}
+.mosaic-uregant .mosaic-window-body {
+  background: var(--bg);
+}
+/* host wrapper that react-mosaic uses as the drag handle */
+.pane-header-host {
+  height: 100%;
+  width: 100%;
+  flex: 1 1 auto;
+}
+.pane-header-host .pane-header {
+  height: 100%;
+}
+.mosaic-uregant .mosaic-split {
+  background: transparent;
+}
+.mosaic-uregant .mosaic-split .mosaic-split-line {
+  box-shadow: none;
+}
+.mosaic-uregant .mosaic-split:hover {
+  background: var(--accent-soft);
+}
+.mosaic-uregant .mosaic-split:hover .mosaic-split-line {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* ---- zoom (maximize one pane) ---- */
+.zoom-host {
+  position: absolute;
+  inset: var(--gap);
+}
+.zoom-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-md);
+}
+.zoom-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.zoom-exit {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  z-index: 20;
+  box-shadow: var(--shadow-md);
+}

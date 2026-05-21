@@ -1,0 +1,33 @@
+appId: com.uregant.terminal
+productName: uregant-terminal
+directories:
+  buildResources: build
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintrc.cjs,.prettierrc,.prettierignore,tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{PLAN.md,README.md}'
+asarUnpack:
+  - resources/**
+  - '**/node_modules/@homebridge/node-pty-prebuilt-multiarch/**'
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-${version}-Setup-${arch}.${ext}
+portable:
+  artifactName: ${productName}-${version}-Portable-${arch}.${ext}
+# node-pty ships as a prebuilt binary matched to the Electron ABI (see
+# scripts/setup-natives.mjs); no native compiler is available, so never rebuild.
+npmRebuild: false

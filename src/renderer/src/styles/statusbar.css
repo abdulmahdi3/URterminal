@@ -1,0 +1,33 @@
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  height: var(--statusbar-h);
+  padding: 0 var(--sp-5);
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  user-select: none;
+}
+.sb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sb-item.mono {
+  font-family: var(--mono);
+  color: var(--text-faint);
+}
+.sb-item.accent {
+  color: var(--accent);
+}
+.sb-item.dim {
+  color: var(--text-faint);
+}
+.sb-spacer {
+  flex: 1;
+}

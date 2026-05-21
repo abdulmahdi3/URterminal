@@ -1,0 +1,55 @@
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  height: var(--titlebar-h);
+  /* reserve room on the right for the native Windows caption buttons */
+  padding: 0 138px 0 var(--sp-5);
+  background: linear-gradient(180deg, var(--bg-elev) 0%, var(--bg) 100%);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar [data-nodrag] {
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.brand-icon {
+  color: var(--accent);
+}
+.brand-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn.sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: var(--fs-xs);
+}
+
+.titlebar-drag {
+  flex: 1;
+  height: 100%;
+}
+
+.titlebar-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -1,0 +1,105 @@
+import { useEffect } from 'react'
+import { useUi } from '@renderer/store/ui'
+import { useWorkspace } from '@renderer/store/workspace'
+import { runCommand } from '@renderer/lib/commands'
+import { stopChat } from '@renderer/lib/chat'
+
+function isTypingTarget(el: EventTarget | null): boolean {
+  const t = el as HTMLElement | null
+  if (!t) return false
+  const tag = t.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || t.isContentEditable
+}
+
+/**
+ * Single global keydown handler — the only place hotkeys are wired.
+ * Keeping the chrome empty (no on-screen buttons) and routing everything
+ * through here + the command palette is what keeps the UI uncluttered.
+ */
+export function useHotkeys(): void {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const mod = e.ctrlKey || e.metaKey
+      const ui = useUi.getState()
+
+      // Command palette toggle — works everywhere.
+      if (mod && !e.shiftKey && e.code === 'KeyK') {
+        e.preventDefault()
+        ui.toggleCommandPalette()
+        return
+      }
+
+      // Escape: stop stream → close overlays → exit zoom.
+      if (e.key === 'Escape') {
+        const wsState = useWorkspace.getState()
+        const active = wsState.activePaneId ? wsState.panes[wsState.activePaneId] : null
+        if (active?.ai?.activeStreamId) {
+          stopChat(active)
+          return
+        }
+        if (ui.showCommandPalette || ui.showSettings || ui.showShortcuts || ui.linkingPaneId) {
+          ui.closeOverlays()
+          return
+        }
+        if (ui.zoomedPaneId) {
+          ui.setZoomedPaneId(null)
+          return
+        }
+        return
+      }
+
+      // "?" cheatsheet — only when not typing.
+      if (!mod && e.key === '?' && !isTypingTarget(e.target)) {
+        e.preventDefault()
+        runCommand('app.shortcuts')
+        return
+      }
+
+      if (!mod) return
+
+      // Ctrl/Cmd combinations.
+      if (e.shiftKey) {
+        switch (e.code) {
+          case 'KeyD':
+            e.preventDefault()
+            return runCommand('pane.splitDown')
+          case 'KeyT':
+            e.preventDefault()
+            return runCommand('pane.reopen')
+          case 'Digit5':
+            e.preventDefault()
+            return runCommand('pane.newShell')
+          case 'Enter':
+            e.preventDefault()
+            return runCommand('pane.zoom')
+        }
+        return
+      }
+
+      switch (e.code) {
+        case 'KeyT':
+          e.preventDefault()
+          return runCommand('pane.newAi')
+        case 'KeyD':
+          e.preventDefault()
+          return runCommand('pane.splitRight')
+        case 'KeyW':
+          e.preventDefault()
+          return runCommand('pane.close')
+        case 'Comma':
+          e.preventDefault()
+          return runCommand('app.settings')
+      }
+
+      // Ctrl+1..9 focus pane
+      if (/^Digit[1-9]$/.test(e.code)) {
+        e.preventDefault()
+        const n = Number(e.code.slice(5))
+        useWorkspace.getState().focusByIndex(n - 1)
+      }
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+}
