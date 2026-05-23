@@ -10,7 +10,9 @@
       "Bash(sed -n '/=== BASELINE START ===/,/=== FINAL END ===/p' probe.log)",
       "Bash(node test-extract.cjs)",
       "Bash(sed -n '/=== FINAL START ===/,/=== FINAL END ===/p' probe.log)",
-      "Bash(rm -f probe.log)"
+      "Bash(rm -f probe.log)",
+      "Bash(ls -lh dist/*.exe)",
+      "Bash(ls -lh dist/win-unpacked/uregant-terminal.exe)"
     ]
   }
 }
