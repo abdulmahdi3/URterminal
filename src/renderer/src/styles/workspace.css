@@ -297,6 +297,50 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-soft);
 }
+
+/* ---- pane open/close pop animations (Hyprland-style) ----
+   transform/opacity only: never changes layout boxes, so no ResizeObserver
+   refit (SIGWINCH) and no chain-arrow recompute. Keep --dur in sync with
+   PANE_ANIM_MS in workspace.ts. */
+@keyframes pane-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes pane-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.mosaic-uregant .mosaic-window:has(.pane-body.pane-entering),
+.zoom-pane:has(.pane-body.pane-entering) {
+  transform-origin: center;
+  animation: pane-pop-in var(--dur) var(--ease);
+}
+.mosaic-uregant .mosaic-window:has(.pane-body.pane-exiting),
+.zoom-pane:has(.pane-body.pane-exiting) {
+  transform-origin: center;
+  animation: pane-pop-out var(--dur) var(--ease) forwards;
+  pointer-events: none; /* a leaving pane shouldn't take clicks */
+}
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-uregant .mosaic-window:has(.pane-body.pane-entering),
+  .mosaic-uregant .mosaic-window:has(.pane-body.pane-exiting),
+  .zoom-pane:has(.pane-body.pane-entering),
+  .zoom-pane:has(.pane-body.pane-exiting) {
+    animation: none;
+  }
+}
 /* neutralize the default toolbar chrome — our .pane-header owns the look */
 .mosaic-uregant .mosaic-window-toolbar {
   height: var(--pane-header-h) !important;
@@ -330,6 +374,58 @@
 }
 .mosaic-uregant .mosaic-split:hover .mosaic-split-line {
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* ---- chain link arrows (pipe one pane's output into the next) ---- */
+.chain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.chain-arrow {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-faint);
+  opacity: 0.18;
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+/* reveal all link arrows while hovering anywhere over the grid */
+.workspace-root:hover .chain-arrow {
+  opacity: 0.55;
+}
+.chain-arrow:hover {
+  opacity: 1 !important;
+  color: var(--text);
+  border-color: var(--accent);
+}
+.chain-arrow.active {
+  opacity: 1 !important;
+  color: #eafff0;
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 24%, var(--bg-elev-2));
+  box-shadow: 0 0 0 1px var(--ok), 0 0 14px 1px color-mix(in srgb, var(--ok) 60%, transparent);
+}
+.chain-arrow.active .chain-arrow-icon {
+  color: #b9f6ca;
+}
+.chain-arrow-num {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 /* ---- zoom (maximize one pane) ---- */

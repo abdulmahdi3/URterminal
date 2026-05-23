@@ -10,12 +10,19 @@ const uid = (): string =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
 
+/** how long the pane open/close pop animation runs (keep in sync with workspace.css) */
+export const PANE_ANIM_MS = 180
+
 export interface WorkspaceState {
   panes: Record<string, Pane>
   layout: MosaicNode<string> | null
   activePaneId: string | null
   /** stack of recently closed panes, newest last (for "reopen closed pane") */
   recentlyClosed: Pane[]
+  /** panes currently playing their pop-in animation (cleared after PANE_ANIM_MS) */
+  entering: Record<string, true>
+  /** panes playing their pop-out animation; still in the layout until removal */
+  closing: Record<string, true>
 
   // defaults sourced from settings (kept in sync by App)
   defaultProvider: ProviderId
@@ -35,6 +42,8 @@ export interface WorkspaceState {
   clearMessages: (id: string) => void
   /** change which agent CLI an AI pane runs (respawns its terminal) */
   setAgent: (id: string, command: string) => void
+  /** toggle whether a pane pipes its output into the next pane */
+  togglePipe: (id: string) => void
   setDefaults: (provider: ProviderId, model: string) => void
   /** replace whole workspace (used by persistence restore) */
   hydrate: (panes: Record<string, Pane>, layout: MosaicNode<string> | null) => void
@@ -48,6 +57,20 @@ export interface WorkspaceState {
 }
 
 let paneCounter = 0
+
+/** clear a pane's transient `entering` flag after its pop-in animation finishes */
+function scheduleEnterClear(
+  set: (fn: (s: WorkspaceState) => Partial<WorkspaceState>) => void,
+  id: string
+): void {
+  window.setTimeout(() => {
+    set((s) => {
+      const entering = { ...s.entering }
+      delete entering[id]
+      return { entering }
+    })
+  }, PANE_ANIM_MS)
+}
 
 function makePane(type: PaneType, defaults: { provider: ProviderId; model: string }): Pane {
   const id = uid()
@@ -72,6 +95,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   layout: null,
   activePaneId: null,
   recentlyClosed: [],
+  entering: {},
+  closing: {},
   defaultProvider: 'anthropic',
   defaultModel: '',
 
@@ -88,8 +113,10 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       panes: { ...s.panes, [pane.id]: pane },
       layout: nextLayout,
-      activePaneId: pane.id
+      activePaneId: pane.id,
+      entering: { ...s.entering, [pane.id]: true }
     }))
+    scheduleEnterClear(set, pane.id)
     return pane.id
   },
 
@@ -113,25 +140,40 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     }
     set((s) => {
       const layout = s.layout === null ? np.id : splitLeaf(s.layout, id, np.id, direction)
-      return { panes: { ...s.panes, [np.id]: np }, layout, activePaneId: np.id }
+      return {
+        panes: { ...s.panes, [np.id]: np },
+        layout,
+        activePaneId: np.id,
+        entering: { ...s.entering, [np.id]: true }
+      }
     })
+    scheduleEnterClear(set, np.id)
   },
 
   removePane: (id) => {
-    disposeTerminal(id)
-    set((s) => {
-      const closed = s.panes[id]
-      const panes = { ...s.panes }
-      delete panes[id]
-      const layout = removeLeaf(s.layout, id)
-      const remaining = getLeaves(layout)
-      const activePaneId =
-        s.activePaneId === id ? remaining[remaining.length - 1] ?? null : s.activePaneId
-      const recentlyClosed = closed
-        ? [...s.recentlyClosed, closed].slice(-10)
-        : s.recentlyClosed
-      return { panes, layout, activePaneId, recentlyClosed }
-    })
+    const s0 = get()
+    if (!s0.panes[id] || s0.closing[id]) return // ignore double-close
+    // play the pop-out first: keep the pane in the layout (and its terminal alive)
+    // until the animation finishes, then do the real teardown.
+    set((s) => ({ closing: { ...s.closing, [id]: true } }))
+    window.setTimeout(() => {
+      disposeTerminal(id)
+      set((s) => {
+        const closed = s.panes[id]
+        const panes = { ...s.panes }
+        delete panes[id]
+        const layout = removeLeaf(s.layout, id)
+        const remaining = getLeaves(layout)
+        const activePaneId =
+          s.activePaneId === id ? remaining[remaining.length - 1] ?? null : s.activePaneId
+        const recentlyClosed = closed
+          ? [...s.recentlyClosed, closed].slice(-10)
+          : s.recentlyClosed
+        const closing = { ...s.closing }
+        delete closing[id]
+        return { panes, layout, activePaneId, recentlyClosed, closing }
+      })
+    }, PANE_ANIM_MS)
   },
 
   reopenClosed: () => {
@@ -154,9 +196,11 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
         panes: { ...s.panes, [revived.id]: revived },
         layout,
         activePaneId: revived.id,
-        recentlyClosed: s.recentlyClosed.slice(0, -1)
+        recentlyClosed: s.recentlyClosed.slice(0, -1),
+        entering: { ...s.entering, [revived.id]: true }
       }
     })
+    scheduleEnterClear(set, revived.id)
   },
 
   setActive: (id) => set({ activePaneId: id }),
@@ -193,6 +237,13 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       const pane = s.panes[id]
       if (!pane?.ai) return s
       return { panes: { ...s.panes, [id]: { ...pane, ai: { ...pane.ai, messages: [] } } } }
+    }),
+
+  togglePipe: (id) =>
+    set((s) => {
+      const pane = s.panes[id]
+      if (!pane) return s
+      return { panes: { ...s.panes, [id]: { ...pane, pipeForward: !pane.pipeForward } } }
     }),
 
   setAgent: (id, command) =>

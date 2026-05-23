@@ -14,7 +14,7 @@ interface Persisted {
 function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   const out: Record<string, Pane> = {}
   for (const [id, p] of Object.entries(panes)) {
-    const clone: Pane = { ...p }
+    const clone: Pane = { ...p } // keeps pipeForward, telegramChatId, etc.
     if (clone.shell) clone.shell = { shell: clone.shell.shell }
     if (clone.agent) clone.agent = { command: clone.agent.command, cwd: clone.agent.cwd }
     if (clone.ai) clone.ai = { ...clone.ai, activeStreamId: undefined }

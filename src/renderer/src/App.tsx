@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import TitleBar from './components/TitleBar'
 import Workspace from './components/Workspace'
+import ChainOverlay from './components/ChainOverlay'
 import StatusBar from './components/StatusBar'
 import CommandPalette from './components/CommandPalette'
 import ShortcutsModal from './components/ShortcutsModal'
@@ -12,6 +13,7 @@ import { useWorkspace } from './store/workspace'
 import { startMetricsLoop } from './store/metrics'
 import { useHotkeys } from './hooks/useHotkeys'
 import { usePersistence } from './hooks/usePersistence'
+import { useChainForwarding } from './hooks/useChainForwarding'
 import { installChatStream } from './lib/chat'
 
 export default function App(): JSX.Element {
@@ -19,6 +21,7 @@ export default function App(): JSX.Element {
 
   useHotkeys()
   usePersistence()
+  useChainForwarding()
 
   useEffect(() => {
     installChatStream()
@@ -46,6 +49,7 @@ export default function App(): JSX.Element {
       <TitleBar />
       <main className="workspace-root">
         <Workspace />
+        <ChainOverlay />
       </main>
       <StatusBar />
 

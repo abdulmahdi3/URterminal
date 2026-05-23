@@ -55,6 +55,28 @@ export function isTerminalStarted(paneId: string): boolean {
   return pool.get(paneId)?.started ?? false
 }
 
+// ---- user-input notification (used by chain forwarding to detect a new turn) ----
+type InputListener = (paneId: string) => void
+const inputListeners = new Set<InputListener>()
+export function onTerminalInput(cb: InputListener): () => void {
+  inputListeners.add(cb)
+  return () => inputListeners.delete(cb)
+}
+
+/** Current visible screen text of a pane's terminal (the "result in current state"). */
+export function getScreenText(paneId: string): string {
+  const entry = pool.get(paneId)
+  if (!entry) return ''
+  const term = entry.term
+  const buf = term.buffer.active
+  const lines: string[] = []
+  for (let i = 0; i < term.rows; i++) {
+    const line = buf.getLine(buf.viewportY + i)
+    lines.push(line ? line.translateToString(true) : '')
+  }
+  return lines.join('\n')
+}
+
 /**
  * Terminals (xterm + their PTY) live here, keyed by pane id, independent of
  * React mount/unmount. This keeps the running CLI and its on-screen buffer
@@ -94,6 +116,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   const onData = term.onData((d) => {
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
+    inputListeners.forEach((cb) => cb(paneId))
   })
   const offData = window.api.onPtyData((e) => {
     if (e.paneId === paneId) {

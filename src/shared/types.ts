@@ -48,6 +48,8 @@ export interface Pane {
   shell?: ShellPaneState
   /** chat id this pane forwards output to, if linked */
   telegramChatId?: string
+  /** when true, this pane pipes its output into the next pane (chain link) */
+  pipeForward?: boolean
 }
 
 // ---------------------------------------------------------------------------
