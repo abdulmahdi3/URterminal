@@ -168,17 +168,6 @@
   display: inline-flex;
   align-items: center;
 }
-/* invisible bridge that fills the gap between the trigger and the popup,
-   keeping :hover active as the cursor travels upward */
-.sb-layout-wrap::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: -20px;
-  right: -20px;
-  height: 32px;
-  pointer-events: auto;
-}
 .sb-layout-btn {
   cursor: default;
   gap: 4px;
@@ -191,7 +180,7 @@
 
 .sb-layout-popup {
   position: absolute;
-  bottom: calc(100% + 32px);
+  bottom: calc(100% + 8px);
   left: 0;
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
@@ -205,7 +194,7 @@
   z-index: 200;
   min-width: 220px;
 }
-.sb-layout-wrap:hover .sb-layout-popup {
+.sb-layout-wrap.open .sb-layout-popup {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);

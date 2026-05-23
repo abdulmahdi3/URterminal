@@ -78,24 +78,36 @@ export default function StatusBar(): JSX.Element {
   const activeTargets = activePaneId ? (panes[activePaneId]?.pipeTargets ?? []) : []
   const showPipeRow = paneCount >= 2 && !!activePaneId && leaves.length >= 2
 
-  // Layout picker hover state (CSS hover handles show/hide, but we precompute active preset)
-  const layoutWrapRef = useRef<HTMLDivElement>(null)
+  const [layoutOpen, setLayoutOpen] = useState(false)
+  const layoutCloseRef = useRef<number>(0)
+
+  const openLayout = (): void => {
+    window.clearTimeout(layoutCloseRef.current)
+    setLayoutOpen(true)
+  }
+  const closeLayout = (): void => {
+    layoutCloseRef.current = window.setTimeout(() => setLayoutOpen(false), 180)
+  }
 
   return (
     <footer className="statusbar">
       {/* Layout preset picker */}
-      <div className="sb-layout-wrap" ref={layoutWrapRef}>
+      <div
+        className={clsx('sb-layout-wrap', layoutOpen && 'open')}
+        onMouseEnter={openLayout}
+        onMouseLeave={closeLayout}
+      >
         <span className="sb-item sb-layout-btn">
           <LayoutGrid size={12} />
           <span className="sb-layout-count">{paneCount}</span>
         </span>
-        <div className="sb-layout-popup">
+        <div className="sb-layout-popup" onMouseEnter={openLayout} onMouseLeave={closeLayout}>
           <div className="sb-layout-grid">
             {LAYOUT_PRESETS.map((preset) => (
               <LayoutTile
                 key={preset.id}
                 preset={preset}
-                onClick={() => applyLayoutPreset(preset.id)}
+                onClick={() => { applyLayoutPreset(preset.id); setLayoutOpen(false) }}
               />
             ))}
           </div>

@@ -2,11 +2,18 @@ import type { Pane } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
 import TerminalPane from './TerminalPane'
 
-const HOME = process.env.HOME ?? process.env.USERPROFILE
+function getHome(): string | undefined {
+  try {
+    // process.env is available in Electron renderer with sandbox:false
+    return (process as NodeJS.Process).env.HOME ?? (process as NodeJS.Process).env.USERPROFILE
+  } catch {
+    return undefined
+  }
+}
 
 export default function ShellPane({ pane }: { pane: Pane }): JSX.Element {
   const updatePane = useWorkspace((s) => s.updatePane)
-  const cwd = pane.shell?.cwd ?? HOME
+  const cwd = pane.shell?.cwd ?? getHome()
   return (
     <TerminalPane
       paneId={pane.id}
