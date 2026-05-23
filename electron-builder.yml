@@ -35,6 +35,8 @@ publish:
   provider: github
   owner: abdulmahdi3
   repo: uregant-terminal
+  # Publish as a live release (not a draft) so the auto-updater can see it.
+  releaseType: release
 # node-pty ships as a prebuilt binary matched to the Electron ABI (see
 # scripts/setup-natives.mjs); no native compiler is available, so never rebuild.
 npmRebuild: false
