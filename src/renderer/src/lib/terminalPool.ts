@@ -56,8 +56,10 @@ export function isTerminalStarted(paneId: string): boolean {
   return pool.get(paneId)?.started ?? false
 }
 
-// ---- user-input notification (used by chain forwarding to detect a new turn) ----
-type InputListener = (paneId: string) => void
+// ---- user-input notification (used by chain/telegram forwarding to detect a new turn) ----
+// `data` is the raw keystroke(s) typed into the terminal, so listeners can both
+// detect a new turn and reconstruct the submitted prompt.
+type InputListener = (paneId: string, data: string) => void
 const inputListeners = new Set<InputListener>()
 export function onTerminalInput(cb: InputListener): () => void {
   inputListeners.add(cb)
@@ -117,7 +119,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   const onData = term.onData((d) => {
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
-    inputListeners.forEach((cb) => cb(paneId))
+    inputListeners.forEach((cb) => cb(paneId, d))
   })
   const offData = window.api.onPtyData((e) => {
     if (e.paneId === paneId) {

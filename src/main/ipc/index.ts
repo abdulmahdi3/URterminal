@@ -6,7 +6,6 @@ import type {
   ChatStreamRequest,
   ProviderId,
   SettingsPatch,
-  PtyDataEvent,
   FileSaveRequest,
   FileSaveResult
 } from '@shared/types'
@@ -42,13 +41,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     }
   )
 
-  // pty data goes to the renderer AND (if linked) to Telegram
+  // PTY data goes to the renderer only. Telegram forwarding for terminal panes
+  // is driven from the renderer (useTelegramForwarding), which extracts the
+  // submitted prompt and the agent's answer blocks from the rendered screen
+  // instead of streaming raw escape-code redraws.
   const pty = new PtyManager((channel, payload) => {
     emit(channel, payload)
-    if (channel === 'pty:data') {
-      const d = payload as PtyDataEvent
-      telegram.forward(d.paneId, d.data)
-    }
   })
 
   const streamer = new Streamer(

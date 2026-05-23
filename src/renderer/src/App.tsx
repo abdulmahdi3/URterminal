@@ -9,12 +9,12 @@ import SettingsModal from './components/SettingsModal'
 import TelegramLinkModal from './components/TelegramLinkModal'
 import Toaster from './components/Toaster'
 import { useSettings } from './store/settings'
-import { useWorkspace } from './store/workspace'
 import { useUi } from './store/ui'
 import { startMetricsLoop } from './store/metrics'
 import { useHotkeys } from './hooks/useHotkeys'
 import { usePersistence } from './hooks/usePersistence'
 import { useChainForwarding } from './hooks/useChainForwarding'
+import { useTelegramForwarding } from './hooks/useTelegramForwarding'
 import { installChatStream } from './lib/chat'
 
 export default function App(): JSX.Element {
@@ -24,25 +24,19 @@ export default function App(): JSX.Element {
   useHotkeys()
   usePersistence()
   useChainForwarding()
+  useTelegramForwarding()
 
   useEffect(() => {
     installChatStream()
     void load()
     const stopMetrics = startMetricsLoop()
     const offSettings = window.api.onSettingsChanged((s) => useSettings.getState().apply(s))
-
-    // Inbound Telegram messages -> type into the target pane's terminal.
-    const offInbound = window.api.onTelegramInbound(({ paneId, text }) => {
-      const pane = useWorkspace.getState().panes[paneId]
-      if (!pane) return
-      const ptyId = pane.type === 'ai' ? pane.agent?.ptyId : pane.shell?.ptyId
-      if (ptyId) window.api.writePty(ptyId, text + '\r')
-    })
+    // Inbound Telegram messages are handled in useTelegramForwarding, which also
+    // arms answer-tracking so replies are sent back to the chat.
 
     return () => {
       stopMetrics()
       offSettings()
-      offInbound()
     }
   }, [load])
 

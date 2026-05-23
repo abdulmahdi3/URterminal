@@ -5,6 +5,30 @@ import type { SettingsStore } from '../settings/store'
 const FLUSH_MS = 1200
 const TG_MAX = 3800 // stay under Telegram's 4096 limit with headroom
 
+// Matches ANSI/VT escape sequences: CSI (colors, cursor moves, clears) and
+// OSC (e.g. window-title sequences). Raw PTY bytes are full of these and
+// Telegram renders them literally, so strip them before forwarding.
+// Built from a string of \u escapes to keep this source pure ASCII.
+const ANSI_RE = new RegExp(
+  '[\\u001B\\u009B][[\\]()#;?]*' +
+    '(?:(?:(?:;[-a-zA-Z\\d/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d/#&.:=?%@~_]*)*)?\\u0007' +
+    '|(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~])',
+  'g'
+)
+
+// OSC sequences (e.g. window title `ESC ] 0 ; text BEL`) can contain spaces,
+// which the general ANSI regex does not handle, so strip them first.
+// Terminated by BEL () or ST (ESC \).
+const OSC_RE = new RegExp('[\\u001B\\u009D]\\][\\s\\S]*?(?:\\u0007|\\u001B\\\\|$)', 'g')
+
+// Strip remaining C0 control characters and DEL, but keep tab and newline.
+const CTRL_RE = new RegExp('[\\u0000-\\u0008\\u000B-\\u001F\\u007F]', 'g')
+
+/** Strip ANSI escape sequences and stray control chars before forwarding. */
+function cleanForTelegram(text: string): string {
+  return text.replace(OSC_RE, '').replace(ANSI_RE, '').replace(CTRL_RE, '')
+}
+
 type EmitInbound = (e: TelegramInbound) => void
 type EmitStatus = (s: TelegramStatus) => void
 
@@ -98,7 +122,10 @@ export class TelegramBridge {
       return
     }
     for (const [chatId, text] of this.outBuf) {
-      const trimmed = text.length > TG_MAX ? text.slice(-TG_MAX) : text
+      const cleaned = cleanForTelegram(text)
+      // Skip flushes that were only escape sequences / whitespace.
+      if (!cleaned.trim()) continue
+      const trimmed = cleaned.length > TG_MAX ? cleaned.slice(-TG_MAX) : cleaned
       void this.bot.api.sendMessage(chatId, trimmed).catch((err) => {
         this.status = { ...this.status, error: String(err) }
         this.emitStatus(this.status)

@@ -16,7 +16,7 @@ function ptyOf(pane: Pane | undefined): string | undefined {
   return pane?.agent?.ptyId || pane?.shell?.ptyId
 }
 
-function answerBlocks(text: string): string[] {
+export function answerBlocks(text: string): string[] {
   const blocks: string[] = []
   let cur: string[] | null = null
   const isBoundary = (t: string): boolean =>
