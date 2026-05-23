@@ -27,6 +27,13 @@ export default function CommandPalette(): JSX.Element | null {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Scroll the active item into view whenever it changes.
+  useEffect(() => {
+    const el = listRef.current?.children[active] as HTMLElement | undefined
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [active])
 
   // Snapshot the command list each time the palette opens.
   const commands = useMemo(() => (show ? getCommands().filter((c) => !c.hidden) : []), [show])
@@ -87,7 +94,7 @@ export default function CommandPalette(): JSX.Element | null {
           />
           <kbd>Esc</kbd>
         </div>
-        <div className="palette-list">
+        <div className="palette-list" ref={listRef}>
           {results.length === 0 && <div className="palette-empty">No matching commands</div>}
           {results.map((cmd, i) => (
             <button
