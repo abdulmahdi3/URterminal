@@ -62,10 +62,6 @@
   --pane-header-h: 30px;
   --gap: 6px;
 
-  /* Motion */
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 110ms;
-  --dur: 180ms;
 
   /* Shadows */
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -117,7 +113,6 @@ select {
   border-radius: var(--r-pill);
   border: 4px solid transparent;
   background-clip: padding-box;
-  transition: border-width 150ms ease, background 150ms ease;
 }
 /* on hover over any scrollable element: expand to 8px */
 *:hover::-webkit-scrollbar-thumb {
@@ -145,15 +140,12 @@ select {
   padding: 5px 11px;
   font-size: var(--fs-sm);
   font-weight: 500;
-  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
-    transform var(--dur-fast) var(--ease);
 }
 .btn:hover {
   background: var(--bg-elev-3);
   border-color: var(--border-strong);
 }
 .btn:active {
-  transform: translateY(1px);
 }
 .btn.primary {
   background: var(--accent-strong);
@@ -191,7 +183,6 @@ select {
   padding: 6px 9px;
   font-size: var(--fs-sm);
   width: 100%;
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .input:focus,
 .select:focus {
@@ -249,17 +240,6 @@ select {
   box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.18);
 }
 .dot.live.streaming {
-  animation: dot-pulse 1.5s ease-in-out infinite;
-}
-@keyframes dot-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 0 5px rgba(63, 185, 80, 0.38), 0 0 10px rgba(63, 185, 80, 0.25);
-    transform: scale(1.15);
-  }
 }
 
 /* ---- action buttons — icon-only with idle glow animation ---- */
@@ -273,38 +253,8 @@ select {
   height: 24px;
   border-radius: 7px;
   border: 1px solid transparent;
-  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
-    background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease);
 }
 .action-btn:active {
-  transform: scale(0.9);
-}
-
-/* shimmer sweep that plays on all action buttons */
-.action-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -70%;
-  width: 55%;
-  height: 100%;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.14) 50%,
-    transparent 100%
-  );
-  animation: btn-shimmer 4s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes btn-shimmer {
-  0%, 50%   { left: -70%; opacity: 1; }
-  78%, 100% { left: 130%;  opacity: 0; }
-}
-.action-btn:hover::before {
-  animation: none;
-  opacity: 0;
 }
 
 /* ---- agent — Anthropic / Claude coral palette ---- */
@@ -317,16 +267,11 @@ select {
   background: linear-gradient(145deg, #3d1f10 0%, #261208 100%);
   border-color: rgba(217, 119, 87, 0.28);
   color: #c07050;
-  animation: glow-claude 3.8s ease-in-out infinite;
-}
-.action-btn.agent-btn::before {
-  animation-delay: 0s;
 }
 .action-btn.agent-btn:hover {
   background: linear-gradient(145deg, #5c2d14 0%, #3d1f10 100%);
   border-color: rgba(217, 119, 87, 0.62);
   color: #e8a882;
-  animation: none;
   box-shadow: 0 0 0 1px rgba(217, 119, 87, 0.55),
               0 0 16px rgba(217, 119, 87, 0.22),
               inset 0 1px 0 rgba(255, 255, 255, 0.07);
@@ -342,8 +287,7 @@ select {
   overflow: hidden;
   opacity: 0;
   margin-left: 0;
-  transition: max-width 200ms var(--ease), opacity 140ms var(--ease),
-              margin-left 200ms var(--ease);
+  transition: max-width 0.18s ease, opacity 0.15s ease, margin-left 0.18s ease;
 }
 .action-btn.agent-btn:hover .agent-label {
   max-width: 52px;
@@ -356,31 +300,24 @@ select {
   background: linear-gradient(145deg, #252525 0%, #171717 100%);
   border-color: rgba(160, 160, 160, 0.18);
   color: #686868;
-  animation: glow-shell 3.8s ease-in-out infinite;
-  animation-delay: 1.26s;
-}
-.action-btn.shell-btn::before {
-  animation-delay: 1.26s;
 }
 .action-btn.shell-btn:hover {
   background: linear-gradient(145deg, #333333 0%, #252525 100%);
   border-color: rgba(200, 200, 200, 0.35);
   color: #c8c8c8;
-  animation: none;
   box-shadow: 0 0 0 1px rgba(200, 200, 200, 0.28),
               0 0 14px rgba(200, 200, 200, 0.1),
               inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* ---- glow keyframes ---- */
-@keyframes glow-claude {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(217, 119, 87, 0.16); }
-  50%       { box-shadow: 0 0 0 1px rgba(217, 119, 87, 0.48), 0 0 14px rgba(217, 119, 87, 0.18); }
+/* ---- disabled state for both action buttons ---- */
+.action-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  animation: none;
+  pointer-events: none;
 }
-@keyframes glow-shell {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(160, 160, 160, 0.1); }
-  50%       { box-shadow: 0 0 0 1px rgba(200, 200, 200, 0.32), 0 0 12px rgba(200, 200, 200, 0.08); }
-}
+
 
 .action-btn.lg {
   width: 38px;
@@ -399,15 +336,17 @@ select {
   width: 26px;
   height: 24px;
   border-radius: var(--r-sm);
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-              transform 60ms var(--ease);
 }
 .icon-btn:hover {
   background: var(--bg-elev-3);
   color: var(--text);
 }
 .icon-btn:active {
-  transform: scale(0.82);
+}
+.icon-btn:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .icon-btn.danger:hover {
   color: var(--danger);

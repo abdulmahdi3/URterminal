@@ -4,7 +4,7 @@ import type { Pane, PaneType, ProviderId, ChatMessage } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal } from '@renderer/lib/terminalPool'
-import { buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
+import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
 
 const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -107,14 +107,19 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
 
   addPane: (type, direction) => {
     const { layout, activePaneId, defaultProvider, defaultModel } = get()
-    const pane = makePane(type, { provider: defaultProvider, model: defaultModel })
     const leaves = getLeaves(layout)
-    // split the active leaf (or the first one); alternate direction for a grid feel
-    // unless an explicit direction was requested.
-    const target = activePaneId && leaves.includes(activePaneId) ? activePaneId : leaves[0]
-    // predictable: split to the right unless a direction is explicitly requested
-    const dir: MosaicDirection = direction ?? 'row'
-    const nextLayout = layout === null ? pane.id : splitLeaf(layout, target, pane.id, dir)
+    // toolbar buttons (no explicit direction) are capped at 9; split/duplicate are always allowed
+    if (!direction && leaves.length >= 9) return ''
+    const pane = makePane(type, { provider: defaultProvider, model: defaultModel })
+    const newLeaves = [...leaves, pane.id]
+    let nextLayout: MosaicNode<string>
+    if (!direction && newLeaves.length <= 9) {
+      nextLayout = buildAutoLayout(newLeaves)
+    } else {
+      const target = activePaneId && leaves.includes(activePaneId) ? activePaneId : leaves[0]
+      const dir: MosaicDirection = direction ?? 'row'
+      nextLayout = layout === null ? pane.id : splitLeaf(layout, target, pane.id, dir)
+    }
     set((s) => ({
       panes: { ...s.panes, [pane.id]: pane },
       layout: nextLayout,

@@ -24,15 +24,11 @@
   gap: 28px;
 }
 
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-}
 .empty-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  animation: fade-up var(--dur) var(--ease) both;
 }
 .empty-icon-wrap {
   width: 56px;
@@ -64,7 +60,6 @@
 .empty-actions {
   display: flex;
   gap: 12px;
-  animation: fade-up var(--dur) var(--ease) 80ms both;
 }
 
 /* card-style launch buttons in the empty state */
@@ -80,13 +75,6 @@
   background: var(--bg-elev);
   cursor: pointer;
   text-align: center;
-  transition: border-color var(--dur-fast) var(--ease),
-              background var(--dur-fast) var(--ease),
-              box-shadow var(--dur-fast) var(--ease),
-              transform var(--dur-fast) var(--ease);
-}
-.empty-action-card:active {
-  transform: translateY(1px);
 }
 .empty-action-card.agent {
   border-color: rgba(76, 141, 255, 0.22);
@@ -136,7 +124,6 @@
   flex-direction: column;
   gap: 6px;
   width: 330px;
-  animation: fade-up var(--dur) var(--ease) 80ms both;
 }
 .es-header {
   display: flex;
@@ -163,7 +150,6 @@
   background: var(--bg-elev);
   cursor: pointer;
   text-align: left;
-  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 .es-row:hover {
   background: var(--bg-elev-2);
@@ -191,7 +177,6 @@
   gap: 16px;
   font-size: var(--fs-xs);
   color: var(--text-faint);
-  animation: fade-up var(--dur) var(--ease) 150ms both;
 }
 .empty-footer kbd {
   font-size: 10px;
@@ -253,7 +238,7 @@
 }
 .agent-booting .spin {
   color: var(--accent);
-  animation: spin 0.9s linear infinite;
+  animation: pane-spin 1s linear infinite;
 }
 .booting-text {
   font-size: var(--fs-sm);
@@ -267,11 +252,7 @@
   color: var(--text-faint);
   font-family: var(--mono);
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+
 .agent-boot-error {
   background: color-mix(in srgb, var(--error, #f43f5e) 6%, var(--bg));
 }
@@ -444,8 +425,25 @@
   background: var(--accent);
   flex: 0 0 auto;
 }
-@keyframes input-pop {
-  from { opacity: 0; transform: scaleX(0.82); }
+@keyframes cwd-glow {
+  0%, 100% { box-shadow: 0 0 2px 0px var(--accent); }
+  50%       { box-shadow: 0 0 7px 3px var(--accent); }
+}
+.pane-cwd.active::before {
+  animation: cwd-glow 1.4s ease-in-out infinite;
+}
+@keyframes pane-spin {
+  to { transform: rotate(360deg); }
+}
+.pane-loading {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: pane-spin 0.7s linear infinite;
+  flex-shrink: 0;
 }
 .pane-title-edit {
   background: var(--bg-sunken);
@@ -456,8 +454,6 @@
   padding: 1px 6px;
   outline: none;
   max-width: 180px;
-  transform-origin: left;
-  animation: input-pop 130ms var(--ease);
 }
 .pane-status {
   display: inline-flex;
@@ -472,41 +468,11 @@
   background: var(--bg-elev-2);
   border: 1px solid var(--border-faint);
 }
-.pane-status.streaming {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-.pane-status .pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-}
-.pane-status .pulse:not(.pulse-idle) {
-  animation: pulse 1.1s var(--ease) infinite;
-}
-.pane-status .pulse.pulse-idle {
-  opacity: 0.35;
-  transform: scale(0.85);
-}
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
 .pane-tok {
   font-size: var(--fs-2xs);
+  font-family: var(--mono);
   color: var(--text-faint);
-  padding-left: 4px;
-  border-left: 1px solid var(--border-faint);
-  margin-left: 1px;
+  flex-shrink: 0;
 }
 .pane-header-spacer {
   flex: 1;
@@ -535,68 +501,15 @@
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: none;
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
   /* prevent panes from collapsing to unusable sizes when dragging splits */
   min-width: 200px;
   min-height: 140px;
 }
-/* highlight the focused pane's whole border + brief glow flash on focus */
-@keyframes pane-focus {
-  from { box-shadow: 0 0 0 3px var(--accent-glow), 0 0 22px rgba(76, 141, 255, 0.28); }
-  to   { box-shadow: 0 0 0 1px var(--accent-soft); }
-}
 .mosaic-uregant .mosaic-window:has(.pane-header.active) {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-soft);
-  animation: pane-focus 380ms var(--ease);
 }
 
-/* ---- pane open/close pop animations (Hyprland-style) ----
-   transform/opacity only: never changes layout boxes, so no ResizeObserver
-   refit (SIGWINCH) and no chain-arrow recompute. Keep --dur in sync with
-   PANE_ANIM_MS in workspace.ts. */
-@keyframes pane-pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-@keyframes pane-pop-out {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.94);
-  }
-}
-.mosaic-uregant .mosaic-window:has(.pane-body.pane-entering),
-.zoom-pane:has(.pane-body.pane-entering) {
-  transform-origin: center;
-  animation: pane-pop-in var(--dur) var(--ease);
-}
-.mosaic-uregant .mosaic-window:has(.pane-body.pane-exiting),
-.zoom-pane:has(.pane-body.pane-exiting) {
-  transform-origin: center;
-  animation: pane-pop-out var(--dur) var(--ease) forwards;
-  pointer-events: none; /* a leaving pane shouldn't take clicks */
-}
-@media (prefers-reduced-motion: reduce) {
-  .mosaic-uregant .mosaic-window:has(.pane-body.pane-entering),
-  .mosaic-uregant .mosaic-window:has(.pane-body.pane-exiting),
-  .zoom-pane:has(.pane-body.pane-entering),
-  .zoom-pane:has(.pane-body.pane-exiting),
-  .mosaic-uregant .mosaic-window:has(.pane-header.active),
-  .empty-hero, .empty-actions, .empty-footer,
-  .pane-title-edit {
-    animation: none;
-  }
-}
 /* neutralize the default toolbar chrome — our .pane-header owns the look */
 .mosaic-uregant .mosaic-window-toolbar {
   height: var(--pane-header-h) !important;
@@ -654,9 +567,6 @@
   color: var(--text-faint);
   opacity: 0.18;
   cursor: pointer;
-  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
-    background var(--dur-fast) var(--ease);
 }
 /* reveal all link arrows while hovering anywhere over the grid */
 .workspace-root:hover .chain-arrow {
@@ -691,7 +601,6 @@
   pointer-events: none;
   z-index: 20;
   opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease);
 }
 /* show on hover OR when a pipe is active */
 .pane-body:hover .pipe-arrows,
@@ -712,16 +621,12 @@
   color: var(--text-faint);
   pointer-events: auto;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
-    transform var(--dur-fast) var(--ease);
   box-shadow: var(--shadow-md);
 }
 .pipe-arrow:hover {
   background: var(--bg-elev-3);
   color: var(--text);
   border-color: var(--accent);
-  transform: scale(1.15);
 }
 .pipe-arrow.active {
   background: color-mix(in srgb, var(--ok) 22%, var(--bg-elev-2));
@@ -740,11 +645,6 @@
 .pipe-arrow.down  { bottom: 6px; left: 50%; transform: translateX(-50%); }
 .pipe-arrow.left  { left: 6px;   top: 50%;  transform: translateY(-50%); }
 
-/* keep scale on hover while maintaining translate */
-.pipe-arrow.up:hover    { transform: translateX(-50%) scale(1.15); }
-.pipe-arrow.right:hover { transform: translateY(-50%) scale(1.15); }
-.pipe-arrow.down:hover  { transform: translateX(-50%) scale(1.15); }
-.pipe-arrow.left:hover  { transform: translateY(-50%) scale(1.15); }
 
 /* ---- zoom (maximize one pane) ---- */
 .zoom-host {

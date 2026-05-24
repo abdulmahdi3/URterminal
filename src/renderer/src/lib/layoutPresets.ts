@@ -88,6 +88,42 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
 export const PRESET_PANE_COUNT: Record<string, number> =
   Object.fromEntries(LAYOUT_PRESETS.map((p) => [p.id, p.paneCount]))
 
+/**
+ * Automatic layout for 1–9 panes following the progression:
+ * 1 → full  2 → side-by-side  3 → 3 cols  4 → 2×2
+ * 5 → 2×2 + right col  6 → 2×3  7 → 2×3 + bottom  8 → 2×3 + 2-pane bottom  9 → 3×3
+ * More than 9 falls back to splitting the rightmost pane.
+ */
+export function buildAutoLayout(ids: string[]): MosaicNode<string> {
+  const [a, b, c, d, e, f, g, h, i] = ids
+  const row = (l: MosaicNode<string>, r: MosaicNode<string>, sp = 50): MosaicNode<string> => ({
+    direction: 'row', first: l, second: r, splitPercentage: sp
+  })
+  const col = (t: MosaicNode<string>, bt: MosaicNode<string>, sp = 50): MosaicNode<string> => ({
+    direction: 'column', first: t, second: bt, splitPercentage: sp
+  })
+
+  switch (ids.length) {
+    case 1: return a
+    case 2: return row(a, b)
+    case 3: return row(a, row(b, c), 33)
+    case 4: return col(row(a, b), row(c, d))
+    case 5: return row(col(row(a, b), row(c, d)), e, 67)
+    case 6: return row(col(row(a, b), row(c, d)), col(e, f), 67)
+    case 7: return col(row(col(row(a, b), row(c, d)), col(e, f), 67), g, 67)
+    case 8: return col(row(col(row(a, b), row(c, d)), col(e, f), 67), row(g, h), 67)
+    case 9: return col(row(a, row(b, c), 33), col(row(d, row(e, f), 33), row(g, row(h, i), 33)), 33)
+    default: {
+      // >9: just split rightmost pane in a row
+      let acc: MosaicNode<string> = a
+      for (let idx = 1; idx < ids.length; idx++) {
+        acc = row(acc, ids[idx], Math.round(100 * idx / (idx + 1)))
+      }
+      return acc
+    }
+  }
+}
+
 export function buildPresetLayout(presetId: string, ids: string[]): MosaicNode<string> {
   const [a, b, c, d, e, f, g, h, i] = ids
   const row = (l: MosaicNode<string>, r: MosaicNode<string>, sp = 50): MosaicNode<string> => ({

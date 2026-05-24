@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, ArrowRight, Bot, Palette } from 'lucide-react'
+import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, ArrowRight, Bot } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
 import { useTokens } from '@renderer/store/tokens'
-import { useUi, APP_THEMES } from '@renderer/store/ui'
+import { useUi } from '@renderer/store/ui'
 import { getLeaves } from '@renderer/lib/mosaicTree'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
@@ -22,9 +22,6 @@ function formatMem(mb: number): string {
   return mb >= 1000 ? `${(mb / 1024).toFixed(2)} GB` : `${mb} MB`
 }
 
-const APP_THEME_LABELS: Record<string, string> = {
-  dark: 'Dark', amoled: 'AMOLED', ocean: 'Ocean', forest: 'Forest', dusk: 'Dusk'
-}
 
 function LayoutTile({ preset, onClick }: { preset: LayoutPreset; onClick: () => void }): JSX.Element {
   return (
@@ -65,8 +62,6 @@ export default function StatusBar(): JSX.Element {
   const tok = useMetrics((s) => s.tokPerSec)
   const totalTokens = useTokens((s) => s.total)
 
-  const appTheme = useUi((s) => s.appTheme)
-  const cycleAppTheme = useUi((s) => s.cycleAppTheme)
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
 
   const [clock, setClock] = useState(() =>
@@ -163,16 +158,6 @@ export default function StatusBar(): JSX.Element {
         <Cpu size={12} /> {cpu ? `${cpu}%` : '0%'}
         <span className="sb-resource-sep">·</span>
         <MemoryStick size={12} /> {ram ? formatMem(ram) : '—'}
-      </button>
-
-      {/* App theme cycle button */}
-      <button
-        className="sb-theme-btn"
-        onClick={cycleAppTheme}
-        title={`Theme: ${APP_THEME_LABELS[appTheme]} — click to cycle`}
-      >
-        <Palette size={11} />
-        <span>{APP_THEME_LABELS[appTheme]}</span>
       </button>
 
       {/* Claude session output (raw terminal chars, not API tokens) */}

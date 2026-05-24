@@ -1,5 +1,6 @@
 .titlebar {
   position: relative;
+  z-index: 500;
   display: flex;
   align-items: center;
   height: var(--titlebar-h);
@@ -72,9 +73,6 @@
   overflow: visible;
 }
 
-@keyframes tab-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.94); }
-}
 .ws-tab {
   display: inline-flex;
   align-items: center;
@@ -86,11 +84,8 @@
   color: var(--text-dim);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease);
   white-space: nowrap;
   max-width: 180px;
-  animation: tab-in var(--dur) var(--ease) both;
 }
 .ws-tab:hover:not(.active) {
   background: var(--bg-elev-2);
@@ -141,8 +136,6 @@
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
 }
 .ws-tab:hover .ws-tab-close {
   opacity: 1;
@@ -173,8 +166,6 @@
   cursor: default;
   background: transparent;
   font-family: inherit;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease);
 }
 .ws-overflow-wrap:hover .ws-more-btn {
   background: var(--bg-elev-2);
@@ -203,13 +194,11 @@
   /* hidden until the wrapper is hovered */
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-50%) translateY(-4px);
-  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  transform: translateX(-50%);
 }
 .ws-overflow-wrap:hover .ws-overflow-menu {
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(-50%) translateY(0);
 }
 
 .ws-overflow-item {
@@ -220,7 +209,6 @@
   color: var(--text-dim);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .ws-overflow-item:hover {
   background: var(--bg-elev-3);
@@ -239,6 +227,26 @@
   font-size: var(--fs-xs);
 }
 
+/* + button to add a new workspace, always visible at the end of the tab strip */
+.ws-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+.ws-add-btn:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+}
+
 /* ---- sessions dropdown ---- */
 .sessions-wrap {
   position: relative;
@@ -255,10 +263,6 @@
   border-radius: var(--r-md);
   padding: 8px;
   box-shadow: var(--shadow-lg);
-  animation: sessions-pop var(--dur) var(--ease);
-}
-@keyframes sessions-pop {
-  from { opacity: 0; transform: translateY(-6px); }
 }
 .sessions-save {
   display: flex;
@@ -322,7 +326,3 @@
   color: var(--text-faint);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ws-tab { animation: none; }
-  .sessions-menu { animation: none; }
-}

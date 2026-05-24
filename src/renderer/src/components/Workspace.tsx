@@ -45,22 +45,9 @@ function PaneIcon({ paneId, size = 14 }: { paneId: string; size?: number }): JSX
 
 function PaneStatus({ paneId }: { paneId: string }): JSX.Element | null {
   const pane = useWorkspace((s) => s.panes[paneId])
-  const isActive = useTokens((s) => !!s.activePanes[paneId])
-  const tokenCount = useTokens((s) => s.byPane[paneId] ?? 0)
-
   if (!pane) return null
-  if (pane.type === 'ai') {
-    if (!pane.agent?.ptyId) return null
-    return (
-      <span className="pane-status streaming">
-        <span className={clsx('pulse', !isActive && 'pulse-idle')} />
-        {tokenCount > 0 && (
-          <span className="pane-tok">~{formatTokens(tokenCount)}</span>
-        )}
-      </span>
-    )
-  }
-  if (pane.type === 'shell' && pane.shell?.shell) {
+  if (pane.type === 'shell') {
+    if (!pane.shell?.ptyId) return <span className="pane-loading" title="Connecting…" />
     const name = pane.shell.shell.split(/[\\/]/).pop()?.replace(/\.exe$/i, '')
     return <span className="pane-status">{name}</span>
   }
@@ -85,6 +72,8 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const leaves = getLeaves(layout)
   const paneNum = leaves.indexOf(paneId) + 1  // 1-based; 0 = not in layout yet
   const agentCwd = useWorkspace((s) => s.panes[paneId]?.agent?.cwd)
+  const isActive = useTokens((s) => !!s.activePanes[paneId])
+  const tokenCount = useTokens((s) => s.byPane[paneId] ?? 0)
   const updatePane = useWorkspace((s) => s.updatePane)
   const duplicatePane = useWorkspace((s) => s.duplicatePane)
   const removePane = useWorkspace((s) => s.removePane)
@@ -158,9 +147,14 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         </span>
       )}
       {paneType === 'ai' && agentCwd && (
-        <span className="pane-cwd" title={agentCwd}>
-          {agentCwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || agentCwd}
-        </span>
+        <>
+          <span className={clsx('pane-cwd', isActive && 'active')} title={agentCwd}>
+            {agentCwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || agentCwd}
+          </span>
+          {tokenCount > 0 && (
+            <span className="pane-tok">~{formatTokens(tokenCount)}</span>
+          )}
+        </>
       )}
       <PaneStatus paneId={paneId} />
       <div className="pane-header-spacer" />
@@ -192,14 +186,16 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         )}
         <button
           className="icon-btn"
-          title="Split right (duplicate session)"
+          title={paneCount >= 9 ? 'Max 9 panes reached' : 'Split right (duplicate session)'}
+          disabled={paneCount >= 9}
           onClick={() => duplicatePane(paneId, 'row')}
         >
           <Columns2 size={13} />
         </button>
         <button
           className="icon-btn"
-          title="Split down (duplicate session)"
+          title={paneCount >= 9 ? 'Max 9 panes reached' : 'Split down (duplicate session)'}
+          disabled={paneCount >= 9}
           onClick={() => duplicatePane(paneId, 'column')}
         >
           <Rows2 size={13} />

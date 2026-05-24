@@ -17,13 +17,6 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: pop var(--dur) var(--ease);
-}
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.99);
-  }
 }
 .palette-search {
   display: flex;
@@ -110,13 +103,6 @@
   color: var(--text);
   font-size: var(--fs-sm);
   box-shadow: var(--shadow-md);
-  animation: slidein var(--dur) var(--ease);
-}
-@keyframes slidein {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
 }
 .toast.ok {
   border-color: color-mix(in srgb, var(--ok) 45%, var(--border-strong));
@@ -152,20 +138,9 @@
   font-size: var(--fs-sm);
   box-shadow: var(--shadow-md);
   pointer-events: none;
-  animation: copied-pop var(--dur) var(--ease);
 }
 .copied-flash svg {
   color: var(--ok);
-}
-@keyframes copied-pop {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 6px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
 }
 
 /* ---- shortcuts modal ---- */

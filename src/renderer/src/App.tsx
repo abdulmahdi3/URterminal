@@ -31,6 +31,15 @@ export default function App(): JSX.Element {
   usePaneRegistry()
 
   useEffect(() => {
+    // Expose zoom control so the main process can zoom a pane for screenshots
+    ;(window as unknown as Record<string, unknown>).__setZoomedPane =
+      (id: string | null) => useUi.getState().setZoomedPaneId(id)
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__setZoomedPane
+    }
+  }, [])
+
+  useEffect(() => {
     installChatStream()
     void load()
     const stopMetrics = startMetricsLoop()

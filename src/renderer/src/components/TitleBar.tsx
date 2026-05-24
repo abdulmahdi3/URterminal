@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Terminal, Settings, Command as CommandIcon, Layers, X } from 'lucide-react'
+import { Terminal, Settings, Command as CommandIcon, Plus, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
@@ -58,6 +58,9 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
     <div
       className={clsx('ws-tab', active && 'active')}
       onClick={() => !active && switchTo(ws.id)}
+      onAuxClick={(e) => {
+        if (e.button === 1) { e.preventDefault(); remove(ws.id) }
+      }}
     >
       {editing ? (
         <input
@@ -100,6 +103,8 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
 
 export default function TitleBar(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
+  const paneCount = useWorkspace((s) => Object.keys(s.panes).length)
+  const atMax = paneCount >= 9
   const setShowSettings = useUi((s) => s.setShowSettings)
   const togglePalette = useUi((s) => s.toggleCommandPalette)
   const list = useWorkspaces((s) => s.list)
@@ -127,19 +132,26 @@ export default function TitleBar(): JSX.Element {
         <button className="icon-btn" title="Command palette (Ctrl+K)" onClick={togglePalette}>
           <CommandIcon size={14} />
         </button>
-        <button className="icon-btn" title="New workspace" onClick={addWorkspace}>
-          <Layers size={14} />
-        </button>
         <SessionsMenu />
 
         <div className="titlebar-sep" />
 
         {/* New pane actions */}
-        <button className="action-btn agent-btn" title="New agent pane" onClick={() => addPane('ai')}>
+        <button
+          className="action-btn agent-btn"
+          title={atMax ? 'Max 9 panes reached' : 'New agent pane'}
+          disabled={atMax}
+          onClick={() => addPane('ai')}
+        >
           <ClaudeIcon size={13} />
           <span className="agent-label">Claude</span>
         </button>
-        <button className="action-btn shell-btn" title="New shell pane" onClick={() => addPane('shell')}>
+        <button
+          className="action-btn shell-btn"
+          title={atMax ? 'Max 9 panes reached' : 'New shell pane'}
+          disabled={atMax}
+          onClick={() => addPane('shell')}
+        >
           <Terminal size={13} />
         </button>
       </div>
@@ -171,6 +183,9 @@ export default function TitleBar(): JSX.Element {
             </div>
           </div>
         )}
+        <button className="ws-add-btn" title="New workspace" onClick={addWorkspace}>
+          <Plus size={11} />
+        </button>
       </div>
     </header>
   )

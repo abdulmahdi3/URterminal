@@ -18,7 +18,6 @@
   font-size: var(--fs-sm);
   cursor: pointer;
   flex: 0 0 auto;
-  transition: border-color var(--dur-fast) var(--ease);
 }
 .ai-badge-card:hover {
   border-color: var(--border-strong);
@@ -49,7 +48,6 @@
 }
 .badge-chev {
   color: var(--text-dim);
-  transition: transform var(--dur-fast) var(--ease);
 }
 .badge-chev.open {
   transform: rotate(180deg);
@@ -100,13 +98,6 @@
   flex-direction: column;
   gap: 4px;
   padding-bottom: 16px;
-  animation: msg-in var(--dur) var(--ease) both;
-}
-@keyframes msg-in {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
 }
 .msg-head {
   display: flex;
@@ -155,13 +146,7 @@
   font-style: italic;
 }
 .msg-cursor {
-  animation: blink 1s steps(2, start) infinite;
   color: var(--accent);
-}
-@keyframes blink {
-  to {
-    visibility: hidden;
-  }
 }
 
 /* ---- code blocks ---- */
@@ -222,7 +207,6 @@
   border-radius: var(--r-lg);
   background: var(--bg-elev);
   flex: 0 0 auto;
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .composer:focus-within {
   border-color: var(--accent);
@@ -265,7 +249,6 @@
   font-size: var(--fs-xs);
   font-weight: 600;
   white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease);
 }
 .composer-send:hover:not(:disabled) {
   background: var(--accent);
@@ -283,6 +266,3 @@
   background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .msg { animation: none; }
-}

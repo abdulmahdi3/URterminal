@@ -58,7 +58,11 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
 
   remove: (id) => {
     const { list, activeId } = get()
-    if (list.length <= 1) return
+    // Last workspace: clear its content but keep the tab
+    if (list.length <= 1) {
+      if (id === activeId) useWorkspace.getState().hydrate({}, null)
+      return
+    }
     const remaining = list.filter((w) => w.id !== id)
     if (id === activeId) {
       const ws = useWorkspace.getState()

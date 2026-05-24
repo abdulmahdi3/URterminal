@@ -136,31 +136,6 @@
   letter-spacing: 0.2px;
 }
 
-/* ---- app theme cycle button ---- */
-.sb-theme-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 18px;
-  padding: 0 7px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--border-faint);
-  background: transparent;
-  color: var(--text-faint);
-  font-size: var(--fs-2xs);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-              border-color var(--dur-fast) var(--ease), transform 60ms var(--ease);
-  white-space: nowrap;
-}
-.sb-theme-btn:hover {
-  background: var(--bg-elev-2);
-  color: var(--text);
-  border-color: var(--border);
-}
-.sb-theme-btn:active {
-  transform: scale(0.92);
-}
 
 /* ---- combined CPU+RAM button (opens task manager) ---- */
 .sb-resource-btn {
