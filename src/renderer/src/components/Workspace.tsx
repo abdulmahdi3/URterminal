@@ -54,7 +54,6 @@ function PaneStatus({ paneId }: { paneId: string }): JSX.Element | null {
     return (
       <span className="pane-status streaming">
         <span className={clsx('pulse', !isActive && 'pulse-idle')} />
-        live
         {tokenCount > 0 && (
           <span className="pane-tok">~{formatTokens(tokenCount)}</span>
         )}
