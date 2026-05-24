@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { registerIpc, type IpcContext } from './ipc'
 import { initAutoUpdate } from './updater'
+import appIcon from '../../resources/icon.png?asset'
 
 let mainWindow: BrowserWindow | null = null
 let ipc: IpcContext | null = null
@@ -13,6 +14,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 560,
     show: false,
+    icon: appIcon,
     // Frameless custom title bar, but keep the NATIVE Windows caption buttons
     // (minimize / maximize / close) in the top-right via the overlay API.
     titleBarStyle: 'hidden',

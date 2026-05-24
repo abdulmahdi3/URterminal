@@ -17,6 +17,7 @@ export default function ShellPane({ pane }: { pane: Pane }): JSX.Element {
   return (
     <TerminalPane
       paneId={pane.id}
+      shell={pane.shell?.shell || undefined}
       cwd={cwd}
       onReady={(ptyId, shell) => updatePane(pane.id, { shell: { shell, ptyId, cwd } })}
     />

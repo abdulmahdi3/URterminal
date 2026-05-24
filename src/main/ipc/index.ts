@@ -1,5 +1,8 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron'
-import { writeFile } from 'fs/promises'
+import { ipcMain, BrowserWindow, dialog, clipboard, app } from 'electron'
+import { writeFile, readFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import type { ClipboardContent } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
@@ -10,6 +13,7 @@ import type {
   FileSaveResult
 } from '@shared/types'
 import { PtyManager } from '../pty/manager'
+import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { Streamer } from '../ai/streamer'
 import { TelegramBridge } from '../telegram/bridge'
@@ -194,6 +198,43 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       pty.resize(ptyId, cols, rows)
   )
   ipcMain.on(IPC.ptyKill, (_e, { ptyId }: { ptyId: string }) => pty.kill(ptyId))
+  ipcMain.handle(IPC.ptyList, () => pty.list())
+
+  // ---- clipboard (right-click paste of text + images) ----
+  // Reading via the main-process clipboard module avoids renderer permission
+  // prompts and lets us turn an image on the clipboard into a temp PNG file
+  // whose path can be pasted into the agent/shell.
+  ipcMain.handle(IPC.clipboardRead, async (): Promise<ClipboardContent> => {
+    const img = clipboard.readImage()
+    if (!img.isEmpty()) {
+      const path = join(tmpdir(), `uregant-paste-${Date.now()}.png`)
+      await writeFile(path, img.toPNG())
+      return { imagePath: path }
+    }
+    return { text: clipboard.readText() }
+  })
+
+  // ---- system process monitor (task manager "System" tab) ----
+  ipcMain.handle(IPC.systemProcList, () => listSystemProcesses())
+  ipcMain.on(IPC.systemProcKill, (_e, { pid }: { pid: number }) => killSystemProcess(pid))
+
+  // ---- saved sessions (named workspace snapshots, stored as a JSON file) ----
+  const sessionsFile = (): string => join(app.getPath('userData'), 'sessions.json')
+  ipcMain.handle(IPC.sessionsRead, async (): Promise<unknown[]> => {
+    try {
+      const parsed = JSON.parse(await readFile(sessionsFile(), 'utf8'))
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return [] // missing/corrupt file → no sessions yet
+    }
+  })
+  ipcMain.handle(IPC.sessionsWrite, async (_e, sessions: unknown[]): Promise<void> => {
+    try {
+      await writeFile(sessionsFile(), JSON.stringify(sessions), 'utf8')
+    } catch {
+      /* disk errors are non-fatal */
+    }
+  })
 
   // start the bot if a token is already configured
   void telegram.start()

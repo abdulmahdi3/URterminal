@@ -134,6 +134,40 @@
   color: var(--accent);
 }
 
+/* ---- copied-on-select flash ---- */
+.copied-flash {
+  position: fixed;
+  bottom: calc(var(--statusbar-h) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 320;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid color-mix(in srgb, var(--ok) 50%, var(--border-strong));
+  color: var(--text);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  animation: copied-pop var(--dur) var(--ease);
+}
+.copied-flash svg {
+  color: var(--ok);
+}
+@keyframes copied-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 /* ---- shortcuts modal ---- */
 .modal.shortcuts {
   width: min(720px, 92vw);

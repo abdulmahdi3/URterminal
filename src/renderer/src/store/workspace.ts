@@ -268,7 +268,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     if (!pane || pane.type !== 'ai') return
     const cwd = pane.agent?.cwd
     const np = makePane('shell', { provider: s0.defaultProvider, model: s0.defaultModel })
-    np.shell = { shell: '', cwd }
+    // Open the agent's working dir in PowerShell rather than the OS-default cmd.
+    np.shell = { shell: 'powershell.exe', cwd }
     if (cwd) {
       const name = cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop()
       if (name) np.title = name

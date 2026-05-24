@@ -356,6 +356,31 @@
   text-overflow: ellipsis;
   cursor: text;
 }
+/* current working folder shown beside the agent name */
+.pane-cwd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 160px;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  color: var(--text-faint);
+  font-size: var(--fs-2xs);
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+}
+.pane-cwd::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
 @keyframes input-pop {
   from { opacity: 0; transform: scaleX(0.82); }
 }

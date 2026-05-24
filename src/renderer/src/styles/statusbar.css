@@ -162,6 +162,34 @@
   transform: scale(0.92);
 }
 
+/* ---- combined CPU+RAM button (opens task manager) ---- */
+.sb-resource-btn {
+  gap: 5px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-faint);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), transform 60ms var(--ease);
+}
+.sb-resource-btn:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+.sb-resource-btn:active {
+  transform: scale(0.94);
+}
+.sb-resource-sep {
+  opacity: 0.5;
+  margin: 0 1px;
+}
+
 /* ---- layout preset picker ---- */
 .sb-layout-wrap {
   position: relative;

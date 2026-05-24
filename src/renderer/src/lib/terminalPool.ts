@@ -1,6 +1,7 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { noteOutputChars } from './chat'
+import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
 import '@xterm/xterm/css/xterm.css'
 
@@ -29,6 +30,8 @@ const darkTheme = {
 
 export interface TerminalOpts {
   command?: string
+  /** explicit shell executable to spawn (e.g. "powershell.exe"); blank = OS default */
+  shell?: string
   cwd?: string
   onReady?: (ptyId: string, shell: string) => void
   onExit?: (code: number) => void
@@ -121,6 +124,33 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
     inputListeners.forEach((cb) => cb(paneId, d))
   })
+  // Copy-on-select: as soon as text is highlighted (mouse or keyboard), mirror it
+  // to the clipboard. Fires on every selection change while dragging; the last
+  // write wins, so the clipboard always holds the final selection.
+  const onSelection = term.onSelectionChange(() => {
+    const sel = term.getSelection()
+    if (sel) {
+      void navigator.clipboard.writeText(sel).catch(() => {})
+      flashCopied()
+    }
+  })
+  // Right-click to paste. Text is pasted as-is; an image on the clipboard is
+  // written to a temp PNG and its path pasted (so the agent can read the file).
+  // `term.paste` honors bracketed-paste mode, so multi-line text stays intact.
+  const onContextMenu = (ev: MouseEvent): void => {
+    ev.preventDefault()
+    void window.api
+      .readClipboard()
+      .then((clip) => {
+        if (clip.imagePath) {
+          term.paste(/\s/.test(clip.imagePath) ? `"${clip.imagePath}"` : clip.imagePath)
+        } else if (clip.text) {
+          term.paste(clip.text)
+        }
+      })
+      .catch(() => {})
+  }
+  term.element?.addEventListener('contextmenu', onContextMenu)
   const offData = window.api.onPtyData((e) => {
     if (e.paneId === paneId) {
       if (!entry.started) {
@@ -144,6 +174,8 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   entry.dispose = (): void => {
     try {
       onData.dispose()
+      onSelection.dispose()
+      term.element?.removeEventListener('contextmenu', onContextMenu)
     } catch {
       /* noop */
     }
@@ -160,7 +192,14 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   pool.set(paneId, entry)
 
   void window.api
-    .spawnPty({ paneId, cols: term.cols, rows: term.rows, command: opts.command, cwd: opts.cwd })
+    .spawnPty({
+      paneId,
+      cols: term.cols,
+      rows: term.rows,
+      command: opts.command,
+      shell: opts.shell,
+      cwd: opts.cwd
+    })
     .then((res) => {
       entry.ptyId = res.ptyId
       opts.onReady?.(res.ptyId, res.shell)

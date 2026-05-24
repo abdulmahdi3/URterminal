@@ -16,7 +16,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, Maximize2, Minimize2, X } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
@@ -81,7 +81,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const setActive = useWorkspace((s) => s.setActive)
   const setLinkingPaneId = useUi((s) => s.setLinkingPaneId)
   const toggleZoom = useUi((s) => s.toggleZoom)
-  const zoomed = useUi((s) => s.zoomedPaneId === paneId)
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -108,6 +107,8 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
       ref={ref}
       className={clsx('pane-header', activePaneId === paneId && 'active')}
       onMouseDown={() => setActive(paneId)}
+      // double-click the header's empty space to maximize the pane, again to restore
+      onDoubleClick={() => toggleZoom(paneId)}
       onAuxClick={(e) => {
         // middle-click anywhere on the header (like a browser tab) closes it
         if (e.button === 1) {
@@ -134,13 +135,25 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
           }}
         />
       ) : (
-        <span className="pane-title" title="Double-click to rename" onDoubleClick={startEdit}>
+        <span
+          className="pane-title"
+          title="Double-click to rename"
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            startEdit()
+          }}
+        >
           {title}
+        </span>
+      )}
+      {paneType === 'ai' && agentCwd && (
+        <span className="pane-cwd" title={agentCwd}>
+          {agentCwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || agentCwd}
         </span>
       )}
       <PaneStatus paneId={paneId} />
       <div className="pane-header-spacer" />
-      <div className="pane-controls" onMouseDown={stop}>
+      <div className="pane-controls" onMouseDown={stop} onDoubleClick={stop}>
         {paneType === 'ai' && agentCwd && (
           <button
             className="icon-btn"
@@ -170,13 +183,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
           onClick={() => duplicatePane(paneId, 'column')}
         >
           <Rows2 size={13} />
-        </button>
-        <button
-          className="icon-btn"
-          title={zoomed ? 'Restore (Ctrl+Shift+Enter)' : 'Maximize (Ctrl+Shift+Enter)'}
-          onClick={() => toggleZoom(paneId)}
-        >
-          {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
         </button>
         <button className="icon-btn danger" title="Close (Ctrl+W)" onClick={close}>
           <X size={13} />

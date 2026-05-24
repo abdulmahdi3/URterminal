@@ -4,13 +4,13 @@ import { isAbsolute, join, delimiter } from 'path'
 import { randomUUID } from 'crypto'
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
-import type { PtySpawnRequest, PtyDataEvent, PtyExitEvent } from '@shared/types'
+import type { PtySpawnRequest, PtyDataEvent, PtyExitEvent, PtyTaskInfo } from '@shared/types'
 
 type Emit = (channel: string, payload: PtyDataEvent | PtyExitEvent) => void
 
 function defaultShell(): string {
   if (process.platform === 'win32') {
-    return process.env.COMSPEC || 'powershell.exe'
+    return 'powershell.exe'
   }
   return process.env.SHELL || 'bash'
 }
@@ -68,6 +68,8 @@ function resolveCommand(command: string): { file: string; args: string[] } {
 interface Entry {
   proc: IPty
   paneId: string
+  shell: string
+  startedAt: number
 }
 
 export class PtyManager {
@@ -91,7 +93,7 @@ export class PtyManager {
     })
     const shell = req.command || resolved.file
     const ptyId = randomUUID()
-    this.ptys.set(ptyId, { proc, paneId: req.paneId })
+    this.ptys.set(ptyId, { proc, paneId: req.paneId, shell, startedAt: Date.now() })
 
     // If a startup command was requested (e.g. launching the `claude` CLI),
     // type it once the shell has produced its first output (prompt is ready).
@@ -144,6 +146,15 @@ export class PtyManager {
 
   killAll(): void {
     for (const id of [...this.ptys.keys()]) this.kill(id)
+  }
+
+  /** Snapshot of every live PTY for the renderer's task manager. */
+  list(): PtyTaskInfo[] {
+    const tasks: PtyTaskInfo[] = []
+    for (const [ptyId, e] of this.ptys) {
+      tasks.push({ ptyId, paneId: e.paneId, pid: e.proc.pid, shell: e.shell, startedAt: e.startedAt })
+    }
+    return tasks
   }
 
   get count(): number {

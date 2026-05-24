@@ -9,6 +9,9 @@ import type {
   PtySpawnRequest,
   PtyDataEvent,
   PtyExitEvent,
+  PtyTaskInfo,
+  SystemProcess,
+  ClipboardContent,
   TelegramStatus,
   TelegramInbound,
   PerfSample,
@@ -48,8 +51,21 @@ const api = {
   resizePty: (ptyId: string, cols: number, rows: number): void =>
     ipcRenderer.send(IPC.ptyResize, { ptyId, cols, rows }),
   killPty: (ptyId: string): void => ipcRenderer.send(IPC.ptyKill, { ptyId }),
+  listPtys: (): Promise<PtyTaskInfo[]> => ipcRenderer.invoke(IPC.ptyList),
   onPtyData: (cb: (e: PtyDataEvent) => void): (() => void) => on<PtyDataEvent>(IPC.ptyData, cb),
   onPtyExit: (cb: (e: PtyExitEvent) => void): (() => void) => on<PtyExitEvent>(IPC.ptyExit, cb),
+
+  // ---- clipboard (right-click paste) ----
+  readClipboard: (): Promise<ClipboardContent> => ipcRenderer.invoke(IPC.clipboardRead),
+
+  // ---- system process monitor ----
+  listSystemProcesses: (): Promise<SystemProcess[]> => ipcRenderer.invoke(IPC.systemProcList),
+  killSystemProcess: (pid: number): void => ipcRenderer.send(IPC.systemProcKill, { pid }),
+
+  // ---- saved sessions (stored on disk) ----
+  readSessions: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.sessionsRead),
+  writeSessions: (sessions: unknown[]): Promise<void> =>
+    ipcRenderer.invoke(IPC.sessionsWrite, sessions),
 
   // ---- telegram ----
   getTelegramStatus: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramStatus),

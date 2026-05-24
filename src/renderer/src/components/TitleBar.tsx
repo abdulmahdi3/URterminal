@@ -5,6 +5,7 @@ import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import type { WorkspaceEntry } from '@renderer/store/workspaces'
+import SessionsMenu from './SessionsMenu'
 
 const MAX_TABS = 4
 
@@ -117,6 +118,7 @@ export default function TitleBar(): JSX.Element {
         <button className="action-btn ws-btn" title="New workspace" onClick={addWorkspace}>
           <Layers size={13} />
         </button>
+        <SessionsMenu />
       </div>
 
       <div className="titlebar-drag" />

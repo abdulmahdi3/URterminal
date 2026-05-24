@@ -140,6 +140,34 @@ export interface PtyExitEvent {
   exitCode: number
 }
 
+/** A live PTY process, surfaced to the renderer's task manager. */
+export interface PtyTaskInfo {
+  ptyId: string
+  paneId: string
+  pid: number
+  /** the shell or program that was launched (e.g. "powershell.exe", "claude") */
+  shell: string
+  /** epoch ms when the process was spawned */
+  startedAt: number
+}
+
+/** A single OS process row for the system tab of the task manager. */
+export interface SystemProcess {
+  pid: number
+  name: string
+  /** working-set memory in MB */
+  memMB: number
+  /** CPU usage 0–100, derived from the delta of cumulative CPU time between samples */
+  cpuPercent: number
+}
+
+/** Clipboard contents resolved in the main process (image wins over text). */
+export interface ClipboardContent {
+  text?: string
+  /** absolute path to a temp PNG written from a clipboard image, if any */
+  imagePath?: string
+}
+
 // ---------------------------------------------------------------------------
 // Telegram bridge
 // ---------------------------------------------------------------------------
@@ -209,8 +237,20 @@ export const IPC = {
   ptyWrite: 'pty:write',
   ptyResize: 'pty:resize',
   ptyKill: 'pty:kill',
+  ptyList: 'pty:list',
   ptyData: 'pty:data', // main -> renderer (event)
   ptyExit: 'pty:exit', // main -> renderer (event)
+
+  // clipboard (right-click paste of text + images)
+  clipboardRead: 'clipboard:read',
+
+  // system process monitor (task manager "System" tab)
+  systemProcList: 'system:proc-list',
+  systemProcKill: 'system:proc-kill',
+
+  // saved sessions (named workspace snapshots persisted to disk)
+  sessionsRead: 'sessions:read',
+  sessionsWrite: 'sessions:write',
 
   // telegram
   telegramStatus: 'telegram:status',

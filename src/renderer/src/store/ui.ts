@@ -8,6 +8,7 @@ interface UiState {
   showCommandPalette: boolean
   showShortcuts: boolean
   showPipeMode: boolean
+  showTaskManager: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -20,6 +21,8 @@ interface UiState {
   setShowShortcuts: (v: boolean) => void
   toggleShortcuts: () => void
   togglePipeMode: () => void
+  setShowTaskManager: (v: boolean) => void
+  toggleTaskManager: () => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   toggleZoom: (id: string) => void
@@ -34,6 +37,7 @@ export const useUi = create<UiState>((set, get) => ({
   showCommandPalette: false,
   showShortcuts: false,
   showPipeMode: false,
+  showTaskManager: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   appTheme: 'dark',
@@ -44,6 +48,8 @@ export const useUi = create<UiState>((set, get) => ({
   setShowShortcuts: (v) => set({ showShortcuts: v }),
   toggleShortcuts: () => set((s) => ({ showShortcuts: !s.showShortcuts })),
   togglePipeMode: () => set((s) => ({ showPipeMode: !s.showPipeMode })),
+  setShowTaskManager: (v) => set({ showTaskManager: v }),
+  toggleTaskManager: () => set((s) => ({ showTaskManager: !s.showTaskManager })),
   setLinkingPaneId: (id) => set({ linkingPaneId: id }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
@@ -59,6 +65,7 @@ export const useUi = create<UiState>((set, get) => ({
       showCommandPalette: false,
       showShortcuts: false,
       showPipeMode: false,
+      showTaskManager: false,
       linkingPaneId: null
     })
 }))

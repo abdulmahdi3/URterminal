@@ -7,7 +7,9 @@ import CommandPalette from './components/CommandPalette'
 import ShortcutsModal from './components/ShortcutsModal'
 import SettingsModal from './components/SettingsModal'
 import TelegramLinkModal from './components/TelegramLinkModal'
+import TaskManagerModal from './components/TaskManagerModal'
 import Toaster from './components/Toaster'
+import CopiedFlash from './components/CopiedFlash'
 import { useSettings } from './store/settings'
 import { useUi } from './store/ui'
 import { startMetricsLoop } from './store/metrics'
@@ -51,8 +53,10 @@ export default function App(): JSX.Element {
       <CommandPalette />
       <SettingsModal />
       <TelegramLinkModal />
+      <TaskManagerModal />
       <ShortcutsModal />
       <Toaster />
+      <CopiedFlash />
     </div>
   )
 }

@@ -5,6 +5,8 @@ interface Props {
   paneId: string
   /** spawn this program directly as the pty process (e.g. "claude") */
   command?: string
+  /** explicit shell executable to spawn (e.g. "powershell.exe"); blank = OS default */
+  shell?: string
   /** working directory to launch in */
   cwd?: string
   /** called once the pty exists so the store can track its id */
@@ -23,6 +25,7 @@ interface Props {
 export default function TerminalPane({
   paneId,
   command,
+  shell,
   cwd,
   onReady,
   onExit,
@@ -42,6 +45,7 @@ export default function TerminalPane({
 
     mountTerminal(paneId, container, {
       command,
+      shell,
       cwd,
       onReady: (id, shell) => onReadyRef.current?.(id, shell),
       onExit: (code) => onExitRef.current?.(code),
@@ -63,7 +67,7 @@ export default function TerminalPane({
       ro.disconnect()
       // Terminal stays alive in the pool — only disposed when the pane is closed.
     }
-  }, [paneId, command, cwd])
+  }, [paneId, command, shell, cwd])
 
   return <div className="shell-pane" ref={containerRef} />
 }

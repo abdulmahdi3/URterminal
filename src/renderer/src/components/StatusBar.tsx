@@ -17,6 +17,11 @@ function formatChars(n: number): string {
   return `${n}`
 }
 
+/** MB below 1000, GB above. */
+function formatMem(mb: number): string {
+  return mb >= 1000 ? `${(mb / 1024).toFixed(2)} GB` : `${mb} MB`
+}
+
 const APP_THEME_LABELS: Record<string, string> = {
   dark: 'Dark', amoled: 'AMOLED', ocean: 'Ocean', forest: 'Forest', dusk: 'Dusk'
 }
@@ -62,6 +67,7 @@ export default function StatusBar(): JSX.Element {
 
   const appTheme = useUi((s) => s.appTheme)
   const cycleAppTheme = useUi((s) => s.cycleAppTheme)
+  const toggleTaskManager = useUi((s) => s.toggleTaskManager)
 
   const [clock, setClock] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -148,19 +154,16 @@ export default function StatusBar(): JSX.Element {
 
       <span className="sb-spacer" />
 
-      <span className="sb-item">
-        <MemoryStick size={12} /> {ram ? `${ram} MB` : '—'}
-      </span>
-      <span className="sb-item">
+      {/* Combined CPU + RAM button → opens the task manager */}
+      <button
+        className="sb-item sb-resource-btn"
+        onClick={toggleTaskManager}
+        title="Open task manager"
+      >
         <Cpu size={12} /> {cpu ? `${cpu}%` : '0%'}
-      </span>
-
-      {/* Claude session output (raw terminal chars, not API tokens) */}
-      <span className="sb-item sb-claude">
-        <Bot size={12} />
-        <span>{formatChars(totalTokens * 4)}</span>
-        <span className="sb-output-label">output</span>
-      </span>
+        <span className="sb-resource-sep">·</span>
+        <MemoryStick size={12} /> {ram ? formatMem(ram) : '—'}
+      </button>
 
       {/* App theme cycle button */}
       <button
@@ -171,6 +174,12 @@ export default function StatusBar(): JSX.Element {
         <Palette size={11} />
         <span>{APP_THEME_LABELS[appTheme]}</span>
       </button>
+
+      {/* Claude session output (raw terminal chars, not API tokens) */}
+      <span className="sb-item sb-claude" title="output tokens">
+        <Bot size={12} />
+        <span>{formatChars(totalTokens * 4)}</span>
+      </span>
 
       <span className="sb-item">
         <Clock size={12} /> {clock}
