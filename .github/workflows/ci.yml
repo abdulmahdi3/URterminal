@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    # Windows-first app: node-pty ships Windows prebuilts and the smoke harness
+    # spawns real ConPTY shells, so the matching runner is windows-latest.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # postinstall (scripts/setup-natives.mjs) pins Electron 29 + fetches the
+      # ABI-matched node-pty prebuilt — no compiler needed.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # Best-effort: launch the real main process against a scripted shell
+      # round-trip. Informational (continue-on-error) since it needs a desktop
+      # session and is timing-sensitive on CI.
+      - name: Smoke (shell round-trip)
+        continue-on-error: true
+        env:
+          URTERMINAL_SMOKE: '1'
+        run: npx --no-install electron out/main/index.js

@@ -38,6 +38,7 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
       <AgentLauncher
         command={command}
         defaultCwd={getLastAgentCwd()}
+        onSelectAgent={(c) => updatePane(pane.id, { agent: { command: c }, title: c })}
         onOpen={(dir) => {
           setLastAgentCwd(dir)
           updatePane(pane.id, { agent: { command, cwd: dir }, title: command })

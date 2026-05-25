@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react'
+import { forwardRef, useEffect, useState } from 'react'
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
 import type { MosaicNode } from 'react-mosaic-component'
 import { getLeaves } from '@renderer/lib/mosaicTree'
@@ -16,14 +16,18 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, Camera, History } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useTokens, formatTokens } from '@renderer/store/tokens'
 import { useSessions } from '@renderer/store/sessions'
 import { toast } from '@renderer/store/toasts'
+import { AGENTS, AGENT_LABELS } from '@shared/providers'
+import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import PaneView from './PaneView'
+import { AgentLogo, ShellLogo } from './brandIcons'
 import 'react-mosaic-component/react-mosaic-component.css'
 
 function relTime(ts: number): string {
@@ -38,8 +42,11 @@ function relTime(ts: number): string {
 
 function PaneIcon({ paneId, size = 14 }: { paneId: string; size?: number }): JSX.Element {
   const type = useWorkspace((s) => s.panes[paneId]?.type)
-  if (type === 'ai') return <Bot size={size} className="pane-icon ai" />
-  if (type === 'shell') return <Terminal size={size} className="pane-icon shell" />
+  const command = useWorkspace((s) => s.panes[paneId]?.agent?.command)
+  const shell = useWorkspace((s) => s.panes[paneId]?.shell?.shell)
+  const args = useWorkspace((s) => s.panes[paneId]?.shell?.args)
+  if (type === 'ai') return <AgentLogo command={command ?? 'claude'} size={size} />
+  if (type === 'shell') return <ShellLogo shell={shell} args={args} size={size} />
   return <SquareDashed size={size} className="pane-icon" />
 }
 
@@ -72,12 +79,14 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const leaves = getLeaves(layout)
   const paneNum = leaves.indexOf(paneId) + 1  // 1-based; 0 = not in layout yet
   const agentCwd = useWorkspace((s) => s.panes[paneId]?.agent?.cwd)
+  const shellCwd = useWorkspace((s) => s.panes[paneId]?.shell?.cwd)
   const isActive = useTokens((s) => !!s.activePanes[paneId])
   const tokenCount = useTokens((s) => s.byPane[paneId] ?? 0)
   const updatePane = useWorkspace((s) => s.updatePane)
   const duplicatePane = useWorkspace((s) => s.duplicatePane)
   const removePane = useWorkspace((s) => s.removePane)
   const openTerminalHere = useWorkspace((s) => s.openTerminalHere)
+  const openAgentHere = useWorkspace((s) => s.openAgentHere)
   const setActive = useWorkspace((s) => s.setActive)
   const setLinkingPaneId = useUi((s) => s.setLinkingPaneId)
   const toggleZoom = useUi((s) => s.toggleZoom)
@@ -168,6 +177,15 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
             <Terminal size={13} />
           </button>
         )}
+        {paneType === 'shell' && (
+          <button
+            className="icon-btn"
+            title={`Open agent in this folder${shellCwd ? `\n${shellCwd}` : ' (home)'}`}
+            onClick={() => openAgentHere(paneId)}
+          >
+            <Bot size={13} />
+          </button>
+        )}
         <button
           className={clsx('icon-btn', linked && 'linked')}
           title="Link to Telegram"
@@ -175,15 +193,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         >
           <Send size={13} />
         </button>
-        {linked && (
-          <button
-            className="icon-btn"
-            title="Screenshot this pane → Telegram"
-            onClick={() => void window.api.screenshotPane(paneId)}
-          >
-            <Camera size={13} />
-          </button>
-        )}
         <button
           className="icon-btn"
           title={paneCount >= 9 ? 'Max 9 panes reached' : 'Split right (duplicate session)'}
@@ -218,8 +227,17 @@ export default function Workspace(): JSX.Element {
   const sessions = useSessions((s) => s.sessions)
   const restore = useSessions((s) => s.restore)
 
+  // Device-installed agents + shells/WSL distros, detected asynchronously.
+  const [availAgents, setAvailAgents] = useState<Set<string>>(getAvailableAgents())
+  const [shellSpecs, setShellSpecs] = useState<ShellSpec[]>(getShellSpecs())
+  useEffect(() => {
+    void refreshAgentAvailability().then((s) => setAvailAgents(new Set(s)))
+    void refreshWslDistros().then(() => setShellSpecs(getShellSpecs()))
+  }, [])
+
   if (layout === null) {
     const recentSessions = sessions.slice(0, 4)
+    const agentList = availAgents.size ? AGENTS.filter((a) => availAgents.has(a)) : [...AGENTS]
     return (
       <div className="workspace-empty">
         <div className="empty-hero">
@@ -243,6 +261,59 @@ export default function Workspace(): JSX.Element {
             <span className="eac-key">Ctrl+Shift+S</span>
           </button>
         </div>
+
+        <div className="empty-discover">
+          <div className="empty-disc-group">
+            <div className="empty-disc-title">Agents on this device</div>
+            <div className="empty-chips">
+              {agentList.map((a) => (
+                <button
+                  key={a}
+                  className="empty-chip"
+                  title={`New ${AGENT_LABELS[a]} pane`}
+                  onClick={() => addPane('ai', undefined, { agentCommand: a, label: AGENT_LABELS[a] })}
+                >
+                  <AgentLogo command={a} size={15} />
+                  {AGENT_LABELS[a]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="empty-disc-group">
+            <div className="empty-disc-title">Shells &amp; WSL distros</div>
+            <div className="empty-chips">
+              {shellSpecs.map((spec) => (
+                <button
+                  key={spec.id}
+                  className="empty-chip"
+                  title={`New ${spec.label}`}
+                  onClick={() =>
+                    addPane('shell', undefined, {
+                      shell: spec.file,
+                      shellArgs: spec.args,
+                      label: spec.label
+                    })
+                  }
+                >
+                  <ShellLogo shell={spec.file} args={spec.args} size={15} />
+                  {spec.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="empty-disc-group">
+            <div className="empty-disc-title">Things you can do</div>
+            <ul className="empty-tips">
+              <li>Split & tile up to 9 panes — drag borders to resize</li>
+              <li>Link any pane to Telegram, or screenshot it with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></li>
+              <li>Open an agent in a shell's folder (and vice-versa) from the pane header</li>
+              <li>Save & restore whole workspaces as sessions</li>
+            </ul>
+          </div>
+        </div>
+
         {recentSessions.length > 0 && (
           <div className="empty-sessions">
             <div className="es-header">
@@ -289,7 +360,7 @@ export default function Workspace(): JSX.Element {
 
   return (
     <Mosaic<string>
-      className="mosaic-uregant"
+      className="mosaic-urterminal"
       value={layout}
       onChange={(node: MosaicNode<string> | null) => setLayout(clampSplits(node))}
       renderTile={(id, path) => (

@@ -1,6 +1,6 @@
 // Remembers the last folder an agent was opened in, so the launcher form can
 // prefill it and the user can re-open with one click.
-const KEY = 'uregant.lastAgentCwd'
+const KEY = 'urterminal.lastAgentCwd'
 
 export function getLastAgentCwd(): string {
   try {

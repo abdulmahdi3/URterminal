@@ -83,7 +83,7 @@ export class PtyManager {
     // spawn the user's shell.
     const resolved = req.command
       ? resolveCommand(req.command)
-      : { file: req.shell || defaultShell(), args: [] }
+      : { file: req.shell || defaultShell(), args: req.shellArgs ?? [] }
     const proc = pty.spawn(resolved.file, resolved.args, {
       name: 'xterm-256color',
       cols: Math.max(2, req.cols || 80),
@@ -91,7 +91,9 @@ export class PtyManager {
       cwd: req.cwd || os.homedir(),
       env: buildEnv()
     })
-    const shell = req.command || resolved.file
+    // Label shown in the task manager — include args so "wsl.exe -d Ubuntu" is legible.
+    const shell =
+      req.command || [resolved.file, ...resolved.args].join(' ').trim() || resolved.file
     const ptyId = randomUUID()
     this.ptys.set(ptyId, { proc, paneId: req.paneId, shell, startedAt: Date.now() })
 

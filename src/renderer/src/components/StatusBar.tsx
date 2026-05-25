@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, ArrowRight, Bot } from 'lucide-react'
+import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, ArrowRight, Bot, Settings, Command as CommandIcon } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
@@ -9,7 +9,7 @@ import { getLeaves } from '@renderer/lib/mosaicTree'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
 
-const VERSION = 'v0.1.0'
+const VERSION = 'v0.2.0'
 
 function formatChars(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -63,6 +63,8 @@ export default function StatusBar(): JSX.Element {
   const totalTokens = useTokens((s) => s.total)
 
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
+  const setShowSettings = useUi((s) => s.setShowSettings)
+  const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
 
   const [clock, setClock] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -92,6 +94,18 @@ export default function StatusBar(): JSX.Element {
 
   return (
     <footer className="statusbar">
+      {/* App controls (moved here from the title bar) */}
+      <button className="sb-item sb-icon-btn" title="Settings (Ctrl+,)" onClick={() => setShowSettings(true)}>
+        <Settings size={12} />
+      </button>
+      <button
+        className="sb-item sb-icon-btn"
+        title="Command palette (Ctrl+K)"
+        onClick={toggleCommandPalette}
+      >
+        <CommandIcon size={12} />
+      </button>
+
       {/* Layout preset picker */}
       <div
         className={clsx('sb-layout-wrap', layoutOpen && 'open')}

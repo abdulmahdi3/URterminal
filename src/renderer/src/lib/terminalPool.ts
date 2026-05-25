@@ -1,6 +1,6 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { noteOutputChars } from './chat'
+import { noteOutputChars } from './outputMetrics'
 import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
 import '@xterm/xterm/css/xterm.css'
@@ -32,6 +32,8 @@ export interface TerminalOpts {
   command?: string
   /** explicit shell executable to spawn (e.g. "powershell.exe"); blank = OS default */
   shell?: string
+  /** extra args for the shell binary (e.g. ["-d", "Ubuntu"] for a WSL distro) */
+  shellArgs?: string[]
   cwd?: string
   onReady?: (ptyId: string, shell: string) => void
   onExit?: (code: number) => void
@@ -198,6 +200,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
       rows: term.rows,
       command: opts.command,
       shell: opts.shell,
+      shellArgs: opts.shellArgs,
       cwd: opts.cwd
     })
     .then((res) => {

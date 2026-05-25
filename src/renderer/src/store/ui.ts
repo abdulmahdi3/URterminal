@@ -32,6 +32,16 @@ interface UiState {
   closeOverlays: () => void
 }
 
+/** Every transient overlay closed — spread before opening one for exclusivity. */
+const ALL_CLOSED = {
+  showSettings: false,
+  showCommandPalette: false,
+  showShortcuts: false,
+  showPipeMode: false,
+  showTaskManager: false,
+  linkingPaneId: null as string | null
+}
+
 export const useUi = create<UiState>((set, get) => ({
   showSettings: false,
   showCommandPalette: false,
@@ -42,15 +52,27 @@ export const useUi = create<UiState>((set, get) => ({
   zoomedPaneId: null,
   appTheme: 'dark',
 
-  setShowSettings: (v) => set({ showSettings: v }),
-  setShowCommandPalette: (v) => set({ showCommandPalette: v }),
-  toggleCommandPalette: () => set((s) => ({ showCommandPalette: !s.showCommandPalette })),
-  setShowShortcuts: (v) => set({ showShortcuts: v }),
-  toggleShortcuts: () => set((s) => ({ showShortcuts: !s.showShortcuts })),
-  togglePipeMode: () => set((s) => ({ showPipeMode: !s.showPipeMode })),
-  setShowTaskManager: (v) => set({ showTaskManager: v }),
-  toggleTaskManager: () => set((s) => ({ showTaskManager: !s.showTaskManager })),
-  setLinkingPaneId: (id) => set({ linkingPaneId: id }),
+  // Overlays are mutually exclusive — opening one closes the rest (so e.g.
+  // hitting Ctrl+K while Settings is open swaps to the palette, not stacks).
+  setShowSettings: (v) => set(v ? { ...ALL_CLOSED, showSettings: true } : { showSettings: false }),
+  setShowCommandPalette: (v) =>
+    set(v ? { ...ALL_CLOSED, showCommandPalette: true } : { showCommandPalette: false }),
+  toggleCommandPalette: () =>
+    set((s) =>
+      s.showCommandPalette ? { showCommandPalette: false } : { ...ALL_CLOSED, showCommandPalette: true }
+    ),
+  setShowShortcuts: (v) => set(v ? { ...ALL_CLOSED, showShortcuts: true } : { showShortcuts: false }),
+  toggleShortcuts: () =>
+    set((s) => (s.showShortcuts ? { showShortcuts: false } : { ...ALL_CLOSED, showShortcuts: true })),
+  togglePipeMode: () =>
+    set((s) => (s.showPipeMode ? { showPipeMode: false } : { ...ALL_CLOSED, showPipeMode: true })),
+  setShowTaskManager: (v) =>
+    set(v ? { ...ALL_CLOSED, showTaskManager: true } : { showTaskManager: false }),
+  toggleTaskManager: () =>
+    set((s) =>
+      s.showTaskManager ? { showTaskManager: false } : { ...ALL_CLOSED, showTaskManager: true }
+    ),
+  setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),

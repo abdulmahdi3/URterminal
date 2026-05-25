@@ -5,27 +5,10 @@ export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama'
 
 export type PaneType = 'ai' | 'shell' | 'empty'
 
-export type ChatRole = 'system' | 'user' | 'assistant'
-
-export interface ChatMessage {
-  id: string
-  role: ChatRole
-  content: string
-  /** true while assistant text is still streaming in */
-  streaming?: boolean
-  createdAt: number
-}
-
-export interface AiPaneState {
-  provider: ProviderId
-  model: string
-  messages: ChatMessage[]
-  /** active stream id if currently generating */
-  activeStreamId?: string
-}
-
 export interface ShellPaneState {
   shell: string
+  /** extra args for the shell binary (e.g. ["-d", "Ubuntu"] for a WSL distro) */
+  args?: string[]
   cwd?: string
   ptyId?: string
 }
@@ -43,7 +26,6 @@ export interface Pane {
   id: string
   type: PaneType
   title: string
-  ai?: AiPaneState
   agent?: AgentPaneState
   shell?: ShellPaneState
   /** chat id this pane forwards output to, if linked */
@@ -77,6 +59,12 @@ export interface SettingsPublic {
   telegram: TelegramSettingsPublic
   defaultProvider: ProviderId
   defaultModel: string
+  /** agent CLI new AI panes launch by default (e.g. "claude") */
+  defaultAgent: string
+  /** shell binary new shell panes launch by default ("" = OS default) */
+  defaultShell: string
+  /** args for the default shell (e.g. ["-d", "Ubuntu"]) */
+  defaultShellArgs: string[]
   theme: ThemeName
   language: string
   accentColor: string
@@ -90,27 +78,13 @@ export interface SettingsPatch {
   telegramDefaultChatId?: string | null
   defaultProvider?: ProviderId
   defaultModel?: string
+  defaultAgent?: string
+  defaultShell?: string
+  defaultShellArgs?: string[]
   theme?: ThemeName
   language?: string
   accentColor?: string
 }
-
-// ---------------------------------------------------------------------------
-// AI streaming
-// ---------------------------------------------------------------------------
-
-export interface ChatStreamRequest {
-  streamId: string
-  paneId: string
-  provider: ProviderId
-  model: string
-  messages: { role: ChatRole; content: string }[]
-}
-
-export type StreamChunk =
-  | { streamId: string; paneId: string; type: 'text'; text: string }
-  | { streamId: string; paneId: string; type: 'done' }
-  | { streamId: string; paneId: string; type: 'error'; message: string }
 
 // ---------------------------------------------------------------------------
 // PTY (shell) streaming
@@ -119,6 +93,8 @@ export type StreamChunk =
 export interface PtySpawnRequest {
   paneId: string
   shell?: string
+  /** extra args for the shell binary (e.g. ["-d", "Ubuntu"] for a WSL distro) */
+  shellArgs?: string[]
   cwd?: string
   cols: number
   rows: number
@@ -239,13 +215,6 @@ export const IPC = {
   settingsGet: 'settings:get',
   settingsPatch: 'settings:patch',
   settingsChanged: 'settings:changed',
-  providerTestKey: 'settings:test-key',
-  providerListModels: 'settings:list-models',
-
-  // ai streaming
-  chatStart: 'chat:start',
-  chatCancel: 'chat:cancel',
-  chatChunk: 'chat:chunk', // main -> renderer (event)
 
   // pty
   ptySpawn: 'pty:spawn',
@@ -255,6 +224,11 @@ export const IPC = {
   ptyList: 'pty:list',
   ptyData: 'pty:data', // main -> renderer (event)
   ptyExit: 'pty:exit', // main -> renderer (event)
+
+  // shells (list installed WSL distros for the shell launcher)
+  shellListWsl: 'shell:list-wsl',
+  // which: report which of the given commands are installed on PATH
+  commandsCheck: 'shell:check-commands',
 
   // clipboard (right-click paste of text + images)
   clipboardRead: 'clipboard:read',

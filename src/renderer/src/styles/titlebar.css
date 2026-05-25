@@ -36,6 +36,8 @@
   font-weight: 700;
   letter-spacing: 0.4px;
   margin-right: 2px;
+  /* follow the user-selected accent color (set live via --accent) */
+  color: var(--accent);
 }
 
 /* Sessions icon-btn active state */
@@ -59,16 +61,14 @@
   height: 100%;
 }
 
-/* ---- workspace tabs — centred absolutely over the drag region ---- */
+/* ---- workspace tabs — centred in normal flow between two drag spacers so
+       they never overlap the left group on narrow windows ---- */
 .titlebar-workspaces {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   gap: 3px;
-  max-width: 42%;
+  flex: 0 1 auto;
+  min-width: 0;
   /* overflow must stay visible so the dropdown can escape the bounds */
   overflow: visible;
 }
@@ -167,10 +167,81 @@
   background: transparent;
   font-family: inherit;
 }
-.ws-overflow-wrap:hover .ws-more-btn {
+.hover-dd:hover .ws-more-btn {
   background: var(--bg-elev-2);
   color: var(--text-dim);
   border-color: var(--border);
+}
+
+/* ---- generic hover dropdown (agents, shells, workspace overflow) ---- */
+.hover-dd {
+  position: relative;
+  display: inline-flex;
+}
+.hover-dd-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 4px;
+  box-shadow: var(--shadow-lg);
+  min-width: 184px;
+  z-index: 400;
+}
+.hover-dd-menu.center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.hover-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hover-dd-item:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
+.hover-dd-item.active {
+  color: var(--accent);
+}
+.hover-dd-item svg {
+  flex: 0 0 auto;
+}
+.hover-dd-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hover-dd-item-close {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.hover-dd-item-close:hover {
+  background: rgba(240, 93, 87, 0.18);
+  color: var(--danger);
+}
+.dd-caret {
+  opacity: 0.5;
 }
 /* accent tint when the active workspace is hidden in overflow */
 .ws-more-btn.has-active {

@@ -36,7 +36,13 @@ function applySideEffects(s: SettingsPublic): void {
   document.documentElement.setAttribute('data-theme', 'dark')
   document.documentElement.setAttribute('dir', s.language === 'ar' ? 'rtl' : 'ltr')
   if (i18n.language !== s.language) void i18n.changeLanguage(s.language)
-  useWorkspace.getState().setDefaults(s.defaultProvider, s.defaultModel)
+  useWorkspace.getState().setDefaults({
+    provider: s.defaultProvider,
+    model: s.defaultModel,
+    agent: s.defaultAgent,
+    shell: s.defaultShell,
+    shellArgs: s.defaultShellArgs
+  })
   applyAccentColor(s.accentColor || '#4c8dff')
 }
 

@@ -6,7 +6,7 @@ import type {
   SettingsPatch,
   ThemeName
 } from '@shared/types'
-import { DEFAULT_MODELS, DEFAULT_OLLAMA_URL } from '@shared/providers'
+import { DEFAULT_MODELS, DEFAULT_OLLAMA_URL, DEFAULT_AGENT } from '@shared/providers'
 
 interface RawSettings {
   providers: {
@@ -18,6 +18,9 @@ interface RawSettings {
   telegram: { tokenEnc?: string; defaultChatId?: string }
   defaultProvider: ProviderId
   defaultModel: string
+  defaultAgent: string
+  defaultShell: string
+  defaultShellArgs: string[]
   theme: ThemeName
   language: string
   accentColor: string
@@ -33,6 +36,9 @@ const DEFAULTS: RawSettings = {
   telegram: {},
   defaultProvider: 'anthropic',
   defaultModel: DEFAULT_MODELS.anthropic[0],
+  defaultAgent: DEFAULT_AGENT,
+  defaultShell: '',
+  defaultShellArgs: [],
   theme: 'dark',
   language: 'en',
   accentColor: '#4c8dff'
@@ -68,7 +74,7 @@ function preview(key: string | undefined): string | undefined {
 }
 
 export class SettingsStore {
-  private store = new Store<RawSettings>({ name: 'uregant-settings', defaults: DEFAULTS })
+  private store = new Store<RawSettings>({ name: 'urterminal-settings', defaults: DEFAULTS })
 
   private raw(): RawSettings {
     // electron-store merges defaults, but nested objects may be partial.
@@ -108,6 +114,9 @@ export class SettingsStore {
       },
       defaultProvider: s.defaultProvider,
       defaultModel: s.defaultModel,
+      defaultAgent: s.defaultAgent || DEFAULT_AGENT,
+      defaultShell: s.defaultShell || '',
+      defaultShellArgs: s.defaultShellArgs || [],
       theme: s.theme,
       language: s.language,
       accentColor: s.accentColor || '#4c8dff'
@@ -157,6 +166,9 @@ export class SettingsStore {
     }
     if (patch.defaultProvider) s.defaultProvider = patch.defaultProvider
     if (patch.defaultModel !== undefined) s.defaultModel = patch.defaultModel
+    if (patch.defaultAgent !== undefined) s.defaultAgent = patch.defaultAgent
+    if (patch.defaultShell !== undefined) s.defaultShell = patch.defaultShell
+    if (patch.defaultShellArgs !== undefined) s.defaultShellArgs = patch.defaultShellArgs
     if (patch.theme) s.theme = patch.theme
     if (patch.language) s.language = patch.language
     if (patch.accentColor) s.accentColor = patch.accentColor

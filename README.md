@@ -1,22 +1,28 @@
-# uregant-terminal
+# URterminal
 
-A Windows-first Electron desktop app: a tiling workspace of up to 9+ **panes**, where
-each pane is either an **AI chat pane** (streaming from Anthropic, OpenAI, Google Gemini,
-or a local Ollama) or a **real shell pane** (node-pty + xterm.js). Includes a Telegram
-bridge, an encrypted settings store, performance hardening, and a packaged build.
+A Windows-first Electron desktop app: a tiling workspace of up to 9+ **panes**, where each
+pane runs either an **AI coding-agent CLI** (Claude, ChatGPT/Codex, Gemini, Aider, OpenCode)
+or a **real shell** — PowerShell, cmd, or any installed **WSL** distro — on node-pty +
+xterm.js. Includes a Telegram bridge, an encrypted settings store, performance hardening, and
+a packaged build.
 
 ## Features
 
-- **Tiling panes** — split/resize/close, mix AI and shell panes in one grid (react-mosaic).
-- **Real shells** — interactive ConPTY shells (PowerShell/cmd) rendered with xterm.js.
-- **AI streaming** — Anthropic, OpenAI, Gemini, Ollama; per-pane provider + model picker,
-  live token streaming, stop button. API keys live only in the main process.
+- **Tiling panes** — split/resize/close, mix agent and shell panes in one grid (react-mosaic).
+- **Agent CLIs** — launch `claude`, `codex` (ChatGPT), `gemini`, `aider`, or `opencode`
+  directly in a chosen folder. Pick the agent in the launcher; the command palette flags any
+  whose CLI isn't installed on PATH.
+- **Real shells + WSL** — interactive ConPTY shells (PowerShell / cmd) and one entry per
+  installed WSL distro (the default distro is flagged), launchable from the empty pane or the
+  command palette. Docker's internal distros are filtered out.
+- **Command palette** — `Ctrl+K` for everything; e.g. screenshot the active pane to its
+  linked Telegram chat with `Ctrl+Shift+S`.
 - **Telegram bridge** — link a pane to a chat to forward its output (throttled), and inject
   inbound Telegram messages as prompts (`/pane <id> <text>` or the linked pane).
-- **Settings** — API keys (encrypted with OS `safeStorage`), Telegram token, default
-  provider/model, theme (dark default), and language (English / العربية with RTL).
-- **Perf** — virtualized chat history, rAF-batched stream commits (one re-render per frame
-  across all panes), capped scrollback, and an in-app perf overlay (RAM, panes, streams/sec).
+- **Settings** — default agent + default terminal, Telegram token (encrypted with OS
+  `safeStorage`), theme (dark default), and language (English / العربية with RTL).
+- **Perf** — rAF-batched output commits, capped scrollback, and an in-app perf overlay
+  (RAM, CPU, tokens/sec).
 
 ## Requirements
 
@@ -59,26 +65,39 @@ npm install
 ```
 Renderer (React)            Main process
   workspace grid    invoke   SettingsStore (electron-store + safeStorage)
-  AI panes ──prompt──────▶   ProviderAdapters (anthropic/openai/gemini/ollama, SSE/NDJSON)
-  shell panes (xterm)        Streamer (per-stream AbortController)
-  settings / perf   ◀events  PtyManager (node-pty)
-                             TelegramBridge (grammY)
+  agent panes (xterm)        PtyManager (node-pty) — agent CLIs + shells + WSL
+  shell panes  (xterm)  ◀──  wsl.ts (distro detection) / which.ts (PATH lookup)
+  settings / perf   ◀events  TelegramBridge (grammY)
 ```
 
-The **main process owns everything privileged** (API calls, PTYs, the Telegram bot, secret
-storage). The renderer is pure UI behind a `contextBridge` (`contextIsolation: true`,
-`nodeIntegration: false`). **API keys and the Telegram token never cross IPC to the
-renderer** — it only ever sees `isSet` booleans and masked previews.
+The **main process owns everything privileged** (PTYs, the Telegram bot, secret storage).
+The renderer is pure UI behind a `contextBridge` (`contextIsolation: true`,
+`nodeIntegration: false`). **The Telegram token never crosses IPC to the renderer** — it
+only ever sees `isSet` booleans and masked previews.
 
-## Profiling / scripted harness
+## Code signing (Windows)
+
+Packaging is unsigned by default. To produce a signed installer, electron-builder picks up
+standard env vars automatically — no config change needed:
+
+```sh
+$env:CSC_LINK = "C:\path\to\cert.pfx"     # or a base64/URL to the .pfx
+$env:CSC_KEY_PASSWORD = "<pfx password>"
+npm run pack:win
+```
+
+For EV / Azure Trusted Signing (the modern path now that cheap OV certs are gone), add an
+`azureSignOptions` block under `win:` in `electron-builder.yml`. Without a cert the installer
+still builds; users just see a SmartScreen prompt on first run.
+
+## Scripted harness
 
 The real main process supports env-gated scripted runs (used during development to verify
 behaviour against the real IPC layer):
 
 ```sh
-# 9 AI panes + 1 shell, all streaming at once; writes smoke-profile.png and prints RSS
-UREGANT_PROFILE=9 ./node_modules/.bin/electron out/main/index.js
+# basic shell + pane round-trip, screenshot, exit
+URTERMINAL_SMOKE=1 ./node_modules/.bin/electron out/main/index.js
 ```
 
-Other modes: `UREGANT_SMOKE` (shell round-trip), `UREGANT_SMOKE_AI` (AI streaming vs a mock
-Ollama), `UREGANT_SMOKE_SETTINGS`, `UREGANT_SMOKE_TG` (Telegram inbound routing).
+Other modes: `URTERMINAL_SMOKE_SETTINGS` (settings persistence + EN/AR views).

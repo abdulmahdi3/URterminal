@@ -1,4 +1,4 @@
-# uregant-terminal — Architecture & Build Plan
+# URterminal — Architecture & Build Plan
 
 A Windows-first Electron desktop app showing a grid of up to 9+ **panes**, where each
 pane is either an **AI chat pane** (streaming from Anthropic / OpenAI / Gemini / Ollama)

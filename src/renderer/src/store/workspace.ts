@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { MosaicDirection, MosaicNode } from 'react-mosaic-component'
-import type { Pane, PaneType, ProviderId, ChatMessage } from '@shared/types'
+import type { Pane, PaneType, ProviderId } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal } from '@renderer/lib/terminalPool'
@@ -10,6 +10,15 @@ const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
+
+/** Best-effort home dir (renderer runs with sandbox:false, so env is available). */
+function getHome(): string | undefined {
+  try {
+    return (process as NodeJS.Process).env.HOME ?? (process as NodeJS.Process).env.USERPROFILE
+  } catch {
+    return undefined
+  }
+}
 
 /** how long the pane open/close pop animation runs (keep in sync with workspace.css) */
 export const PANE_ANIM_MS = 180
@@ -28,8 +37,13 @@ export interface WorkspaceState {
   // defaults sourced from settings (kept in sync by App)
   defaultProvider: ProviderId
   defaultModel: string
+  /** agent CLI new AI panes launch by default */
+  defaultAgent: string
+  /** shell binary new shell panes launch by default ("" = OS default) */
+  defaultShell: string
+  defaultShellArgs: string[]
 
-  addPane: (type: PaneType, direction?: MosaicDirection) => string
+  addPane: (type: PaneType, direction?: MosaicDirection, init?: PaneInit) => string
   splitPane: (id: string) => void
   /** split a pane, copying its session (agent command + folder) into the new one */
   duplicatePane: (id: string, direction: MosaicDirection) => void
@@ -38,27 +52,36 @@ export interface WorkspaceState {
   setActive: (id: string) => void
   focusByIndex: (index: number) => void
   setLayout: (node: MosaicNode<string> | null) => void
-  setPaneType: (id: string, type: PaneType) => void
+  setPaneType: (id: string, type: PaneType, init?: PaneInit) => void
   updatePane: (id: string, patch: Partial<Pane>) => void
-  clearMessages: (id: string) => void
   /** change which agent CLI an AI pane runs (respawns its terminal) */
   setAgent: (id: string, command: string) => void
   /** add or remove a pipe target for a pane (toggles presence in pipeTargets[]) */
   togglePipeTarget: (id: string, targetId: string) => void
   /** open a shell pane in the same directory as an AI pane */
   openTerminalHere: (paneId: string) => void
-  setDefaults: (provider: ProviderId, model: string) => void
+  /** open an agent pane in the same directory as a shell pane */
+  openAgentHere: (paneId: string) => void
+  setDefaults: (defaults: {
+    provider: ProviderId
+    model: string
+    agent: string
+    shell: string
+    shellArgs: string[]
+  }) => void
   /** replace whole workspace (used by persistence restore) */
   hydrate: (panes: Record<string, Pane>, layout: MosaicNode<string> | null) => void
   /** rearrange all panes into a named layout preset */
   applyLayoutPreset: (presetId: string) => void
+}
 
-  // ai message helpers
-  addMessage: (paneId: string, msg: ChatMessage) => void
-  appendToMessage: (paneId: string, messageId: string, text: string) => void
-  appendBatch: (updates: { paneId: string; messageId: string; text: string }[]) => void
-  endMessage: (paneId: string, messageId: string) => void
-  setActiveStream: (paneId: string, streamId: string | undefined) => void
+/** Optional seed for a new pane: which agent CLI, or which shell binary + args. */
+export interface PaneInit {
+  agentCommand?: string
+  shell?: string
+  shellArgs?: string[]
+  /** title to show instead of the generic "Shell N" / agent command */
+  label?: string
 }
 
 let paneCounter = 0
@@ -77,22 +100,40 @@ function scheduleEnterClear(
   }, PANE_ANIM_MS)
 }
 
-function makePane(type: PaneType, defaults: { provider: ProviderId; model: string }): Pane {
+interface PaneDefaults {
+  agent: string
+  shell: string
+  shellArgs: string[]
+}
+
+function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane {
   const id = uid()
   paneCounter += 1
   const base: Pane = { id, type, title: `${type} ${paneCounter}` }
   if (type === 'ai') {
     // An "AI pane" is a terminal that auto-launches an agent CLI (default: claude).
-    base.title = DEFAULT_AGENT
-    base.agent = { command: DEFAULT_AGENT }
-    void defaults
+    const command = init?.agentCommand ?? defaults.agent ?? DEFAULT_AGENT
+    base.title = init?.label ?? command
+    base.agent = { command }
   } else if (type === 'shell') {
-    base.title = `Shell ${paneCounter}`
-    base.shell = { shell: '' }
+    base.title = init?.label ?? `Shell ${paneCounter}`
+    if (init?.shell !== undefined) {
+      base.shell = { shell: init.shell, args: init.shellArgs }
+    } else {
+      base.shell = {
+        shell: defaults.shell,
+        args: defaults.shellArgs.length ? defaults.shellArgs : undefined
+      }
+    }
   } else {
     base.title = `Pane ${paneCounter}`
   }
   return base
+}
+
+/** Snapshot of the pane defaults sourced from settings. */
+function paneDefaults(s: WorkspaceState): PaneDefaults {
+  return { agent: s.defaultAgent, shell: s.defaultShell, shellArgs: s.defaultShellArgs }
 }
 
 export const useWorkspace = create<WorkspaceState>((set, get) => ({
@@ -104,13 +145,17 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   closing: {},
   defaultProvider: 'anthropic',
   defaultModel: '',
+  defaultAgent: DEFAULT_AGENT,
+  defaultShell: '',
+  defaultShellArgs: [],
 
-  addPane: (type, direction) => {
-    const { layout, activePaneId, defaultProvider, defaultModel } = get()
+  addPane: (type, direction, init) => {
+    const s0 = get()
+    const { layout, activePaneId } = s0
     const leaves = getLeaves(layout)
     // toolbar buttons (no explicit direction) are capped at 9; split/duplicate are always allowed
     if (!direction && leaves.length >= 9) return ''
-    const pane = makePane(type, { provider: defaultProvider, model: defaultModel })
+    const pane = makePane(type, paneDefaults(s0), init)
     const newLeaves = [...leaves, pane.id]
     let nextLayout: MosaicNode<string>
     if (!direction && newLeaves.length <= 9) {
@@ -139,13 +184,13 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   duplicatePane: (id, direction) => {
     const src = get().panes[id]
     if (!src) return
-    const np = makePane(src.type, {
-      provider: get().defaultProvider,
-      model: get().defaultModel
-    })
+    const np = makePane(src.type, paneDefaults(get()))
     // copy the live session so the new pane opens the same agent in the same folder
     if (src.type === 'ai' && src.agent) {
       np.agent = { command: src.agent.command, cwd: src.agent.cwd }
+      np.title = src.title
+    } else if (src.type === 'shell' && src.shell) {
+      np.shell = { shell: src.shell.shell, args: src.shell.args, cwd: src.shell.cwd }
       np.title = src.title
     }
     set((s) => {
@@ -198,13 +243,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     if (!recentlyClosed.length) return
     const last = recentlyClosed[recentlyClosed.length - 1]
     // give it a fresh id so it can't collide with anything still alive
-    const revived = makePane(last.type, {
-      provider: last.ai?.provider ?? get().defaultProvider,
-      model: last.ai?.model ?? get().defaultModel
-    })
+    const revived = makePane(last.type, paneDefaults(get()))
     revived.title = last.title
     if (last.agent) revived.agent = { command: last.agent.command, cwd: last.agent.cwd }
-    if (last.ai) revived.ai = { ...last.ai, activeStreamId: undefined }
     set((s) => {
       const leaves = getLeaves(s.layout)
       const target = s.activePaneId && leaves.includes(s.activePaneId) ? s.activePaneId : leaves[0]
@@ -230,31 +271,24 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
 
   setLayout: (node) => set({ layout: node }),
 
-  setPaneType: (id, type) =>
+  setPaneType: (id, type, init) =>
     set((s) => {
       const existing = s.panes[id]
       if (!existing) return s
-      const { defaultProvider, defaultModel } = s
-      const replacement: Pane = { ...existing, type }
-      if (type === 'ai' && !replacement.ai) {
-        replacement.ai = { provider: defaultProvider, model: defaultModel, messages: [] }
-        replacement.title = existing.title.replace(/^Pane/, 'AI')
-      } else if (type === 'shell' && !replacement.shell) {
-        replacement.shell = { shell: '' }
-        replacement.title = existing.title.replace(/^Pane/, 'Shell')
+      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined }
+      if (type === 'ai') {
+        const command = init?.agentCommand ?? DEFAULT_AGENT
+        replacement.agent = { command }
+        replacement.title = init?.label ?? command
+      } else if (type === 'shell') {
+        replacement.shell = { shell: init?.shell ?? '', args: init?.shellArgs }
+        replacement.title = init?.label ?? existing.title.replace(/^Pane/, 'Shell')
       }
       return { panes: { ...s.panes, [id]: replacement } }
     }),
 
   updatePane: (id, patch) =>
     set((s) => (s.panes[id] ? { panes: { ...s.panes, [id]: { ...s.panes[id], ...patch } } } : s)),
-
-  clearMessages: (id) =>
-    set((s) => {
-      const pane = s.panes[id]
-      if (!pane?.ai) return s
-      return { panes: { ...s.panes, [id]: { ...pane, ai: { ...pane.ai, messages: [] } } } }
-    }),
 
   togglePipeTarget: (id, targetId) =>
     set((s) => {
@@ -272,13 +306,35 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const pane = s0.panes[paneId]
     if (!pane || pane.type !== 'ai') return
     const cwd = pane.agent?.cwd
-    const np = makePane('shell', { provider: s0.defaultProvider, model: s0.defaultModel })
+    const np = makePane('shell', paneDefaults(s0))
     // Open the agent's working dir in PowerShell rather than the OS-default cmd.
     np.shell = { shell: 'powershell.exe', cwd }
     if (cwd) {
       const name = cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop()
       if (name) np.title = name
     }
+    set((s) => {
+      const layout = s.layout === null ? np.id : splitLeaf(s.layout, paneId, np.id, 'column')
+      return {
+        panes: { ...s.panes, [np.id]: np },
+        layout,
+        activePaneId: np.id,
+        entering: { ...s.entering, [np.id]: true }
+      }
+    })
+    scheduleEnterClear(set, np.id)
+  },
+
+  openAgentHere: (paneId) => {
+    const s0 = get()
+    const pane = s0.panes[paneId]
+    if (!pane || pane.type !== 'shell') return
+    // The shell's launch cwd (live `cd`s aren't tracked); fall back to home.
+    const cwd = pane.shell?.cwd ?? getHome()
+    const command = s0.defaultAgent || DEFAULT_AGENT
+    const np = makePane('ai', paneDefaults(s0))
+    np.agent = { command, cwd }
+    np.title = command
     set((s) => {
       const layout = s.layout === null ? np.id : splitLeaf(s.layout, paneId, np.id, 'column')
       return {
@@ -304,7 +360,14 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       }
     }),
 
-  setDefaults: (provider, model) => set({ defaultProvider: provider, defaultModel: model }),
+  setDefaults: (d) =>
+    set({
+      defaultProvider: d.provider,
+      defaultModel: d.model,
+      defaultAgent: d.agent || DEFAULT_AGENT,
+      defaultShell: d.shell,
+      defaultShellArgs: d.shellArgs
+    }),
 
   applyLayoutPreset: (presetId) => {
     const s0 = get()
@@ -327,7 +390,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     // create any missing panes
     const entering: Record<string, true> = {}
     while (ids.length < needed) {
-      const p = makePane('empty', { provider: s0.defaultProvider, model: s0.defaultModel })
+      const p = makePane('empty', paneDefaults(s0))
       panes[p.id] = p
       entering[p.id] = true
       ids.push(p.id)
@@ -341,67 +404,5 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   hydrate: (panes, layout) => {
     const ids = getLeaves(layout)
     set({ panes, layout, activePaneId: ids[ids.length - 1] ?? null })
-  },
-
-  addMessage: (paneId, msg) =>
-    set((s) => {
-      const pane = s.panes[paneId]
-      if (!pane?.ai) return s
-      const ai = { ...pane.ai, messages: [...pane.ai.messages, msg] }
-      return { panes: { ...s.panes, [paneId]: { ...pane, ai } } }
-    }),
-
-  appendToMessage: (paneId, messageId, text) =>
-    set((s) => {
-      const pane = s.panes[paneId]
-      if (!pane?.ai) return s
-      const messages = pane.ai.messages.map((m) =>
-        m.id === messageId ? { ...m, content: m.content + text } : m
-      )
-      return { panes: { ...s.panes, [paneId]: { ...pane, ai: { ...pane.ai, messages } } } }
-    }),
-
-  // Apply many streamed-text appends in a single state update (one re-render
-  // per animation frame regardless of how many tokens / panes are streaming).
-  appendBatch: (updates) =>
-    set((s) => {
-      if (!updates.length) return s
-      const byPane = new Map<string, Map<string, string>>()
-      for (const u of updates) {
-        if (!byPane.has(u.paneId)) byPane.set(u.paneId, new Map())
-        const m = byPane.get(u.paneId)!
-        m.set(u.messageId, (m.get(u.messageId) ?? '') + u.text)
-      }
-      const panes = { ...s.panes }
-      for (const [paneId, msgMap] of byPane) {
-        const pane = panes[paneId]
-        if (!pane?.ai) continue
-        const messages = pane.ai.messages.map((msg) =>
-          msgMap.has(msg.id) ? { ...msg, content: msg.content + msgMap.get(msg.id)! } : msg
-        )
-        panes[paneId] = { ...pane, ai: { ...pane.ai, messages } }
-      }
-      return { panes }
-    }),
-
-  endMessage: (paneId, messageId) =>
-    set((s) => {
-      const pane = s.panes[paneId]
-      if (!pane?.ai) return s
-      const messages = pane.ai.messages.map((m) =>
-        m.id === messageId ? { ...m, streaming: false } : m
-      )
-      return { panes: { ...s.panes, [paneId]: { ...pane, ai: { ...pane.ai, messages } } } }
-    }),
-
-  setActiveStream: (paneId, streamId) =>
-    set((s) => {
-      const pane = s.panes[paneId]
-      if (!pane?.ai) return s
-      return {
-        panes: { ...s.panes, [paneId]: { ...pane, ai: { ...pane.ai, activeStreamId: streamId } } }
-      }
-    })
+  }
 }))
-
-export const newMessageId = uid

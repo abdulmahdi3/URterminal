@@ -6,25 +6,21 @@ import type { ClipboardContent } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
-  ChatStreamRequest,
-  ProviderId,
   SettingsPatch,
   FileSaveRequest,
   FileSaveResult
 } from '@shared/types'
 import { PtyManager } from '../pty/manager'
+import { listWslDistros } from '../pty/wsl'
+import { filterAvailable } from '../pty/which'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
-import { Streamer } from '../ai/streamer'
 import { TelegramBridge } from '../telegram/bridge'
-import { getAdapter, ProviderError } from '../providers'
-import type { ProviderCreds } from '../providers/types'
 
 export interface IpcContext {
   getWindow: () => BrowserWindow | null
   pty: PtyManager
   settings: SettingsStore
-  streamer: Streamer
   telegram: TelegramBridge
 }
 
@@ -54,17 +50,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     emit(channel, payload)
   })
 
-  const streamer = new Streamer(
-    settings,
-    (chunk) => emit(IPC.chatChunk, chunk),
-    (paneId, text) => telegram.forward(paneId, text)
-  )
-
-  const credsFor = (provider: ProviderId): ProviderCreds =>
-    provider === 'ollama'
-      ? { baseUrl: settings.getOllamaBaseUrl() }
-      : { apiKey: settings.getApiKey(provider) }
-
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
     settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername)
 
@@ -78,29 +63,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     emit(IPC.settingsChanged, next)
     return next
   })
-  ipcMain.handle(IPC.providerListModels, async (_e, provider: ProviderId) => {
-    try {
-      return await getAdapter(provider).listModels(credsFor(provider))
-    } catch {
-      return []
-    }
-  })
-  ipcMain.handle(IPC.providerTestKey, async (_e, provider: ProviderId) => {
-    try {
-      await getAdapter(provider).listModels(credsFor(provider))
-      return { ok: true }
-    } catch (err) {
-      const message = err instanceof ProviderError ? err.message : (err as Error).message
-      return { ok: false, error: message }
-    }
-  })
-
-  // ---- ai chat ----
-  ipcMain.handle(IPC.chatStart, (_e, req: ChatStreamRequest) => {
-    void streamer.start(req)
-  })
-  ipcMain.handle(IPC.chatCancel, (_e, streamId: string) => streamer.cancel(streamId))
-
   // ---- telegram ----
   ipcMain.handle(IPC.telegramStatus, () => telegram.getStatus())
   ipcMain.handle(IPC.telegramRestart, () => telegram.start())
@@ -201,6 +163,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.on(IPC.ptyKill, (_e, { ptyId }: { ptyId: string }) => pty.kill(ptyId))
   ipcMain.handle(IPC.ptyList, () => pty.list())
 
+  // ---- shells ----
+  ipcMain.handle(IPC.shellListWsl, () => listWslDistros())
+  ipcMain.handle(IPC.commandsCheck, (_e, names: string[]) => filterAvailable(names))
+
   // ---- clipboard (right-click paste of text + images) ----
   // Reading via the main-process clipboard module avoids renderer permission
   // prompts and lets us turn an image on the clipboard into a temp PNG file
@@ -208,7 +174,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.clipboardRead, async (): Promise<ClipboardContent> => {
     const img = clipboard.readImage()
     if (!img.isEmpty()) {
-      const path = join(tmpdir(), `uregant-paste-${Date.now()}.png`)
+      const path = join(tmpdir(), `urterminal-paste-${Date.now()}.png`)
       await writeFile(path, img.toPNG())
       return { imagePath: path }
     }
@@ -247,5 +213,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // start the bot if a token is already configured
   void telegram.start()
 
-  return { getWindow, pty, settings, streamer, telegram }
+  return { getWindow, pty, settings, telegram }
 }

@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
 import { runCommand } from '@renderer/lib/commands'
-import { stopChat } from '@renderer/lib/chat'
+import { eventToCombo } from '@renderer/lib/keys'
+import { useShortcuts } from '@renderer/store/shortcuts'
 
 function isTypingTarget(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -29,14 +30,8 @@ export function useHotkeys(): void {
         return
       }
 
-      // Escape: stop stream → close overlays → exit zoom.
+      // Escape: close overlays → exit zoom.
       if (e.key === 'Escape') {
-        const wsState = useWorkspace.getState()
-        const active = wsState.activePaneId ? wsState.panes[wsState.activePaneId] : null
-        if (active?.ai?.activeStreamId) {
-          stopChat(active)
-          return
-        }
         if (ui.showCommandPalette || ui.showSettings || ui.showShortcuts || ui.linkingPaneId) {
           ui.closeOverlays()
           return
@@ -46,6 +41,18 @@ export function useHotkeys(): void {
           return
         }
         return
+      }
+
+      // User-assigned custom shortcuts (take priority over the built-ins below).
+      const combo = eventToCombo(e)
+      if (combo) {
+        const custom = useShortcuts.getState().custom
+        const id = Object.keys(custom).find((k) => custom[k] === combo)
+        if (id) {
+          e.preventDefault()
+          runCommand(id)
+          return
+        }
       }
 
       // "?" cheatsheet — only when not typing.
@@ -69,6 +76,9 @@ export function useHotkeys(): void {
           case 'KeyC':
             e.preventDefault()
             return runCommand('pane.openTerminal')
+          case 'KeyS':
+            e.preventDefault()
+            return runCommand('pane.screenshot')
           case 'Digit5':
             e.preventDefault()
             return runCommand('pane.newShell')

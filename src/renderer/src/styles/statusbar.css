@@ -18,6 +18,19 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* clickable icon buttons in the status bar (settings, command palette) */
+.sb-icon-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.sb-icon-btn:hover {
+  background: var(--bg-elev-2);
+  color: var(--accent);
+}
 .sb-item.mono {
   font-family: var(--mono);
   color: var(--text-faint);

@@ -3,9 +3,6 @@ import { IPC } from '@shared/types'
 import type {
   SettingsPublic,
   SettingsPatch,
-  ProviderId,
-  ChatStreamRequest,
-  StreamChunk,
   PtySpawnRequest,
   PtyDataEvent,
   PtyExitEvent,
@@ -34,16 +31,6 @@ const api = {
     ipcRenderer.invoke(IPC.settingsPatch, patch),
   onSettingsChanged: (cb: (s: SettingsPublic) => void): (() => void) =>
     on<SettingsPublic>(IPC.settingsChanged, cb),
-  testProviderKey: (provider: ProviderId): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke(IPC.providerTestKey, provider),
-  listModels: (provider: ProviderId): Promise<string[]> =>
-    ipcRenderer.invoke(IPC.providerListModels, provider),
-
-  // ---- ai streaming ----
-  startChat: (req: ChatStreamRequest): Promise<void> => ipcRenderer.invoke(IPC.chatStart, req),
-  cancelChat: (streamId: string): Promise<void> => ipcRenderer.invoke(IPC.chatCancel, streamId),
-  onChatChunk: (cb: (chunk: StreamChunk) => void): (() => void) =>
-    on<StreamChunk>(IPC.chatChunk, cb),
 
   // ---- pty ----
   spawnPty: (req: PtySpawnRequest): Promise<{ ptyId: string; shell: string }> =>
@@ -55,6 +42,12 @@ const api = {
   listPtys: (): Promise<PtyTaskInfo[]> => ipcRenderer.invoke(IPC.ptyList),
   onPtyData: (cb: (e: PtyDataEvent) => void): (() => void) => on<PtyDataEvent>(IPC.ptyData, cb),
   onPtyExit: (cb: (e: PtyExitEvent) => void): (() => void) => on<PtyExitEvent>(IPC.ptyExit, cb),
+
+  // ---- shells ----
+  listWslDistros: (): Promise<{ name: string; default: boolean }[]> =>
+    ipcRenderer.invoke(IPC.shellListWsl),
+  checkCommands: (names: string[]): Promise<string[]> =>
+    ipcRenderer.invoke(IPC.commandsCheck, names),
 
   // ---- clipboard (right-click paste) ----
   readClipboard: (): Promise<ClipboardContent> => ipcRenderer.invoke(IPC.clipboardRead),
@@ -114,10 +107,10 @@ const api = {
     ipcRenderer.invoke(IPC.screenshotWindow)
 }
 
-export type UregantApi = typeof api
+export type UrterminalApi = typeof api
 
 if (process.contextIsolated) {
   contextBridge.exposeInMainWorld('api', api)
 } else {
-  ;(globalThis as unknown as { api: UregantApi }).api = api
+  ;(globalThis as unknown as { api: UrterminalApi }).api = api
 }

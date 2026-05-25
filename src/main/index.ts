@@ -56,18 +56,10 @@ function createWindow(): void {
 
   mainWindow.webContents.once('did-finish-load', () => {
     if (!mainWindow) return
-    if (process.env.UREGANT_SMOKE) {
+    if (process.env.URTERMINAL_SMOKE) {
       void import('./smoke').then((m) => m.runSmoke(mainWindow!))
-    } else if (process.env.UREGANT_SMOKE_AI) {
-      void import('./smoke').then((m) => m.runAiSmoke(mainWindow!))
-    } else if (process.env.UREGANT_SMOKE_SETTINGS) {
+    } else if (process.env.URTERMINAL_SMOKE_SETTINGS) {
       void import('./smoke').then((m) => m.runSettingsSmoke(mainWindow!))
-    } else if (process.env.UREGANT_SMOKE_TG) {
-      void import('./smoke').then((m) => m.runTelegramSmoke(mainWindow!))
-    } else if (process.env.UREGANT_PROFILE) {
-      void import('./smoke').then((m) =>
-        m.runProfile(mainWindow!, parseInt(process.env.UREGANT_PROFILE!, 10) || 9)
-      )
     }
   })
 
@@ -87,7 +79,7 @@ function createWindow(): void {
 // Use a stable app name so the userData dir (settings + persisted workspace)
 // is consistent across dev (`npm run dev`) and the packaged build, and never
 // shares the generic "Electron" data dir with other unpackaged Electron apps.
-app.setName('uregant-terminal')
+app.setName('URterminal')
 
 // Single-instance lock — only in the packaged app. Launching the .exe again
 // focuses the existing window instead of opening a duplicate. Skipped in dev
@@ -106,7 +98,7 @@ if (!hasInstanceLock) {
 
 app.whenReady().then(() => {
   if (!hasInstanceLock) return
-  app.setAppUserModelId('com.uregant.terminal')
+  app.setAppUserModelId('com.urterminal.app')
   ipc = registerIpc(() => mainWindow)
   createWindow()
   initAutoUpdate(() => mainWindow)
@@ -118,7 +110,6 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   ipc?.pty.killAll()
-  ipc?.streamer.cancelAll()
   void ipc?.telegram.stop()
 })
 

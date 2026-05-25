@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import type { ProviderId } from '@shared/types'
-import { PROVIDER_LABELS, DEFAULT_MODELS } from '@shared/providers'
+import { PROVIDER_LABELS, DEFAULT_MODELS, AGENTS, AGENT_LABELS, latestModel } from '@shared/providers'
 import { SUPPORTED_LANGUAGES } from '@renderer/i18n/i18n'
 import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
+import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
+import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 
 const ACCENT_PRESETS = [
   { label: 'Blue', value: '#4c8dff' },
@@ -16,8 +18,6 @@ const ACCENT_PRESETS = [
   { label: 'Amber', value: '#f59e0b' },
   { label: 'Rose', value: '#f43f5e' },
 ]
-
-type TestState = Record<string, { status: 'idle' | 'testing' | 'ok' | 'fail'; error?: string }>
 
 type KeyProvider = 'anthropic' | 'openai' | 'gemini'
 const KEY_PROVIDERS: KeyProvider[] = ['anthropic', 'openai', 'gemini']
@@ -33,8 +33,15 @@ export default function SettingsModal(): JSX.Element | null {
   const [ollamaUrl, setOllamaUrl] = useState('')
   const [ollamaUrlError, setOllamaUrlError] = useState('')
   const [tgToken, setTgToken] = useState('')
-  const [tests, setTests] = useState<TestState>({})
   const [defaultModels, setDefaultModels] = useState<string[]>([])
+  const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
+  const [availableAgents, setAvailableAgents] = useState<Set<string>>(getAvailableAgents())
+
+  // WSL distros + agent availability are detected asynchronously.
+  useEffect(() => {
+    void refreshWslDistros().then(() => setShells(getShellSpecs()))
+    void refreshAgentAvailability().then((s) => setAvailableAgents(new Set(s)))
+  }, [])
 
   useEffect(() => {
     if (settings) setOllamaUrl(settings.providers.ollama.baseUrl)
@@ -42,17 +49,26 @@ export default function SettingsModal(): JSX.Element | null {
 
   useEffect(() => {
     if (!settings) return
-    setDefaultModels(DEFAULT_MODELS[settings.defaultProvider])
-    let cancelled = false
-    void window.api.listModels(settings.defaultProvider).then((list) => {
-      if (!cancelled && list.length) setDefaultModels(list)
-    })
-    return () => {
-      cancelled = true
+    const models = DEFAULT_MODELS[settings.defaultProvider]
+    setDefaultModels(models)
+    // Keep the default model up to date: if none chosen or it's no longer a known
+    // model for this provider, snap to the latest (top of the list).
+    if (!settings.defaultModel || !models.includes(settings.defaultModel)) {
+      void patch({ defaultModel: latestModel(settings.defaultProvider) })
     }
   }, [settings?.defaultProvider])
 
   if (!show || !settings) return null
+
+  // Map the stored default shell (binary + args) back to a spec id for the <select>.
+  const currentShellId = ((): string => {
+    if (!settings.defaultShell) return 'default'
+    const argsKey = (settings.defaultShellArgs ?? []).join(' ')
+    const match = shells.find(
+      (s) => s.file === settings.defaultShell && (s.args ?? []).join(' ') === argsKey
+    )
+    return match?.id ?? 'default'
+  })()
 
   const saveKey = (provider: ProviderId): void => {
     const key = keyInputs[provider]
@@ -62,15 +78,6 @@ export default function SettingsModal(): JSX.Element | null {
   }
   const clearKey = (provider: ProviderId): void =>
     void patch({ providerKey: { provider, key: null } })
-
-  const testKey = async (provider: ProviderId): Promise<void> => {
-    setTests((s) => ({ ...s, [provider]: { status: 'testing' } }))
-    const res = await window.api.testProviderKey(provider)
-    setTests((s) => ({
-      ...s,
-      [provider]: res.ok ? { status: 'ok' } : { status: 'fail', error: res.error }
-    }))
-  }
 
   return (
     <div className="modal-overlay" onMouseDown={() => setShow(false)}>
@@ -88,7 +95,6 @@ export default function SettingsModal(): JSX.Element | null {
             <h3>{t('settings.providers')}</h3>
             {KEY_PROVIDERS.map((p) => {
               const meta = settings.providers[p]
-              const test = tests[p]
               return (
                 <div className="settings-row" key={p}>
                   <label className="settings-label">{PROVIDER_LABELS[p]}</label>
@@ -106,21 +112,10 @@ export default function SettingsModal(): JSX.Element | null {
                       <button className="btn primary" onClick={() => saveKey(p)} disabled={!keyInputs[p]}>
                         {t('settings.save')}
                       </button>
-                      <button
-                        className="btn"
-                        onClick={() => testKey(p)}
-                        disabled={!meta.keySet || test?.status === 'testing'}
-                      >
-                        {test?.status === 'testing' ? t('settings.testing') : t('settings.test')}
-                      </button>
                       <button className="btn danger" onClick={() => clearKey(p)} disabled={!meta.keySet}>
                         {t('settings.clear')}
                       </button>
                     </div>
-                    {test?.status === 'ok' && <span className="hint ok">✓ {t('settings.testOk')}</span>}
-                    {test?.status === 'fail' && (
-                      <span className="hint fail">✗ {test.error || t('settings.testFail')}</span>
-                    )}
                   </div>
                 </div>
               )
@@ -238,12 +233,61 @@ export default function SettingsModal(): JSX.Element | null {
                   {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
                     <option value={settings.defaultModel}>{settings.defaultModel}</option>
                   )}
-                  {defaultModels.map((m) => (
+                  {defaultModels.map((m, i) => (
                     <option key={m} value={m}>
                       {m}
+                      {i === 0 ? ' — latest' : ''}
                     </option>
                   ))}
                 </select>
+                <span className="hint">Defaults to the latest model; updates as new ones ship.</span>
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <label className="settings-label">Default agent</label>
+              <div className="settings-control">
+                <select
+                  className="select"
+                  value={settings.defaultAgent}
+                  onChange={(e) => patch({ defaultAgent: e.target.value })}
+                >
+                  {AGENTS.map((a) => {
+                    const unavailable = availableAgents.size > 0 && !availableAgents.has(a)
+                    return (
+                      <option key={a} value={a} disabled={unavailable}>
+                        {AGENT_LABELS[a]}
+                      </option>
+                    )
+                  })}
+                </select>
+                <span className="hint">New AI panes launch this CLI by default.</span>
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <label className="settings-label">Default terminal</label>
+              <div className="settings-control">
+                <select
+                  className="select"
+                  value={currentShellId}
+                  onChange={(e) => {
+                    if (e.target.value === 'default') {
+                      void patch({ defaultShell: '', defaultShellArgs: [] })
+                      return
+                    }
+                    const spec = shells.find((s) => s.id === e.target.value)
+                    if (spec) void patch({ defaultShell: spec.file, defaultShellArgs: spec.args ?? [] })
+                  }}
+                >
+                  <option value="default">OS default</option>
+                  {shells.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="hint">New shell panes launch this by default.</span>
               </div>
             </div>
           </section>

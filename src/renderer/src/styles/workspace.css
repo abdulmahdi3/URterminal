@@ -20,8 +20,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 28px;
+  /* `safe center` keeps it centered when it fits but scrolls from the top when
+     the discovery sections overflow a short window */
+  justify-content: safe center;
+  gap: 22px;
+  overflow: auto;
+  padding: 24px 16px;
 }
 
 .empty-hero {
@@ -37,11 +41,16 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--r-lg);
-  background: linear-gradient(145deg, #1e3d74 0%, #132a52 100%);
-  border: 1px solid rgba(76, 141, 255, 0.28);
-  color: #80b0ff;
-  box-shadow: 0 0 0 1px rgba(76, 141, 255, 0.12),
-              0 0 28px rgba(76, 141, 255, 0.14);
+  /* follow the user-selected accent color (matches the title-bar agent button) */
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 45%, var(--bg-elev)) 0%,
+    color-mix(in srgb, var(--accent) 22%, var(--bg)) 100%
+  );
+  border: 1px solid var(--accent-soft);
+  color: color-mix(in srgb, var(--accent) 60%, white);
+  box-shadow: 0 0 0 1px var(--accent-soft),
+              0 0 28px var(--accent-glow);
   margin-bottom: 6px;
 }
 .empty-title {
@@ -64,6 +73,8 @@
 
 /* card-style launch buttons in the empty state */
 .empty-action-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -75,15 +86,56 @@
   background: var(--bg-elev);
   cursor: pointer;
   text-align: center;
+  transition: transform 170ms ease, box-shadow 170ms ease;
 }
 .empty-action-card.agent {
-  border-color: rgba(76, 141, 255, 0.22);
-  background: linear-gradient(160deg, rgba(30, 61, 116, 0.38) 0%, rgba(19, 42, 82, 0.18) 100%);
+  border-color: transparent;
+  /* vivid gradient that follows the selected accent (accent → violet) */
+  background: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 50%, #7c3aed) 100%
+  );
+  /* softer, tighter glow */
+  box-shadow: 0 2px 10px var(--accent-glow);
+}
+/* light streak that sweeps across the card on hover */
+.empty-action-card.agent::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 65%
+  );
+  transform: translateX(-130%);
+  pointer-events: none;
 }
 .empty-action-card.agent:hover {
-  border-color: rgba(76, 141, 255, 0.52);
-  background: linear-gradient(160deg, rgba(30, 61, 116, 0.55) 0%, rgba(19, 42, 82, 0.3) 100%);
-  box-shadow: 0 0 0 1px rgba(76, 141, 255, 0.18), 0 0 20px rgba(76, 141, 255, 0.1);
+  transform: translateY(-3px);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 85%, white) 0%,
+    color-mix(in srgb, var(--accent) 55%, #7c3aed) 100%
+  );
+  box-shadow: 0 6px 16px var(--accent-glow);
+}
+.empty-action-card.agent:hover::before {
+  animation: eac-sheen 620ms ease;
+}
+/* keep icon + labels above the sweeping sheen */
+.empty-action-card.agent > * {
+  position: relative;
+  z-index: 1;
+}
+.empty-action-card.agent:active {
+  transform: translateY(-1px);
+}
+@keyframes eac-sheen {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
 }
 .empty-action-card.shell {
   border-color: rgba(63, 185, 80, 0.2);
@@ -98,8 +150,12 @@
 .eac-icon {
   margin-bottom: 3px;
 }
-.empty-action-card.agent .eac-icon { color: #80b0ff; }
+.empty-action-card.agent .eac-icon { color: #fff; }
 .empty-action-card.shell .eac-icon { color: #5dba7a; }
+/* white text on the agent gradient */
+.empty-action-card.agent .eac-label { color: #fff; }
+.empty-action-card.agent .eac-hint { color: rgba(255, 255, 255, 0.82); }
+.empty-action-card.agent .eac-key { color: rgba(255, 255, 255, 0.7); }
 
 .eac-label {
   font-size: var(--fs-body);
@@ -182,6 +238,58 @@
   font-size: 10px;
 }
 
+/* ---- discovery: installed agents / shells / tips in the empty state ---- */
+.empty-discover {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 360px;
+  max-width: 92vw;
+}
+.empty-disc-title {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 7px;
+}
+.empty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.empty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+}
+.empty-chip:hover {
+  border-color: var(--accent);
+  background: var(--bg-elev-2);
+}
+.empty-tips {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.empty-tips kbd {
+  font-size: 10px;
+}
+
 /* ---- pane bodies ---- */
 .pane-body {
   height: 100%;
@@ -205,14 +313,83 @@
 .empty-pane {
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-5);
+  overflow: auto;
   color: var(--text-dim);
 }
-.empty-pane-label {
-  font-size: var(--fs-sm);
+.empty-launcher {
+  width: min(420px, 92%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: var(--sp-6) 0;
+}
+.empty-launcher-title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+.empty-group-title {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-3);
+}
+.empty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: var(--sp-2);
+}
+.empty-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+}
+.empty-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-elev-2);
+}
+.empty-card-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.empty-resume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-4);
+}
+.empty-resume-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.empty-resume-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
 }
 
 .agent-pane {
@@ -304,6 +481,42 @@
   font-size: var(--fs-xs);
   color: var(--text-dim);
   line-height: 1.5;
+}
+.agent-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+.agent-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.agent-toggle:hover {
+  border-color: var(--accent-soft);
+}
+.agent-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.agent-toggle.unavailable {
+  color: var(--text-faint);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* don't look interactive when inactive */
+.agent-toggle.unavailable:hover {
+  border-color: var(--border);
+  background: var(--bg-sunken);
 }
 .launcher-row {
   display: flex;
@@ -426,8 +639,8 @@
   flex: 0 0 auto;
 }
 @keyframes cwd-glow {
-  0%, 100% { box-shadow: 0 0 2px 0px var(--accent); }
-  50%       { box-shadow: 0 0 7px 3px var(--accent); }
+  0%, 100% { box-shadow: 0 0 1px 0px var(--accent); }
+  50%       { box-shadow: 0 0 3px 1px var(--accent); }
 }
 .pane-cwd.active::before {
   animation: cwd-glow 1.4s ease-in-out infinite;
@@ -484,19 +697,19 @@
 }
 
 /* ---- react-mosaic: edge-to-edge, modern splits ---- */
-.mosaic-uregant {
+.mosaic-urterminal {
   position: absolute;
   inset: 0;
   background: var(--bg-sunken);
 }
-.mosaic-uregant .mosaic-root {
+.mosaic-urterminal .mosaic-root {
   inset: var(--gap);
 }
-.mosaic-uregant .mosaic-tile {
+.mosaic-urterminal .mosaic-tile {
   margin: calc(var(--gap) / 2);
 }
-.mosaic-uregant .mosaic-window,
-.mosaic-uregant .mosaic-preview {
+.mosaic-urterminal .mosaic-window,
+.mosaic-urterminal .mosaic-preview {
   border-radius: var(--r-md);
   overflow: hidden;
   border: 1px solid var(--border);
@@ -505,13 +718,13 @@
   min-width: 200px;
   min-height: 140px;
 }
-.mosaic-uregant .mosaic-window:has(.pane-header.active) {
+.mosaic-urterminal .mosaic-window:has(.pane-header.active) {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
 /* neutralize the default toolbar chrome — our .pane-header owns the look */
-.mosaic-uregant .mosaic-window-toolbar {
+.mosaic-urterminal .mosaic-window-toolbar {
   height: var(--pane-header-h) !important;
   width: 100% !important;
   background: transparent !important;
@@ -520,7 +733,7 @@
   padding: 0 !important;
   display: flex !important;
 }
-.mosaic-uregant .mosaic-window-body {
+.mosaic-urterminal .mosaic-window-body {
   background: var(--bg);
 }
 /* host wrapper that react-mosaic uses as the drag handle */
@@ -532,16 +745,16 @@
 .pane-header-host .pane-header {
   height: 100%;
 }
-.mosaic-uregant .mosaic-split {
+.mosaic-urterminal .mosaic-split {
   background: transparent;
 }
-.mosaic-uregant .mosaic-split .mosaic-split-line {
+.mosaic-urterminal .mosaic-split .mosaic-split-line {
   box-shadow: none;
 }
-.mosaic-uregant .mosaic-split:hover {
+.mosaic-urterminal .mosaic-split:hover {
   background: var(--accent-soft);
 }
-.mosaic-uregant .mosaic-split:hover .mosaic-split-line {
+.mosaic-urterminal .mosaic-split:hover .mosaic-split-line {
   box-shadow: 0 0 0 1px var(--accent);
 }
 

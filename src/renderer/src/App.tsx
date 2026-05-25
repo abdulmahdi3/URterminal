@@ -18,7 +18,8 @@ import { usePersistence } from './hooks/usePersistence'
 import { useChainForwarding } from './hooks/useChainForwarding'
 import { useTelegramForwarding } from './hooks/useTelegramForwarding'
 import { usePaneRegistry } from './hooks/usePaneRegistry'
-import { installChatStream } from './lib/chat'
+import { refreshWslDistros } from './lib/shells'
+import { refreshAgentAvailability } from './lib/agents'
 
 export default function App(): JSX.Element {
   const load = useSettings((s) => s.load)
@@ -40,8 +41,9 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    installChatStream()
     void load()
+    void refreshWslDistros() // populate the shell launcher with installed WSL distros
+    void refreshAgentAvailability() // flag which agent CLIs are actually installed
     const stopMetrics = startMetricsLoop()
     const offSettings = window.api.onSettingsChanged((s) => useSettings.getState().apply(s))
     // Inbound Telegram messages are handled in useTelegramForwarding, which also

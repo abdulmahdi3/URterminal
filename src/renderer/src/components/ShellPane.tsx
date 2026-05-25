@@ -14,12 +14,20 @@ function getHome(): string | undefined {
 export default function ShellPane({ pane }: { pane: Pane }): JSX.Element {
   const updatePane = useWorkspace((s) => s.updatePane)
   const cwd = pane.shell?.cwd ?? getHome()
+  const args = pane.shell?.args
   return (
     <TerminalPane
       paneId={pane.id}
       shell={pane.shell?.shell || undefined}
+      shellArgs={args}
       cwd={cwd}
-      onReady={(ptyId, shell) => updatePane(pane.id, { shell: { shell, ptyId, cwd } })}
+      onReady={(ptyId, resolved) =>
+        // Keep an explicit binary (e.g. "wsl.exe") as-is; only adopt the resolved
+        // name when the pane launched the blank OS-default shell.
+        updatePane(pane.id, {
+          shell: { shell: pane.shell?.shell || resolved, args, ptyId, cwd }
+        })
+      }
     />
   )
 }

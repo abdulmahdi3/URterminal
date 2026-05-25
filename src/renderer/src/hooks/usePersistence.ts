@@ -4,7 +4,7 @@ import type { Pane } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
 import { toast } from '@renderer/store/toasts'
 
-const KEY = 'uregant.workspace.v1'
+const KEY = 'urterminal.workspace.v1'
 
 interface Persisted {
   panes: Record<string, Pane>
@@ -16,9 +16,8 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   const out: Record<string, Pane> = {}
   for (const [id, p] of Object.entries(panes)) {
     const clone: Pane = { ...p } // keeps pipeTo, telegramChatId, etc.
-    if (clone.shell) clone.shell = { shell: clone.shell.shell }
+    if (clone.shell) clone.shell = { shell: clone.shell.shell, args: clone.shell.args }
     if (clone.agent) clone.agent = { command: clone.agent.command, cwd: clone.agent.cwd }
-    if (clone.ai) clone.ai = { ...clone.ai, activeStreamId: undefined }
     out[id] = clone
   }
   return out

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { takeCharCount } from '@renderer/lib/chat'
+import { takeCharCount } from '@renderer/lib/outputMetrics'
 
 /**
  * Live runtime metrics shown in the title bar and status bar.

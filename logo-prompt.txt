@@ -1,4 +1,4 @@
-Create a modern, minimalist app logo icon for a desktop application called "Uregant Terminal" — a multi-pane AI-powered command-line terminal. The logo must contain no letters, no words, and no text of any kind — only an abstract symbol/icon.
+Create a modern, minimalist app logo icon for a desktop application called "URterminal" — a multi-pane AI-powered command-line terminal. The logo must contain no letters, no words, and no text of any kind — only an abstract symbol/icon.
 
 Concept: blend the idea of a terminal command prompt (a stylized ">" chevron or command cursor / blinking caret) with a subtle hint of AI intelligence (a neural spark, glowing node, or geometric circuit accent). Optionally suggest the "multi-pane" aspect through clean split/layered geometry.
 

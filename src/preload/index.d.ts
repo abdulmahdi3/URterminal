@@ -1,8 +1,8 @@
-import type { UregantApi } from './index'
+import type { UrterminalApi } from './index'
 
 declare global {
   interface Window {
-    api: UregantApi
+    api: UrterminalApi
   }
 }
 

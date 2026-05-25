@@ -1,5 +1,5 @@
-appId: com.uregant.terminal
-productName: uregant-terminal
+appId: com.urterminal.app
+productName: URterminal
 directories:
   buildResources: build
   output: dist
@@ -12,6 +12,10 @@ files:
 asarUnpack:
   - resources/**
   - '**/node_modules/@homebridge/node-pty-prebuilt-multiarch/**'
+# Code signing is unsigned by default. electron-builder auto-detects the
+# CSC_LINK (path/base64/URL to a .pfx) and CSC_KEY_PASSWORD env vars at pack
+# time — no config needed. For EV / Azure Trusted Signing add an
+# `azureSignOptions:` block here. See README "Code signing".
 win:
   target:
     - target: nsis

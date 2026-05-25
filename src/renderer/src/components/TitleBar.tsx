@@ -1,10 +1,13 @@
-import { useState } from 'react'
-import { Terminal, Settings, Command as CommandIcon, Plus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
-import { useUi } from '@renderer/store/ui'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import type { WorkspaceEntry } from '@renderer/store/workspaces'
+import { AGENTS, AGENT_LABELS } from '@shared/providers'
+import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
+import { AgentLogo, ShellLogo } from './brandIcons'
 import SessionsMenu from './SessionsMenu'
 
 function AppLogo(): JSX.Element {
@@ -17,12 +20,43 @@ function AppLogo(): JSX.Element {
   )
 }
 
-function ClaudeIcon({ size = 13 }: { size?: number }): JSX.Element {
+/**
+ * Hover-to-open dropdown. Uses a short close delay (not pure CSS :hover) so the
+ * mouse can cross the gap to the menu without it vanishing, and items stay
+ * clickable. Closes on item click.
+ */
+function HoverDropdown({
+  trigger,
+  children,
+  align = 'left'
+}: {
+  trigger: JSX.Element
+  children: JSX.Element
+  align?: 'left' | 'center'
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const timer = useRef<number | undefined>(undefined)
+  const show = (): void => {
+    if (timer.current) window.clearTimeout(timer.current)
+    setOpen(true)
+  }
+  const hide = (): void => {
+    timer.current = window.setTimeout(() => setOpen(false), 160)
+  }
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2.5L3.8 7.5v9L12 21.5l8.2-5v-9L12 2.5z" opacity="0.92" />
-      <path d="M12 7L7.5 9.75v4.5L12 17l4.5-2.75v-4.5L12 7z" fill="currentColor" opacity="0.35" />
-    </svg>
+    <div className="hover-dd" onMouseEnter={show} onMouseLeave={hide}>
+      {trigger}
+      {open && (
+        <div
+          className={clsx('hover-dd-menu', align === 'center' && 'center')}
+          onMouseEnter={show}
+          onMouseLeave={hide}
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -105,15 +139,36 @@ export default function TitleBar(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
   const paneCount = useWorkspace((s) => Object.keys(s.panes).length)
   const atMax = paneCount >= 9
-  const setShowSettings = useUi((s) => s.setShowSettings)
-  const togglePalette = useUi((s) => s.toggleCommandPalette)
   const list = useWorkspaces((s) => s.list)
   const activeId = useWorkspaces((s) => s.activeId)
   const addWorkspace = useWorkspaces((s) => s.add)
   const switchTo = useWorkspaces((s) => s.switchTo)
+  const removeWorkspace = useWorkspaces((s) => s.remove)
+  const canCloseWorkspace = list.length > 1
 
-  const visibleList = list.slice(0, MAX_TABS)
-  const overflowList = list.slice(MAX_TABS)
+  // Installed agents + all shells (incl. WSL distros), detected asynchronously.
+  const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
+  const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
+  useEffect(() => {
+    void refreshAgentAvailability().then((s) => setAvailable(new Set(s)))
+    void refreshWslDistros().then(() => setShells(getShellSpecs()))
+  }, [])
+  // Show only installed agents in the menu; fall back to all before detection runs.
+  const agentList = available.size ? AGENTS.filter((a) => available.has(a)) : [...AGENTS]
+
+  let visibleList = list.slice(0, MAX_TABS)
+  let overflowList = list.slice(MAX_TABS)
+  const activeIdx = list.findIndex((w) => w.id === activeId)
+  // Keep the active workspace visible: if it would be hidden in the overflow,
+  // pull it into the last visible slot and push the displaced tab to the end of
+  // the dropdown (so the active one is always seen directly, not in the menu).
+  if (activeIdx >= MAX_TABS) {
+    const activeWs = list[activeIdx]
+    const displaced = list[MAX_TABS - 1]
+    visibleList = [...list.slice(0, MAX_TABS - 1), activeWs]
+    const visibleIds = new Set(visibleList.map((w) => w.id))
+    overflowList = [...list.filter((w) => !visibleIds.has(w.id) && w.id !== displaced.id), displaced]
+  }
   const activeInOverflow = overflowList.some((w) => w.id === activeId)
 
   return (
@@ -125,35 +180,42 @@ export default function TitleBar(): JSX.Element {
 
         <div className="titlebar-sep" />
 
-        {/* Controls */}
-        <button className="icon-btn" title="Settings (Ctrl+,)" onClick={() => setShowSettings(true)}>
-          <Settings size={14} />
-        </button>
-        <button className="icon-btn" title="Command palette (Ctrl+K)" onClick={togglePalette}>
-          <CommandIcon size={14} />
-        </button>
-        <SessionsMenu />
+        {/* Installed agents — one icon each, opens a new pane of that agent */}
+        {agentList.map((a) => (
+          <button
+            key={a}
+            className="icon-btn agent-icon-btn"
+            title={atMax ? 'Max 9 panes reached' : `New ${AGENT_LABELS[a]} pane`}
+            disabled={atMax}
+            onClick={() => addPane('ai', undefined, { agentCommand: a, label: AGENT_LABELS[a] })}
+          >
+            <AgentLogo command={a} size={15} />
+          </button>
+        ))}
 
         <div className="titlebar-sep" />
 
-        {/* New pane actions */}
-        <button
-          className="action-btn agent-btn"
-          title={atMax ? 'Max 9 panes reached' : 'New agent pane'}
-          disabled={atMax}
-          onClick={() => addPane('ai')}
-        >
-          <ClaudeIcon size={13} />
-          <span className="agent-label">Claude</span>
-        </button>
-        <button
-          className="action-btn shell-btn"
-          title={atMax ? 'Max 9 panes reached' : 'New shell pane'}
-          disabled={atMax}
-          onClick={() => addPane('shell')}
-        >
-          <Terminal size={13} />
-        </button>
+        {/* Shells + WSL distros — one icon each, opens a new shell pane.
+            (Admin PowerShell is offered in the empty-pane launcher, not here.) */}
+        {shells
+          .filter((spec) => spec.id !== 'powershell-admin')
+          .map((spec) => (
+          <button
+            key={spec.id}
+            className="icon-btn agent-icon-btn"
+            title={atMax ? 'Max 9 panes reached' : `New ${spec.label}`}
+            disabled={atMax}
+            onClick={() =>
+              addPane('shell', undefined, {
+                shell: spec.file,
+                shellArgs: spec.args,
+                label: spec.label
+              })
+            }
+          >
+            <ShellLogo shell={spec.file} args={spec.args} size={15} />
+          </button>
+        ))}
       </div>
 
       <div className="titlebar-drag" />
@@ -163,30 +225,56 @@ export default function TitleBar(): JSX.Element {
           <WorkspaceTab key={w.id} ws={w} active={w.id === activeId} />
         ))}
         {overflowList.length > 0 && (
-          <div className="ws-overflow-wrap">
-            <button
-              className={clsx('ws-more-btn', activeInOverflow && 'has-active')}
-              title={`${overflowList.length} more workspace${overflowList.length !== 1 ? 's' : ''} — hover to see`}
-            >
-              ···
-            </button>
-            <div className="ws-overflow-menu">
+          <HoverDropdown
+            align="center"
+            trigger={
+              <button
+                className={clsx('ws-more-btn', activeInOverflow && 'has-active')}
+                title={`${overflowList.length} more workspace${overflowList.length !== 1 ? 's' : ''}`}
+              >
+                ···
+              </button>
+            }
+          >
+            <>
               {overflowList.map((w) => (
                 <div
                   key={w.id}
-                  className={clsx('ws-overflow-item', w.id === activeId && 'active')}
+                  className={clsx('hover-dd-item', w.id === activeId && 'active')}
                   onClick={() => switchTo(w.id)}
+                  onAuxClick={(e) => {
+                    if (e.button === 1) {
+                      e.preventDefault()
+                      removeWorkspace(w.id)
+                    }
+                  }}
                 >
-                  {w.name}
+                  <span className="hover-dd-item-name">{w.name}</span>
+                  {canCloseWorkspace && (
+                    <button
+                      className="hover-dd-item-close"
+                      title="Close workspace"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeWorkspace(w.id)
+                      }}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
                 </div>
               ))}
-            </div>
-          </div>
+            </>
+          </HoverDropdown>
         )}
         <button className="ws-add-btn" title="New workspace" onClick={addWorkspace}>
           <Plus size={11} />
         </button>
+        {/* Sessions = saved workspace snapshots → grouped with the workspace tabs */}
+        <SessionsMenu />
       </div>
+
+      <div className="titlebar-drag" />
     </header>
   )
 }

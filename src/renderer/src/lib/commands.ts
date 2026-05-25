@@ -1,7 +1,8 @@
 import type { Pane } from '@shared/types'
-import { AGENTS } from '@shared/providers'
+import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
+import { getShellSpecs } from '@renderer/lib/shells'
 
 export interface Command {
   id: string
@@ -122,6 +123,16 @@ export function getCommands(): Command[] {
         if (id) ui().setLinkingPaneId(id)
       }
     },
+    {
+      id: 'pane.screenshot',
+      title: 'Screenshot active pane → Telegram',
+      group: 'Panes',
+      shortcut: 'Ctrl+Shift+S',
+      run: () => {
+        const id = ws().activePaneId
+        if (id) void window.api.screenshotPane(id)
+      }
+    },
 
     // ---- agent ----
     {
@@ -157,13 +168,31 @@ export function getCommands(): Command[] {
     }
   ]
 
-  // run / switch agent CLI
+  // a "new pane" + "switch active pane" command for each agent CLI
   for (const a of AGENTS) {
+    const label = AGENT_LABELS[a]
+    cmds.push({
+      id: `agent.new.${a}`,
+      title: `New ${label} agent pane`,
+      group: 'Agent',
+      run: () => ws().addPane('ai', undefined, { agentCommand: a, label })
+    })
     cmds.push({
       id: `agent.run.${a}`,
-      title: `Run agent: ${a}`,
+      title: `Switch active pane → ${label}`,
       group: 'Agent',
       run: () => runAgent(a)
+    })
+  }
+
+  // a "new pane" command for each available shell (PowerShell, cmd, WSL distros…)
+  for (const sh of getShellSpecs()) {
+    cmds.push({
+      id: `shell.new.${sh.id}`,
+      title: `New ${sh.label} terminal`,
+      group: 'Shells',
+      run: () =>
+        ws().addPane('shell', undefined, { shell: sh.file, shellArgs: sh.args, label: sh.label })
     })
   }
 
