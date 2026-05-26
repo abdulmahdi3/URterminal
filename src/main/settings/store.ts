@@ -4,8 +4,10 @@ import type {
   ProviderId,
   SettingsPublic,
   SettingsPatch,
-  ThemeName
+  ThemeName,
+  AppPrefs
 } from '@shared/types'
+import { DEFAULT_PREFS } from '@shared/types'
 import { DEFAULT_MODELS, DEFAULT_OLLAMA_URL, DEFAULT_AGENT } from '@shared/providers'
 
 interface RawSettings {
@@ -24,6 +26,7 @@ interface RawSettings {
   theme: ThemeName
   language: string
   accentColor: string
+  prefs: AppPrefs
 }
 
 const DEFAULTS: RawSettings = {
@@ -41,7 +44,8 @@ const DEFAULTS: RawSettings = {
   defaultShellArgs: [],
   theme: 'dark',
   language: 'en',
-  accentColor: '#4c8dff'
+  accentColor: '#4c8dff',
+  prefs: DEFAULT_PREFS
 }
 
 function encrypt(plain: string): string {
@@ -88,7 +92,8 @@ export class SettingsStore {
         gemini: { ...s.providers?.gemini },
         ollama: { baseUrl: s.providers?.ollama?.baseUrl || DEFAULT_OLLAMA_URL }
       },
-      telegram: { ...s.telegram }
+      telegram: { ...s.telegram },
+      prefs: { ...DEFAULT_PREFS, ...s.prefs }
     }
   }
 
@@ -119,8 +124,13 @@ export class SettingsStore {
       defaultShellArgs: s.defaultShellArgs || [],
       theme: s.theme,
       language: s.language,
-      accentColor: s.accentColor || '#4c8dff'
+      accentColor: s.accentColor || '#4c8dff',
+      prefs: { ...DEFAULT_PREFS, ...s.prefs }
     }
+  }
+
+  getPrefs(): AppPrefs {
+    return { ...DEFAULT_PREFS, ...this.raw().prefs }
   }
 
   getApiKey(provider: ProviderId): string | undefined {
@@ -172,6 +182,7 @@ export class SettingsStore {
     if (patch.theme) s.theme = patch.theme
     if (patch.language) s.language = patch.language
     if (patch.accentColor) s.accentColor = patch.accentColor
+    if (patch.prefs) s.prefs = { ...DEFAULT_PREFS, ...s.prefs, ...patch.prefs }
 
     this.store.set(s)
   }

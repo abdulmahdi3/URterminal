@@ -15,6 +15,9 @@ export function usePaneActivity(): void {
   useEffect(() => {
     const timers = new Map<string, number>()
     const working = new Set<string>()
+    // The first working->idle transition per pane is its boot/banner finishing,
+    // not a real answer — skip emitting it so "done" notifications don't fire on launch.
+    const completedOnce = new Set<string>()
     const isAi = (id: string): boolean => useWorkspace.getState().panes[id]?.type === 'ai'
 
     const offData = window.api.onPtyData((e) => {
@@ -29,7 +32,8 @@ export function usePaneActivity(): void {
           timers.delete(e.paneId)
           if (working.delete(e.paneId)) {
             usePaneStatus.getState().set(e.paneId, 'idle')
-            emitPaneTurnComplete(e.paneId)
+            if (completedOnce.has(e.paneId)) emitPaneTurnComplete(e.paneId)
+            else completedOnce.add(e.paneId)
           }
         }, IDLE_MS)
       )

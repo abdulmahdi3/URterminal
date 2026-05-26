@@ -40,6 +40,22 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+.settings-toggle input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
 .settings-section:last-child {
   border-bottom: none;
 }

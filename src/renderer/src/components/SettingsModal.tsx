@@ -292,6 +292,27 @@ export default function SettingsModal(): JSX.Element | null {
             </div>
           </section>
 
+          {/* Notifications */}
+          <section className="settings-section">
+            <h3>Notifications</h3>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={!!settings.prefs.notifyOnDone}
+                onChange={(e) => patch({ prefs: { notifyOnDone: e.target.checked } })}
+              />
+              <span>Desktop notification when an agent finishes</span>
+            </label>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={!!settings.prefs.notifySound}
+                onChange={(e) => patch({ prefs: { notifySound: e.target.checked } })}
+              />
+              <span>Play a sound when an agent finishes</span>
+            </label>
+          </section>
+
           {/* Appearance */}
           <section className="settings-section">
             <h3>{t('settings.appearance')}</h3>

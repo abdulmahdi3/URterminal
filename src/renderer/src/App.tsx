@@ -21,6 +21,7 @@ import { useTelegramForwarding } from './hooks/useTelegramForwarding'
 import { usePaneRegistry } from './hooks/usePaneRegistry'
 import { useBroadcast } from './hooks/useBroadcast'
 import { usePaneActivity } from './hooks/usePaneActivity'
+import { useDoneNotifications } from './hooks/useDoneNotifications'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
 
@@ -35,6 +36,7 @@ export default function App(): JSX.Element {
   usePaneRegistry()
   useBroadcast()
   usePaneActivity()
+  useDoneNotifications()
 
   useEffect(() => {
     // Expose zoom control so the main process can zoom a pane for screenshots

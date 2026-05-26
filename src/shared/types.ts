@@ -54,6 +54,61 @@ export interface TelegramSettingsPublic {
 
 export type ThemeName = 'dark' | 'light'
 
+/** A reusable saved prompt or shell command (may contain {{variables}}). */
+export interface SnippetItem {
+  id: string
+  name: string
+  body: string
+  kind: 'prompt' | 'shell'
+}
+
+/** A saved pane configuration that can be spawned in one click. */
+export interface PaneTemplate {
+  id: string
+  name: string
+  type: 'ai' | 'shell'
+  agentCommand?: string
+  shell?: string
+  shellArgs?: string[]
+  cwd?: string
+  /** command auto-typed once the shell is ready (shell templates) */
+  startupCommand?: string
+}
+
+/** Free-form user preferences persisted as one JSON blob via electron-store. */
+export interface AppPrefs {
+  /** desktop notification when an agent finishes a turn */
+  notifyOnDone: boolean
+  /** play a short sound when an agent finishes a turn */
+  notifySound: boolean
+  /** also send a Telegram "finished" message on turn completion */
+  telegramNotifyOnDone: boolean
+  /** Telegram chat IDs allowed to control the app (empty = allow any) */
+  telegramChatWhitelist: string[]
+  /** terminal font family ('' = built-in default) */
+  fontFamily: string
+  /** terminal font size in px */
+  fontSize: number
+  /** reopen the last workspace (panes + layout) on launch */
+  autoRestore: boolean
+  /** saved reusable prompts / commands */
+  snippets: SnippetItem[]
+  /** saved pane configurations */
+  templates: PaneTemplate[]
+}
+
+export const DEFAULT_PREFS: AppPrefs = {
+  notifyOnDone: false,
+  notifySound: false,
+  telegramNotifyOnDone: false,
+  telegramChatWhitelist: [],
+  fontFamily: '',
+  fontSize: 13,
+  autoRestore: false,
+  snippets: [],
+  templates: []
+}
+
 export interface SettingsPublic {
   providers: ProviderSettingsPublic
   telegram: TelegramSettingsPublic
@@ -68,6 +123,7 @@ export interface SettingsPublic {
   theme: ThemeName
   language: string
   accentColor: string
+  prefs: AppPrefs
 }
 
 // Patch shapes the renderer may send to mutate settings.
@@ -84,6 +140,8 @@ export interface SettingsPatch {
   theme?: ThemeName
   language?: string
   accentColor?: string
+  /** shallow-merged into the stored prefs blob */
+  prefs?: Partial<AppPrefs>
 }
 
 // ---------------------------------------------------------------------------
