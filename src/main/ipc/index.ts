@@ -39,7 +39,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       // surface running state by pushing a fresh public settings snapshot
       emit(IPC.settingsChanged, settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername))
       emit(IPC.telegramStatusChanged, telegram.getStatus())
-    }
+    },
+    (createPane) => emit(IPC.telegramCreatePane, createPane)
   )
 
   // PTY data goes to the renderer only. Telegram forwarding for terminal panes

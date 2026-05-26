@@ -1,6 +1,7 @@
 import { Bot, Keyboard, InputFile } from 'grammy'
 import { BrowserWindow } from 'electron'
-import type { TelegramStatus, TelegramInbound, PaneInfo } from '@shared/types'
+import type { TelegramStatus, TelegramInbound, TelegramCreatePane, PaneInfo } from '@shared/types'
+import { AGENTS } from '@shared/providers'
 import type { SettingsStore } from '../settings/store'
 
 const FLUSH_MS = 1200
@@ -25,8 +26,19 @@ const B_PANES      = '📋 Panes'
 const B_SS_PANE    = '📷 Screenshot pane'
 const B_ZOOM       = '🔍 Zoom + shot'
 const B_CHAT       = '💬 Chat with pane'
+const B_RUN        = '▶️ New pane'
 const B_BACK       = '‹ Back'
 const B_EXIT_CHAT  = '🚪 Exit chat'
+
+// Friendly shell aliases accepted by /run, mapped to a shell binary.
+const SHELL_ALIASES: Record<string, string> = {
+  shell: 'powershell.exe',
+  powershell: 'powershell.exe',
+  pwsh: 'pwsh.exe',
+  cmd: 'cmd.exe',
+  bash: 'bash.exe',
+  wsl: 'wsl.exe'
+}
 
 // ---- user mode per chatId ----
 // 'main' | 'ss_pick' | 'zoom_pick' | 'chat_pick' | 'chat:<paneId>'
@@ -34,6 +46,7 @@ type UserMode = string
 
 type EmitInbound = (e: TelegramInbound) => void
 type EmitStatus = (s: TelegramStatus) => void
+type EmitCreatePane = (e: TelegramCreatePane) => void
 
 export class TelegramBridge {
   private bot: Bot | null = null
@@ -51,7 +64,8 @@ export class TelegramBridge {
     private settings: SettingsStore,
     private getWindow: () => BrowserWindow | null,
     private emitInbound: EmitInbound,
-    private emitStatus: EmitStatus
+    private emitStatus: EmitStatus,
+    private emitCreatePane: EmitCreatePane
   ) {}
 
   isRunning(): boolean { return this.status.running }
@@ -223,7 +237,7 @@ export class TelegramBridge {
     return new Keyboard()
       .text(B_SCREENSHOT).text(B_PANES).row()
       .text(B_SS_PANE).text(B_ZOOM).row()
-      .text(B_CHAT)
+      .text(B_CHAT).text(B_RUN)
       .resized().persistent()
   }
 
@@ -251,6 +265,25 @@ export class TelegramBridge {
       ctx.reply(t, kb ? { reply_markup: kb } : undefined)
 
     const mode: UserMode = this.userMode.get(chatId) ?? 'main'
+
+    // ---- /run <agent|shell> [folder] — works in any mode ----
+    if (text === '/run' || text.toLowerCase().startsWith('/run ')) {
+      await this.cmdRun(chatId, text.replace(/^\/run\s*/i, ''), reply)
+      this.userMode.set(chatId, 'main')
+      return
+    }
+
+    // ---- entering the command to open a pane ----
+    if (mode === 'run_pick') {
+      if (text === B_BACK) {
+        this.userMode.set(chatId, 'main')
+        await reply('Main menu:', this.mainKb())
+        return
+      }
+      await this.cmdRun(chatId, text, reply)
+      this.userMode.set(chatId, 'main')
+      return
+    }
 
     // ---- chatting with a pane ----
     if (mode.startsWith('chat:')) {
@@ -314,6 +347,16 @@ export class TelegramBridge {
         this.userMode.set(chatId, 'chat_pick')
         await reply('💬 Choose a pane to chat with:', this.panePickerKb())
         break
+      case B_RUN:
+        this.userMode.set(chatId, 'run_pick')
+        await reply(
+          '▶️ Send: <agent|shell> [folder]\n' +
+            `Agents: ${AGENTS.join(', ')}\n` +
+            'Shells: powershell, cmd, wsl, bash\n' +
+            'e.g. claude C:\\projects\\app',
+          new Keyboard().text(B_BACK).resized().persistent()
+        )
+        break
       default:
         await reply('URterminal — choose an action:', this.mainKb())
     }
@@ -333,6 +376,37 @@ export class TelegramBridge {
       return `${p.number}. ${icon} ${p.title}${detail}${linked}`
     })
     await ctx.reply(`Open panes (${this.paneRegistry.length}):\n${lines.join('\n')}`)
+  }
+
+  /** Parse a "<agent|shell> [folder]" string into a create-pane request. */
+  private parseRun(argStr: string): Omit<TelegramCreatePane, 'chatId'> | null {
+    const trimmed = argStr.trim()
+    if (!trimmed) return null
+    const sp = trimmed.indexOf(' ')
+    const head = (sp === -1 ? trimmed : trimmed.slice(0, sp)).toLowerCase()
+    const cwd = (sp === -1 ? '' : trimmed.slice(sp + 1).trim()) || undefined
+    if ((AGENTS as readonly string[]).includes(head)) return { type: 'ai', agentCommand: head, cwd }
+    if (SHELL_ALIASES[head]) return { type: 'shell', shell: SHELL_ALIASES[head], cwd }
+    return null
+  }
+
+  private async cmdRun(
+    chatId: string,
+    argStr: string,
+    reply: (t: string, kb?: Keyboard) => Promise<unknown>
+  ): Promise<void> {
+    const parsed = this.parseRun(argStr)
+    if (!parsed) {
+      await reply(
+        '❌ Usage: <agent|shell> [folder]\n' +
+          `Agents: ${AGENTS.join(', ')} · Shells: powershell, cmd, wsl, bash`,
+        this.mainKb()
+      )
+      return
+    }
+    this.emitCreatePane({ ...parsed, chatId })
+    const what = parsed.type === 'ai' ? parsed.agentCommand : parsed.shell
+    await reply(`▶️ Opening ${what}${parsed.cwd ? ` in ${parsed.cwd}` : ''}…`, this.mainKb())
   }
 
   private async cmdScreenshot(chatId: string): Promise<void> {

@@ -11,6 +11,7 @@ import type {
   ClipboardContent,
   TelegramStatus,
   TelegramInbound,
+  TelegramCreatePane,
   PerfSample,
   FileSaveRequest,
   FileSaveResult,
@@ -76,6 +77,8 @@ const api = {
     ipcRenderer.send(IPC.telegramNotifyDone, { paneId, label }),
   onTelegramInbound: (cb: (e: TelegramInbound) => void): (() => void) =>
     on<TelegramInbound>(IPC.telegramInbound, cb),
+  onTelegramCreatePane: (cb: (e: TelegramCreatePane) => void): (() => void) =>
+    on<TelegramCreatePane>(IPC.telegramCreatePane, cb),
   onTelegramStatusChanged: (cb: (s: TelegramStatus) => void): (() => void) =>
     on<TelegramStatus>(IPC.telegramStatusChanged, cb),
 

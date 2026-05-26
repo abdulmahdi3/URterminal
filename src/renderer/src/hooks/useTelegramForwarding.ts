@@ -115,6 +115,23 @@ export function useTelegramForwarding(): void {
       s.timer = window.setTimeout(() => flush(e.paneId), IDLE_MS)
     })
 
+    // ---- /run: open a pane remotely and auto-link it to the requesting chat ----
+    const offCreate = window.api.onTelegramCreatePane(({ type, agentCommand, shell, cwd, chatId }) => {
+      const ws = useWorkspace.getState()
+      if (type === 'ai') {
+        const command = agentCommand || 'claude'
+        const id = ws.addPane('ai', undefined, { agentCommand: command })
+        if (!id) return
+        ws.updatePane(id, { agent: { command, cwd }, title: command, telegramChatId: chatId })
+        window.api.linkPaneToTelegram(id, chatId)
+      } else {
+        const id = ws.addPane('shell', undefined, { shell })
+        if (!id) return
+        ws.updatePane(id, { shell: { shell: shell || '', cwd }, telegramChatId: chatId })
+        window.api.linkPaneToTelegram(id, chatId)
+      }
+    })
+
     // ---- notify-on-done: ping the linked chat whenever a turn finishes, even
     // when the user isn't actively chatting that pane. ----
     const offTurn = onPaneTurnComplete((paneId) => {
@@ -129,6 +146,7 @@ export function useTelegramForwarding(): void {
       offInbound()
       offData()
       offTurn()
+      offCreate()
       state.forEach((s) => window.clearTimeout(s.timer))
     }
   }, [])

@@ -234,6 +234,19 @@ export interface TelegramStatus {
   botUsername?: string
 }
 
+/** Request from Telegram (/run) to open a new pane remotely. */
+export interface TelegramCreatePane {
+  type: 'ai' | 'shell'
+  /** agent CLI for ai panes (e.g. "claude") */
+  agentCommand?: string
+  /** shell binary for shell panes (e.g. "powershell.exe") */
+  shell?: string
+  /** working directory to launch in */
+  cwd?: string
+  /** chat that requested it — the new pane is auto-linked back to it */
+  chatId: string
+}
+
 // ---------------------------------------------------------------------------
 // Perf
 // ---------------------------------------------------------------------------
@@ -308,6 +321,7 @@ export const IPC = {
   telegramFinishTurn: 'telegram:finish-turn', // delete placeholder + send result
   telegramNotifyDone: 'telegram:notify-done', // ping linked chat that a turn finished
   telegramInbound: 'telegram:inbound', // main -> renderer (event)
+  telegramCreatePane: 'telegram:create-pane', // main -> renderer (event): /run
   telegramStatusChanged: 'telegram:status-changed', // main -> renderer (event)
 
   // perf
