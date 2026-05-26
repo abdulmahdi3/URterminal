@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { useWorkspace } from '@renderer/store/workspace'
+import { useSettings } from '@renderer/store/settings'
+import { onPaneTurnComplete } from '@renderer/store/paneStatus'
 import { getScreenText, onTerminalInput } from '@renderer/lib/terminalPool'
 import { answerBlocks } from './useChainForwarding'
 
@@ -113,10 +115,20 @@ export function useTelegramForwarding(): void {
       s.timer = window.setTimeout(() => flush(e.paneId), IDLE_MS)
     })
 
+    // ---- notify-on-done: ping the linked chat whenever a turn finishes, even
+    // when the user isn't actively chatting that pane. ----
+    const offTurn = onPaneTurnComplete((paneId) => {
+      if (!useSettings.getState().settings?.prefs.telegramNotifyOnDone) return
+      const pane = useWorkspace.getState().panes[paneId]
+      if (!pane?.telegramChatId) return
+      window.api.telegramNotifyDone(paneId, pane.title || pane.agent?.command || 'Agent')
+    })
+
     return () => {
       offInput()
       offInbound()
       offData()
+      offTurn()
       state.forEach((s) => window.clearTimeout(s.timer))
     }
   }, [])

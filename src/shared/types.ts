@@ -306,6 +306,7 @@ export const IPC = {
   telegramForward: 'telegram:forward',
   telegramStartTurn: 'telegram:start-turn', // show prompt + "working" placeholder
   telegramFinishTurn: 'telegram:finish-turn', // delete placeholder + send result
+  telegramNotifyDone: 'telegram:notify-done', // ping linked chat that a turn finished
   telegramInbound: 'telegram:inbound', // main -> renderer (event)
   telegramStatusChanged: 'telegram:status-changed', // main -> renderer (event)
 

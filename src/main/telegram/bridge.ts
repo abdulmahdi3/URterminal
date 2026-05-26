@@ -164,6 +164,15 @@ export class TelegramBridge {
     }
   }
 
+  /** Ping the linked chat that a pane's turn finished (independent of active chatting). */
+  async notifyDone(paneId: string, label: string): Promise<void> {
+    const chatId = this.links.get(paneId)
+    if (!chatId || !this.bot) return
+    try {
+      await this.bot.api.sendMessage(chatId, `✅ ${cleanForTelegram(label) || 'Agent'} finished`)
+    } catch { /* notification is best-effort */ }
+  }
+
   private async clearWorking(chatId: string): Promise<void> {
     const id = this.working.get(chatId)
     if (id == null || !this.bot) return

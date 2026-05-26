@@ -311,6 +311,14 @@ export default function SettingsModal(): JSX.Element | null {
               />
               <span>Play a sound when an agent finishes</span>
             </label>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={!!settings.prefs.telegramNotifyOnDone}
+                onChange={(e) => patch({ prefs: { telegramNotifyOnDone: e.target.checked } })}
+              />
+              <span>Send a Telegram message when a linked pane finishes</span>
+            </label>
           </section>
 
           {/* Appearance */}

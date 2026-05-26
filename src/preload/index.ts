@@ -72,6 +72,8 @@ const api = {
     ipcRenderer.send(IPC.telegramStartTurn, { paneId, prompt }),
   telegramFinishTurn: (paneId: string, result: string): void =>
     ipcRenderer.send(IPC.telegramFinishTurn, { paneId, result }),
+  telegramNotifyDone: (paneId: string, label: string): void =>
+    ipcRenderer.send(IPC.telegramNotifyDone, { paneId, label }),
   onTelegramInbound: (cb: (e: TelegramInbound) => void): (() => void) =>
     on<TelegramInbound>(IPC.telegramInbound, cb),
   onTelegramStatusChanged: (cb: (s: TelegramStatus) => void): (() => void) =>
