@@ -9,15 +9,10 @@ import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agen
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import SessionsMenu from './SessionsMenu'
+import logoPng from '@renderer/assets/logo.png'
 
 function AppLogo(): JSX.Element {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="brand-logo">
-      <rect x="2" y="3" width="20" height="18" rx="3.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M6 8.5l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13.5 15.5h4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  )
+  return <img src={logoPng} width={16} height={16} className="brand-logo" alt="URterminal" />
 }
 
 /**
