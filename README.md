@@ -17,10 +17,29 @@ a packaged build.
   command palette. Docker's internal distros are filtered out.
 - **Command palette** — `Ctrl+K` for everything; e.g. screenshot the active pane to its
   linked Telegram chat with `Ctrl+Shift+S`.
-- **Telegram bridge** — link a pane to a chat to forward its output (throttled), and inject
-  inbound Telegram messages as prompts (`/pane <id> <text>` or the linked pane).
+- **Move panes between workspaces** — drag a pane's grip onto another workspace tab (or the
+  overflow menu) to move it there, keeping its live process and scrollback.
+- **Agent orchestration**
+  - **Broadcast input** — type once and `Ctrl+Enter` to send the same line to several
+    selected panes at once.
+  - **Ask all agents** — fan one prompt out to every AI pane to compare answers side by side.
+  - **Status dots** — each AI pane shows Working / Awaiting / Idle, in the header and status bar.
+  - **Done notifications** — optional desktop + sound (and Telegram) alerts when an agent
+    finishes a turn.
+- **Telegram bridge** — link a pane to a chat to forward its output (throttled) and inject
+  inbound messages as prompts; a **chat whitelist** for phone + desktop control, and
+  `/run <agent|shell> [folder]` to open a pane remotely.
+- **Productivity**
+  - **Scrollback search** — `Ctrl+F` to search a pane's buffer with next/prev + match count.
+  - **Snippet library** — saved prompts/commands with `{{variables}}`, inserted from the palette.
+  - **Pane templates** — save an agent/shell config and spawn it in one click from the title bar.
+  - **Auto-restore** — optionally reopen the last workspace (panes + layout) on launch.
+  - **Activity log** — record prompts + answers and export the timeline to Markdown.
 - **Settings** — default agent + default terminal, Telegram token (encrypted with OS
-  `safeStorage`), theme (dark default), and language (English / العربية with RTL).
+  `safeStorage`), notifications, terminal font family + size, theme (dark default), and
+  language (English / العربية with RTL).
+- **Appearance** — per-pane accent tint to tell agents apart at a glance.
+- **Cost** — rough per-pane / per-session token cost estimate in the Task Manager.
 - **Perf** — rAF-batched output commits, capped scrollback, and an in-app perf overlay
   (RAM, CPU, tokens/sec).
 
