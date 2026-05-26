@@ -6,6 +6,7 @@ import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
 import { useTokens, formatTokens } from '@renderer/store/tokens'
+import { costFor, formatCost } from '@renderer/lib/pricing'
 import type { PtyTaskInfo, SystemProcess } from '@shared/types'
 
 type Tab = 'tasks' | 'system'
@@ -60,54 +61,68 @@ function TasksTab(): JSX.Element {
 
   if (tasks.length === 0) return <p className="tm-empty">No running tasks.</p>
 
+  const sessionCost = tasks.reduce(
+    (acc, t) => acc + costFor(byPane[t.paneId] ?? 0, panes[t.paneId]?.agent?.command),
+    0
+  )
+
   return (
-    <table className="tm-table">
-      <thead>
-        <tr>
-          <th>Task</th>
-          <th>Process</th>
-          <th>PID</th>
-          <th>Uptime</th>
-          <th>Output</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        {tasks.map((t) => {
-          const pane = panes[t.paneId]
-          const isAi = pane?.type === 'ai'
-          const live = !!activePanes[t.paneId]
-          const tokens = byPane[t.paneId] ?? 0
-          const shellName = t.shell.split(/[\\/]/).pop() ?? t.shell
-          return (
-            <tr key={t.ptyId}>
-              <td className="tm-name">
-                {isAi ? (
-                  <Bot size={14} className="pane-icon ai" />
-                ) : (
-                  <Terminal size={14} className="pane-icon shell" />
-                )}
-                <span>{pane?.title ?? t.paneId}</span>
-                {live && <span className="tm-live">live</span>}
-              </td>
-              <td className="tm-mono">{shellName}</td>
-              <td className="tm-mono">{t.pid}</td>
-              <td className="tm-mono">{formatUptime(Math.max(0, now - t.startedAt))}</td>
-              <td className="tm-mono">{tokens ? `~${formatTokens(tokens)}` : '—'}</td>
-              <td>
-                <button
-                  className="btn sm danger"
-                  title="End this task (kills the process)"
-                  onClick={() => endTask(t.paneId)}
-                >
-                  <Square size={11} /> End task
-                </button>
-              </td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <>
+      <table className="tm-table">
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Process</th>
+            <th>PID</th>
+            <th>Uptime</th>
+            <th>Output</th>
+            <th>Est. cost</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((t) => {
+            const pane = panes[t.paneId]
+            const isAi = pane?.type === 'ai'
+            const live = !!activePanes[t.paneId]
+            const tokens = byPane[t.paneId] ?? 0
+            const cost = costFor(tokens, pane?.agent?.command)
+            const shellName = t.shell.split(/[\\/]/).pop() ?? t.shell
+            return (
+              <tr key={t.ptyId}>
+                <td className="tm-name">
+                  {isAi ? (
+                    <Bot size={14} className="pane-icon ai" />
+                  ) : (
+                    <Terminal size={14} className="pane-icon shell" />
+                  )}
+                  <span>{pane?.title ?? t.paneId}</span>
+                  {live && <span className="tm-live">live</span>}
+                </td>
+                <td className="tm-mono">{shellName}</td>
+                <td className="tm-mono">{t.pid}</td>
+                <td className="tm-mono">{formatUptime(Math.max(0, now - t.startedAt))}</td>
+                <td className="tm-mono">{tokens ? `~${formatTokens(tokens)}` : '—'}</td>
+                <td className="tm-mono">{isAi && cost > 0 ? formatCost(cost) : '—'}</td>
+                <td>
+                  <button
+                    className="btn sm danger"
+                    title="End this task (kills the process)"
+                    onClick={() => endTask(t.paneId)}
+                  >
+                    <Square size={11} /> End task
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <p className="tm-cost-note">
+        Estimated session cost: <b>{formatCost(sessionCost)}</b> — rough, based on output tokens
+        only.
+      </p>
+    </>
   )
 }
 

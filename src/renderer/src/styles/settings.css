@@ -232,6 +232,14 @@
   text-align: center;
   padding: 24px 0;
 }
+.tm-cost-note {
+  margin: 10px 2px 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+.tm-cost-note b {
+  color: var(--text);
+}
 .tm-table {
   width: 100%;
   border-collapse: collapse;
