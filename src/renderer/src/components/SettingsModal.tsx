@@ -201,6 +201,33 @@ export default function SettingsModal(): JSX.Element | null {
                 />
               </div>
             </div>
+            <div className="settings-row">
+              <label className="settings-label">Allowed chats</label>
+              <div className="settings-control">
+                <textarea
+                  className="input"
+                  rows={3}
+                  defaultValue={(settings.prefs.telegramChatWhitelist ?? []).join('\n')}
+                  placeholder="One chat ID per line"
+                  style={{ resize: 'vertical', fontFamily: 'var(--mono)' }}
+                  onBlur={(e) => {
+                    const ids = Array.from(
+                      new Set(
+                        e.target.value
+                          .split(/[\s,]+/)
+                          .map((v) => v.trim())
+                          .filter((v) => /^-?\d+$/.test(v))
+                      )
+                    )
+                    patch({ prefs: { telegramChatWhitelist: ids } })
+                  }}
+                />
+                <span className="hint">
+                  Only these chat IDs may control the app (one per line). Empty = allow any chat
+                  that messages the bot.
+                </span>
+              </div>
+            </div>
           </section>
 
           {/* Defaults */}

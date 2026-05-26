@@ -71,6 +71,10 @@ export class TelegramBridge {
       bot.on('message:text', async (ctx) => {
         const chatId = ctx.chat.id.toString()
         const text = ctx.message.text.trim()
+        if (!this.isAuthorized(chatId)) {
+          try { await ctx.reply(`⛔ This chat (${chatId}) is not authorized to control URterminal.`) } catch { /* ignore */ }
+          return
+        }
         try {
           await this.handleText(chatId, text, ctx)
         } catch (err) {
@@ -106,6 +110,17 @@ export class TelegramBridge {
     this.outBuf.clear()
     this.working.clear()
     this.status = { running: false }
+  }
+
+  /**
+   * Whether a chat may control the app. An empty whitelist means open access
+   * (legacy behaviour); otherwise only listed chats — plus the default chat —
+   * are allowed, so the app can be driven from phone + desktop Telegram.
+   */
+  private isAuthorized(chatId: string): boolean {
+    const wl = this.settings.getPrefs().telegramChatWhitelist ?? []
+    if (!wl.length) return true
+    return wl.includes(chatId) || chatId === this.settings.getTelegramDefaultChat()
   }
 
   linkPane(paneId: string, chatId: string | null): void {
