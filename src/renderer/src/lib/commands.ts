@@ -4,9 +4,11 @@ import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useBroadcastStore } from '@renderer/store/broadcast'
 import { useSettings } from '@renderer/store/settings'
+import { useActivity, activityToMarkdown } from '@renderer/store/activity'
 import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
+import { toast } from '@renderer/store/toasts'
 
 export interface Command {
   id: string
@@ -206,6 +208,36 @@ export function getCommands(): Command[] {
       title: 'Reload window',
       group: 'App',
       run: () => location.reload()
+    },
+
+    // ---- session activity log ----
+    {
+      id: 'session.exportLog',
+      title: 'Export session activity log (Markdown)…',
+      group: 'App',
+      run: () => {
+        const entries = useActivity.getState().entries
+        if (!entries.length) {
+          toast('No activity recorded yet', 'info')
+          return
+        }
+        const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+        void window.api
+          .saveFile({ defaultName: `urterminal-activity-${stamp}.md`, contents: activityToMarkdown(entries) })
+          .then((r) => {
+            if (r.ok) toast('Activity log exported', 'ok')
+            else if (!r.canceled) toast(`Export failed: ${r.error ?? 'unknown error'}`, 'error')
+          })
+      }
+    },
+    {
+      id: 'session.clearLog',
+      title: 'Clear session activity log',
+      group: 'App',
+      run: () => {
+        useActivity.getState().clear()
+        toast('Activity log cleared', 'ok')
+      }
     }
   ]
 
