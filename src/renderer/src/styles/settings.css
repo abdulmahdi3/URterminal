@@ -56,6 +56,53 @@
   cursor: pointer;
   flex: 0 0 auto;
 }
+.snippet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snippet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-elev-2);
+  border-radius: var(--r-sm);
+}
+.snippet-kind {
+  flex: 0 0 auto;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.snippet-kind.shell {
+  background: rgba(63, 185, 80, 0.16);
+  color: #3fb950;
+}
+.snippet-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+}
+.snippet-preview {
+  margin: 4px 0 0;
+  padding: 8px;
+  background: var(--bg-sunken);
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow: auto;
+}
 .settings-section:last-child {
   border-bottom: none;
 }

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { SnippetItem } from '@shared/types'
 
 export const APP_THEMES = ['dark', 'amoled', 'ocean', 'forest', 'dusk'] as const
 export type AppTheme = (typeof APP_THEMES)[number]
@@ -17,6 +18,8 @@ interface UiState {
   draggingPaneId: string | null
   /** scrollback search bar visible (operates on the active pane) */
   searchOpen: boolean
+  /** snippet awaiting {{variable}} values before insertion (null = none) */
+  fillSnippet: SnippetItem | null
   /** app-wide color theme */
   appTheme: AppTheme
 
@@ -33,6 +36,7 @@ interface UiState {
   setZoomedPaneId: (id: string | null) => void
   setDraggingPane: (id: string | null) => void
   setSearchOpen: (v: boolean) => void
+  setFillSnippet: (s: SnippetItem | null) => void
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
@@ -62,6 +66,7 @@ export const useUi = create<UiState>((set, get) => ({
   zoomedPaneId: null,
   draggingPaneId: null,
   searchOpen: false,
+  fillSnippet: null,
   appTheme: 'dark',
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
@@ -89,6 +94,7 @@ export const useUi = create<UiState>((set, get) => ({
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPane: (id) => set({ draggingPaneId: id }),
   setSearchOpen: (v) => set({ searchOpen: v }),
+  setFillSnippet: (s) => set({ fillSnippet: s }),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),
   cycleAppTheme: () =>

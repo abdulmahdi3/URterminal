@@ -3,7 +3,9 @@ import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useBroadcastStore } from '@renderer/store/broadcast'
+import { useSettings } from '@renderer/store/settings'
 import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
+import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
 
 export interface Command {
@@ -223,6 +225,17 @@ export function getCommands(): Command[] {
       group: 'Shells',
       run: () =>
         ws().addPane('shell', undefined, { shell: sh.file, shellArgs: sh.args, label: sh.label })
+    })
+  }
+
+  // a "insert" command for each saved snippet
+  const snippets = useSettings.getState().settings?.prefs.snippets ?? []
+  for (const sn of snippets) {
+    cmds.push({
+      id: `snippet.insert.${sn.id}`,
+      title: `Insert ${sn.kind === 'shell' ? 'command' : 'prompt'}: ${sn.name}`,
+      group: 'Snippets',
+      run: () => insertSnippet(sn)
     })
   }
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import type { ProviderId } from '@shared/types'
 import { PROVIDER_LABELS, DEFAULT_MODELS, AGENTS, AGENT_LABELS, latestModel } from '@shared/providers'
+import { uid } from '@renderer/lib/snippets'
 import { SUPPORTED_LANGUAGES } from '@renderer/i18n/i18n'
 import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
@@ -36,6 +37,9 @@ export default function SettingsModal(): JSX.Element | null {
   const [defaultModels, setDefaultModels] = useState<string[]>([])
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
   const [availableAgents, setAvailableAgents] = useState<Set<string>>(getAvailableAgents())
+  const [snipName, setSnipName] = useState('')
+  const [snipKind, setSnipKind] = useState<'prompt' | 'shell'>('prompt')
+  const [snipBody, setSnipBody] = useState('')
 
   // WSL distros + agent availability are detected asynchronously.
   useEffect(() => {
@@ -78,6 +82,20 @@ export default function SettingsModal(): JSX.Element | null {
   }
   const clearKey = (provider: ProviderId): void =>
     void patch({ providerKey: { provider, key: null } })
+
+  const snippets = settings.prefs.snippets ?? []
+  const addSnippet = (): void => {
+    if (!snipName.trim() || !snipBody.trim()) return
+    void patch({
+      prefs: {
+        snippets: [...snippets, { id: uid(), name: snipName.trim(), body: snipBody, kind: snipKind }]
+      }
+    })
+    setSnipName('')
+    setSnipBody('')
+  }
+  const removeSnippet = (id: string): void =>
+    void patch({ prefs: { snippets: snippets.filter((s) => s.id !== id) } })
 
   return (
     <div className="modal-overlay" onMouseDown={() => setShow(false)}>
@@ -346,6 +364,68 @@ export default function SettingsModal(): JSX.Element | null {
               />
               <span>Send a Telegram message when a linked pane finishes</span>
             </label>
+          </section>
+
+          {/* Snippets */}
+          <section className="settings-section">
+            <h3>Snippets</h3>
+            <span className="hint" style={{ display: 'block', marginBottom: 8 }}>
+              Reusable prompts / commands; insert into the active pane from the command palette.
+              Use <code>{'{{name}}'}</code> for fill-in variables.
+            </span>
+            {snippets.length > 0 && (
+              <div className="snippet-list">
+                {snippets.map((s) => (
+                  <div className="snippet-row" key={s.id}>
+                    <span className={clsx('snippet-kind', s.kind)}>{s.kind}</span>
+                    <span className="snippet-name" title={s.body}>
+                      {s.name}
+                    </span>
+                    <button className="btn danger sm" onClick={() => removeSnippet(s.id)}>
+                      {t('settings.clear')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="settings-row" style={{ marginTop: 8 }}>
+              <div className="settings-control">
+                <div className="settings-actions" style={{ marginBottom: 6 }}>
+                  <input
+                    className="input"
+                    placeholder="Snippet name"
+                    value={snipName}
+                    onChange={(e) => setSnipName(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <select
+                    className="select"
+                    value={snipKind}
+                    onChange={(e) => setSnipKind(e.target.value as 'prompt' | 'shell')}
+                  >
+                    <option value="prompt">prompt</option>
+                    <option value="shell">shell</option>
+                  </select>
+                </div>
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="Body — e.g. Review {{file}} for bugs"
+                  value={snipBody}
+                  onChange={(e) => setSnipBody(e.target.value)}
+                  style={{ resize: 'vertical', fontFamily: 'var(--mono)' }}
+                />
+                <div className="settings-actions" style={{ marginTop: 6 }}>
+                  <button
+                    className="btn primary"
+                    onClick={addSnippet}
+                    disabled={!snipName.trim() || !snipBody.trim()}
+                  >
+                    Add snippet
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Appearance */}
