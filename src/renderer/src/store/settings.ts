@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { SettingsPublic, SettingsPatch } from '@shared/types'
 import i18n from '@renderer/i18n/i18n'
+import { setTerminalFont } from '@renderer/lib/terminalPool'
 import { useWorkspace } from './workspace'
 
 interface SettingsState {
@@ -51,6 +52,7 @@ function applySideEffects(s: SettingsPublic): void {
     shellArgs: s.defaultShellArgs
   })
   applyAccentColor(s.accentColor || '#4c8dff')
+  setTerminalFont(s.prefs.fontFamily || '', s.prefs.fontSize || 13)
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({

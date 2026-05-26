@@ -8,6 +8,10 @@ import { usePaneStatus } from '@renderer/store/paneStatus'
 import '@xterm/xterm/css/xterm.css'
 
 const SCROLLBACK = 5000
+const DEFAULT_FONT_STACK = "'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace"
+// Current terminal font, updated live from settings and applied to every pane.
+let currentFontFamily = DEFAULT_FONT_STACK
+let currentFontSize = 13
 // Hide the boot loader only once this many bytes have streamed — early terminal
 // setup sequences are tiny, so a threshold avoids hiding the loader before the
 // CLI has actually painted anything.
@@ -140,8 +144,8 @@ const pool = new Map<string, Entry>()
 
 function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts): Entry {
   const term = new Terminal({
-    fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace",
-    fontSize: 13,
+    fontFamily: currentFontFamily,
+    fontSize: currentFontSize,
     scrollback: SCROLLBACK,
     cursorBlink: true,
     allowProposedApi: true,
@@ -287,6 +291,23 @@ export function mountTerminal(paneId: string, container: HTMLElement, opts: Term
   }
   fitTerminal(paneId)
   entry.term.refresh(0, entry.term.rows - 1)
+}
+
+/**
+ * Set the terminal font family + size and apply it live to every open pane.
+ * An empty family falls back to the built-in monospace stack; a custom family
+ * is layered on top of that stack for graceful fallback.
+ */
+export function setTerminalFont(family: string, size: number): void {
+  const fam = family.trim()
+  currentFontFamily = fam ? `${fam}, ${DEFAULT_FONT_STACK}` : DEFAULT_FONT_STACK
+  currentFontSize = size > 0 ? size : 13
+  for (const [id, entry] of pool) {
+    entry.term.options.fontFamily = currentFontFamily
+    entry.term.options.fontSize = currentFontSize
+    fitTerminal(id)
+    entry.term.refresh(0, entry.term.rows - 1)
+  }
 }
 
 /** Re-fit a terminal to its container and push the new size to the PTY (if changed). */

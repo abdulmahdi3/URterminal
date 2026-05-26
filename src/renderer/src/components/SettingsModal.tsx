@@ -445,6 +445,35 @@ export default function SettingsModal(): JSX.Element | null {
           <section className="settings-section">
             <h3>{t('settings.appearance')}</h3>
             <div className="settings-row">
+              <label className="settings-label">Terminal font</label>
+              <div className="settings-control">
+                <input
+                  className="input"
+                  placeholder="Default (JetBrains Mono)"
+                  defaultValue={settings.prefs.fontFamily}
+                  onBlur={(e) => patch({ prefs: { fontFamily: e.target.value.trim() } })}
+                  style={{ fontFamily: 'var(--mono)' }}
+                />
+                <span className="hint">Font family for all terminals (empty = built-in mono).</span>
+              </div>
+            </div>
+            <div className="settings-row">
+              <label className="settings-label">Font size</label>
+              <div className="settings-control">
+                <select
+                  className="select"
+                  value={settings.prefs.fontSize || 13}
+                  onChange={(e) => patch({ prefs: { fontSize: Number(e.target.value) } })}
+                >
+                  {[10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => (
+                    <option key={n} value={n}>
+                      {n}px
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="settings-row">
               <label className="settings-label">{t('settings.language')}</label>
               <div className="settings-control">
                 <select
