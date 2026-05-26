@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, ArrowRight, Bot, Settings, Command as CommandIcon } from 'lucide-react'
+import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, ArrowRight, Bot, Settings, Command as CommandIcon, Radio } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
 import { useTokens } from '@renderer/store/tokens'
 import { useUi } from '@renderer/store/ui'
+import { useBroadcastStore } from '@renderer/store/broadcast'
 import { getLeaves } from '@renderer/lib/mosaicTree'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
@@ -65,6 +66,11 @@ export default function StatusBar(): JSX.Element {
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
   const setShowSettings = useUi((s) => s.setShowSettings)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
+
+  const broadcastOn = useBroadcastStore((s) => s.enabled)
+  const broadcastMembers = useBroadcastStore((s) => s.members)
+  const toggleBroadcast = useBroadcastStore((s) => s.toggle)
+  const toggleBroadcastMember = useBroadcastStore((s) => s.toggleMember)
 
   const [clock, setClock] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -134,6 +140,41 @@ export default function StatusBar(): JSX.Element {
         <span className={clsx('sb-dot', streaming && 'live', streaming && 'streaming')} />
         {agentsWorking} active
       </span>
+
+      {/* Broadcast input mode toggle */}
+      <button
+        className={clsx('sb-item sb-icon-btn', broadcastOn && 'accent')}
+        title="Broadcast input — type once, send to selected panes (Ctrl+Enter)"
+        onClick={toggleBroadcast}
+      >
+        <Radio size={12} />
+      </button>
+
+      {/* Broadcast member selector (mirrors the pipe row) */}
+      {broadcastOn && showPipeRow && (
+        <span className="sb-pipe-row">
+          <Radio size={11} className="sb-pipe-icon" />
+          <span className="sb-pipe-label">to</span>
+          {leaves.map((paneId, i) => {
+            if (paneId === activePaneId) return null
+            const num = i + 1
+            const isMember = broadcastMembers.includes(paneId)
+            return (
+              <button
+                key={paneId}
+                className={clsx('sb-pipe-badge', isMember && 'active')}
+                onClick={() => toggleBroadcastMember(paneId)}
+                title={isMember ? `Stop broadcasting to pane ${num}` : `Broadcast → pane ${num}`}
+              >
+                {num}
+              </button>
+            )
+          })}
+          {broadcastMembers.length > 0 && (
+            <span className="sb-pipe-count">{broadcastMembers.length} selected</span>
+          )}
+        </span>
+      )}
 
       {/* Pipe target selector */}
       {showPipeRow && (

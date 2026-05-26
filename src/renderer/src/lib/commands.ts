@@ -2,6 +2,8 @@ import type { Pane } from '@shared/types'
 import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
+import { useBroadcastStore } from '@renderer/store/broadcast'
+import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { getShellSpecs } from '@renderer/lib/shells'
 
 export interface Command {
@@ -132,6 +134,21 @@ export function getCommands(): Command[] {
         const id = ws().activePaneId
         if (id) void window.api.screenshotPane(id)
       }
+    },
+
+    // ---- broadcast ----
+    {
+      id: 'broadcast.toggle',
+      title: 'Toggle broadcast input mode',
+      group: 'Agent',
+      run: () => useBroadcastStore.getState().toggle()
+    },
+    {
+      id: 'broadcast.send',
+      title: 'Broadcast typed line to selected panes',
+      group: 'Agent',
+      shortcut: 'Ctrl+Enter',
+      run: () => broadcastActiveLine()
     },
 
     // ---- agent ----

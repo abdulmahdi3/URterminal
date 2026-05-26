@@ -630,6 +630,18 @@
   text-overflow: ellipsis;
   flex: 0 1 auto;
 }
+.pane-broadcast-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  flex: 0 0 auto;
+}
 .pane-cwd::before {
   content: '';
   width: 4px;

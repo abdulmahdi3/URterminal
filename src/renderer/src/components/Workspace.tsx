@@ -16,10 +16,11 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, GripVertical } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, GripVertical, Radio } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
+import { useBroadcastStore } from '@renderer/store/broadcast'
 import { useUi } from '@renderer/store/ui'
 import { useTokens, formatTokens } from '@renderer/store/tokens'
 import { useSessions } from '@renderer/store/sessions'
@@ -85,6 +86,10 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const shellCwd = useWorkspace((s) => s.panes[paneId]?.shell?.cwd)
   const isActive = useTokens((s) => !!s.activePanes[paneId])
   const tokenCount = useTokens((s) => s.byPane[paneId] ?? 0)
+  const broadcastOn = useBroadcastStore((s) => s.enabled)
+  const isBroadcastSource = useWorkspace((s) => s.activePaneId === paneId)
+  const isBroadcastMember = useBroadcastStore((s) => s.members.includes(paneId))
+  const inBroadcast = broadcastOn && (isBroadcastSource || isBroadcastMember)
   const updatePane = useWorkspace((s) => s.updatePane)
   const duplicatePane = useWorkspace((s) => s.duplicatePane)
   const removePane = useWorkspace((s) => s.removePane)
@@ -185,6 +190,15 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
             <span className="pane-tok">~{formatTokens(tokenCount)}</span>
           )}
         </>
+      )}
+      {inBroadcast && (
+        <span
+          className="pane-broadcast-tag"
+          title={isBroadcastSource ? 'Broadcast source' : 'Receives broadcast input'}
+        >
+          <Radio size={11} />
+          {isBroadcastSource ? 'src' : 'bc'}
+        </span>
       )}
       <PaneStatus paneId={paneId} />
       <div className="pane-header-spacer" />

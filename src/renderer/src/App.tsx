@@ -18,6 +18,7 @@ import { usePersistence } from './hooks/usePersistence'
 import { useChainForwarding } from './hooks/useChainForwarding'
 import { useTelegramForwarding } from './hooks/useTelegramForwarding'
 import { usePaneRegistry } from './hooks/usePaneRegistry'
+import { useBroadcast } from './hooks/useBroadcast'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
 
@@ -30,6 +31,7 @@ export default function App(): JSX.Element {
   useChainForwarding()
   useTelegramForwarding()
   usePaneRegistry()
+  useBroadcast()
 
   useEffect(() => {
     // Expose zoom control so the main process can zoom a pane for screenshots

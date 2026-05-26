@@ -71,6 +71,33 @@ export function onTerminalInput(cb: InputListener): () => void {
   return () => inputListeners.delete(cb)
 }
 
+// ---- per-pane current input line (used by broadcast mode to grab what was typed) ----
+// Reconstructed from raw keystrokes: printable chars append, backspace pops,
+// Enter clears. Escape sequences (arrows, bracketed paste) are ignored.
+const inputLines = new Map<string, string>()
+const INPUT_ESC = new RegExp('\\u001B\\[[0-9;]*[~A-Za-z]|\\u001B[O][A-Za-z]?', 'g')
+
+function noteInputLine(paneId: string, data: string): void {
+  let buf = inputLines.get(paneId) ?? ''
+  for (const ch of data.replace(INPUT_ESC, '')) {
+    const code = ch.charCodeAt(0)
+    if (code === 13 || code === 10) buf = ''
+    else if (code === 127 || code === 8) buf = buf.slice(0, -1)
+    else if (code >= 32) buf += ch
+  }
+  inputLines.set(paneId, buf)
+}
+
+/** The text currently typed (not yet submitted) on a pane's input line. */
+export function getInputLine(paneId: string): string {
+  return inputLines.get(paneId) ?? ''
+}
+
+/** Forget a pane's typed line (after it's been submitted/broadcast). */
+export function clearInputLine(paneId: string): void {
+  inputLines.set(paneId, '')
+}
+
 /** Current visible screen text of a pane's terminal (the "result in current state"). */
 export function getScreenText(paneId: string): string {
   const entry = pool.get(paneId)
@@ -137,6 +164,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   const onData = term.onData((d) => {
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
+    noteInputLine(paneId, d)
     inputListeners.forEach((cb) => cb(paneId, d))
   })
   // Copy-on-select: as soon as text is highlighted (mouse or keyboard), mirror it
@@ -294,6 +322,7 @@ export function disposeTerminal(paneId: string): void {
   const entry = pool.get(paneId)
   if (!entry) return
   pool.delete(paneId)
+  inputLines.delete(paneId)
   entry.dispose()
   useTokens.getState().clearPane(paneId)
 }
