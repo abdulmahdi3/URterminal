@@ -269,6 +269,26 @@ export function fitTerminal(paneId: string): void {
   }
 }
 
+/**
+ * Force a pane's terminal to re-fit and repaint. xterm can render blank after
+ * its element is re-parented into a freshly mounted container (e.g. moving a
+ * pane to another workspace), so we fit + refresh across a couple of frames
+ * once the new layout has settled.
+ */
+export function repaintTerminal(paneId: string): void {
+  const run = (): void => {
+    const entry = pool.get(paneId)
+    if (!entry) return
+    fitTerminal(paneId)
+    entry.term.refresh(0, entry.term.rows - 1)
+    entry.term.scrollToBottom()
+  }
+  requestAnimationFrame(() => {
+    run()
+    requestAnimationFrame(run)
+  })
+}
+
 /** Permanently tear down a pane's terminal + PTY (called when the pane is closed). */
 export function disposeTerminal(paneId: string): void {
   const entry = pool.get(paneId)

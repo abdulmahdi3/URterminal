@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import type { MosaicNode } from 'react-mosaic-component'
 import type { Pane } from '@shared/types'
-import { getLeaves, splitLeaf } from '@renderer/lib/mosaicTree'
+import { getLeaves } from '@renderer/lib/mosaicTree'
+import { buildAutoLayout } from '@renderer/lib/layoutPresets'
+import { repaintTerminal } from '@renderer/lib/terminalPool'
 import { useWorkspace } from './workspace'
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
@@ -87,18 +89,18 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
     // Detach from the active workspace WITHOUT disposing the terminal, so the
     // running CLI + scrollback survive the move (the pool is keyed by pane id).
     ws.detachPane(paneId)
-    // Append into the target workspace's saved snapshot, preserving its layout.
+    // Append into the target workspace's saved snapshot, rebuilding a balanced
+    // layout (same as adding a pane) so the moved pane gets a sane size.
     const nextList = list.map((w) => {
       if (w.id !== targetId) return w
-      const leaves = getLeaves(w.layout ?? null)
-      const layout = leaves.length
-        ? splitLeaf(w.layout as MosaicNode<string>, leaves[leaves.length - 1], paneId, 'row')
-        : paneId
-      return { ...w, panes: { ...(w.panes ?? {}), [paneId]: pane }, layout }
+      const ids = [...getLeaves(w.layout ?? null), paneId]
+      return { ...w, panes: { ...(w.panes ?? {}), [paneId]: pane }, layout: buildAutoLayout(ids) }
     })
     set({ list: nextList })
     // Open the target workspace and focus the moved pane.
     get().switchTo(targetId)
     useWorkspace.getState().setActive(paneId)
+    // The moved terminal was re-parented into a new container — repaint it.
+    repaintTerminal(paneId)
   }
 }))
