@@ -761,6 +761,42 @@
   font-family: var(--mono);
   color: var(--text-faint);
 }
+.pane-tint-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.pane-tint-pop {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  z-index: 50;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+}
+.pane-tint-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+.pane-tint-swatch.none {
+  background: var(--bg-sunken);
+}
+.pane-tint-swatch.active {
+  box-shadow: 0 0 0 2px var(--bg-elev-2), 0 0 0 3px var(--text);
+}
 .pane-move-grip {
   cursor: grab;
 }

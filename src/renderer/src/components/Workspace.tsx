@@ -16,7 +16,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, GripVertical, Radio } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, GripVertical, Radio, Palette } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
@@ -43,6 +43,14 @@ function relTime(ts: number): string {
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h ago`
   return `${Math.floor(h / 24)}d ago`
+}
+
+/** Preset tints for distinguishing panes at a glance. */
+const PANE_TINTS = ['#4c8dff', '#a855f7', '#22c55e', '#f59e0b', '#f43f5e', '#06b6d4']
+
+function hexA(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
 }
 
 function PaneIcon({ paneId, size = 14 }: { paneId: string; size?: number }): JSX.Element {
@@ -120,8 +128,10 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   // Only show the "move to workspace" grip when there's somewhere to move to.
   const hasOtherWorkspaces = useWorkspaces((s) => s.list.length > 1)
 
+  const tint = useWorkspace((s) => s.panes[paneId]?.tint)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
+  const [tintOpen, setTintOpen] = useState(false)
 
   const commit = (): void => {
     const v = draft.trim()
@@ -159,6 +169,14 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
     <div
       ref={ref}
       className={clsx('pane-header', activePaneId === paneId && 'active')}
+      style={
+        tint
+          ? {
+              boxShadow: `inset 2px 0 0 0 ${tint}`,
+              background: activePaneId === paneId ? undefined : hexA(tint, 0.07)
+            }
+          : undefined
+      }
       onMouseDown={() => setActive(paneId)}
       // double-click the header's empty space to maximize the pane, again to restore
       onDoubleClick={() => toggleZoom(paneId)}
@@ -289,6 +307,41 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         >
           <Rows2 size={13} />
         </button>
+        <div className="pane-tint-wrap">
+          <button
+            className={clsx('icon-btn', tintOpen && 'active')}
+            title="Pane tint"
+            onClick={() => setTintOpen((v) => !v)}
+          >
+            <Palette size={13} style={tint ? { color: tint } : undefined} />
+          </button>
+          {tintOpen && (
+            <div className="pane-tint-pop" onMouseLeave={() => setTintOpen(false)}>
+              {PANE_TINTS.map((c) => (
+                <button
+                  key={c}
+                  className={clsx('pane-tint-swatch', tint === c && 'active')}
+                  style={{ background: c }}
+                  title={c}
+                  onClick={() => {
+                    updatePane(paneId, { tint: c })
+                    setTintOpen(false)
+                  }}
+                />
+              ))}
+              <button
+                className="pane-tint-swatch none"
+                title="No tint"
+                onClick={() => {
+                  updatePane(paneId, { tint: undefined })
+                  setTintOpen(false)
+                }}
+              >
+                <X size={11} />
+              </button>
+            </div>
+          )}
+        </div>
         <button className="icon-btn danger" title="Close (Ctrl+W)" onClick={close}>
           <X size={13} />
         </button>

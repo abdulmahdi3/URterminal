@@ -34,6 +34,8 @@ export interface Pane {
   telegramChatId?: string
   /** pane IDs this pane pipes its output into (supports fan-out to multiple) */
   pipeTargets?: string[]
+  /** subtle accent tint (hex) to visually distinguish this pane; undefined = none */
+  tint?: string
 }
 
 // ---------------------------------------------------------------------------
