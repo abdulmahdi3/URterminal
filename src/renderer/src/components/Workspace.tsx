@@ -17,7 +17,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2 } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
@@ -45,31 +45,28 @@ function relTime(ts: number): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function PaneIcon({ paneId, size = 14 }: { paneId: string; size?: number }): JSX.Element {
-  const type = useWorkspace((s) => s.panes[paneId]?.type)
-  const command = useWorkspace((s) => s.panes[paneId]?.agent?.command)
-  const shell = useWorkspace((s) => s.panes[paneId]?.shell?.shell)
-  const args = useWorkspace((s) => s.panes[paneId]?.shell?.args)
-  if (type === 'ai') return <AgentLogo command={command ?? 'claude'} size={size} />
-  if (type === 'shell') return <ShellLogo shell={shell} args={args} size={size} />
-  return <SquareDashed size={size} className="pane-icon" />
-}
-
 const STATUS_LABEL: Record<PaneStatus, string> = {
   working: 'Working',
   awaiting: 'Awaiting',
   idle: 'Idle'
 }
 
-/** Colored dot showing an AI pane's turn status (Working / Awaiting / Idle). */
-function AgentStatusDot({ paneId }: { paneId: string }): JSX.Element {
+function PaneIcon({ paneId, size = 14 }: { paneId: string; size?: number }): JSX.Element {
+  const type = useWorkspace((s) => s.panes[paneId]?.type)
+  const command = useWorkspace((s) => s.panes[paneId]?.agent?.command)
+  const shell = useWorkspace((s) => s.panes[paneId]?.shell?.shell)
+  const args = useWorkspace((s) => s.panes[paneId]?.shell?.args)
   const status = usePaneStatus((s) => s.status[paneId]) ?? 'idle'
-  return (
-    <span
-      className={clsx('agent-stat-dot', `is-${status}`)}
-      title={`Agent: ${STATUS_LABEL[status]}`}
-    />
-  )
+  // AI panes: the logo itself carries the turn status as a colored glow
+  // (Working = blue, Awaiting = orange, Idle = green) — replaces the old dot.
+  if (type === 'ai')
+    return (
+      <span className="pane-logo" title={`Agent: ${STATUS_LABEL[status]}`}>
+        <AgentLogo command={command ?? 'claude'} size={size} />
+      </span>
+    )
+  if (type === 'shell') return <ShellLogo shell={shell} args={args} size={size} />
+  return <SquareDashed size={size} className="pane-icon" />
 }
 
 function PaneStatus({ paneId }: { paneId: string }): JSX.Element | null {
@@ -95,12 +92,15 @@ function HeaderPopover({
   title,
   active,
   hover,
+  badge,
   render
 }: {
   icon: JSX.Element
   title: string
   active?: boolean
   hover?: boolean
+  /** small count shown over the button (e.g. open to-do items) */
+  badge?: number
   render: (close: () => void) => JSX.Element
 }): JSX.Element {
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -148,6 +148,7 @@ function HeaderPopover({
         onMouseLeave={hover ? closeSoon : undefined}
       >
         {icon}
+        {badge ? <span className="header-popover-badge">{badge > 9 ? '9+' : badge}</span> : null}
       </button>
       {open &&
         createPortal(
@@ -167,70 +168,78 @@ function HeaderPopover({
   )
 }
 
-/** Hover popover to pick which other panes a pane pipes / broadcasts to. */
-function PaneConnectPicker({
-  selfId,
-  title,
-  icon,
-  selected,
-  onToggle,
-  onAll,
-  onClear
-}: {
-  selfId: string
-  title: string
-  icon: JSX.Element
+/** A target action set for one section of the connect menu (pipe or broadcast). */
+interface ConnSection {
+  label: string
   selected: string[]
   onToggle: (id: string) => void
   onAll: (ids: string[]) => void
   onClear: () => void
+}
+
+/**
+ * Single header button combining "pipe output to…" and "broadcast input to…".
+ * One popover, two labeled sections — both pick from the other panes in the
+ * workspace, so they're merged behind one Share2 icon (with a total count dot).
+ */
+function PaneConnectMenu({
+  selfId,
+  sections
+}: {
+  selfId: string
+  sections: ConnSection[]
 }): JSX.Element {
   const layout = useWorkspace((s) => s.layout)
   const panes = useWorkspace((s) => s.panes)
   const leaves = getLeaves(layout)
   const others = leaves.filter((id) => id !== selfId)
-  const allOn = others.length > 0 && others.every((id) => selected.includes(id))
+  const total = sections.reduce((n, s) => n + s.selected.length, 0)
 
   return (
     <HeaderPopover
       icon={
         <span className="pane-conn-trigger">
-          {icon}
-          {selected.length > 0 && <span className="pane-conn-dot">{selected.length}</span>}
+          <Share2 size={13} />
+          {total > 0 && <span className="pane-conn-dot">{total}</span>}
         </span>
       }
-      title={title}
-      active={selected.length > 0}
+      title="Connect panes — pipe output / broadcast input"
+      active={total > 0}
       hover
       render={() => (
         <div className="pane-conn">
-          <div className="pane-conn-head">{title}</div>
           {others.length === 0 ? (
             <div className="pane-conn-empty">No other panes</div>
           ) : (
-            <>
-              <button
-                className={clsx('pane-conn-row', allOn && 'on')}
-                onClick={() => (allOn ? onClear() : onAll(others))}
-              >
-                <span className="pane-conn-check">{allOn ? '✓' : ''}</span>
-                <span className="pane-conn-name">All panes</span>
-              </button>
-              {others.map((id) => {
-                const on = selected.includes(id)
-                return (
+            sections.map((sec) => {
+              const allOn = others.every((id) => sec.selected.includes(id))
+              return (
+                <div className="pane-conn-section" key={sec.label}>
+                  <div className="pane-conn-head">{sec.label}</div>
                   <button
-                    key={id}
-                    className={clsx('pane-conn-row', on && 'on')}
-                    onClick={() => onToggle(id)}
+                    className={clsx('pane-conn-row', allOn && 'on')}
+                    onClick={() => (allOn ? sec.onClear() : sec.onAll(others))}
                   >
-                    <span className="pane-conn-check">{on ? '✓' : ''}</span>
-                    <span className="pane-conn-num">{leaves.indexOf(id) + 1}</span>
-                    <span className="pane-conn-name">{panes[id]?.title ?? id}</span>
+                    <span className="pane-conn-check">{allOn ? '✓' : ''}</span>
+                    <span className="pane-conn-name">All panes</span>
                   </button>
-                )
-              })}
-            </>
+                  {others.map((id) => {
+                    const on = sec.selected.includes(id)
+                    return (
+                      <button
+                        key={id}
+                        className={clsx('pane-conn-row', on && 'on')}
+                        onClick={() => sec.onToggle(id)}
+                      >
+                        <span className="pane-conn-check">{on ? '✓' : ''}</span>
+                        <span className="pane-conn-num">{leaves.indexOf(id) + 1}</span>
+                        <span className="pane-conn-name">{panes[id]?.title ?? id}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })
           )}
         </div>
       )}
@@ -256,7 +265,9 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const leaves = getLeaves(layout)
   const paneNum = leaves.indexOf(paneId) + 1  // 1-based; 0 = not in layout yet
   const agentCwd = useWorkspace((s) => s.panes[paneId]?.agent?.cwd)
+  const agentCommand = useWorkspace((s) => s.panes[paneId]?.agent?.command)
   const shellCwd = useWorkspace((s) => s.panes[paneId]?.shell?.cwd)
+  const agentStatus = usePaneStatus((s) => s.status[paneId]) ?? 'idle'
   const isActive = useTokens((s) => !!s.activePanes[paneId])
   const tokenCount = useTokens((s) => s.byPane[paneId] ?? 0)
   const broadcastOn = useBroadcastStore((s) => s.enabled)
@@ -276,6 +287,7 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const toggleZoom = useUi((s) => s.toggleZoom)
 
   const notes = useWorkspace((s) => s.panes[paneId]?.notes)
+  const todos = useWorkspace((s) => s.panes[paneId]?.todos)
   const pipeTargets = useWorkspace((s) => s.panes[paneId]?.pipeTargets) ?? EMPTY_IDS
   const togglePipeTarget = useWorkspace((s) => s.togglePipeTarget)
   const setPipeTargets = useWorkspace((s) => s.setPipeTargets)
@@ -286,6 +298,25 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const hasOtherPanes = leaves.length >= 2
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
+  const [todoDraft, setTodoDraft] = useState('')
+
+  // ---- pane to-do list helpers (stored on the pane, persisted with it) ----
+  const addTodo = (): void => {
+    const text = todoDraft.trim()
+    if (!text) return
+    const item = { id: crypto.randomUUID(), text, done: false }
+    updatePane(paneId, { todos: [...(todos ?? []), item] })
+    setTodoDraft('')
+  }
+  const toggleTodo = (id: string): void =>
+    updatePane(paneId, {
+      todos: (todos ?? []).map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+    })
+  const removeTodo = (id: string): void => {
+    const next = (todos ?? []).filter((t) => t.id !== id)
+    updatePane(paneId, { todos: next.length ? next : undefined })
+  }
+  const openTodos = (todos ?? []).filter((t) => !t.done).length
 
   const commit = (): void => {
     const v = draft.trim()
@@ -356,10 +387,14 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
       }}
     >
       {paneCount >= 2 && paneNum > 0 && (
-        <span className="pane-num" title={`Pane ${paneNum}`}>{paneNum}</span>
+        <span
+          className={clsx('pane-num', paneType === 'ai' && `is-${agentStatus}`)}
+          title={paneType === 'ai' ? `Pane ${paneNum} · ${STATUS_LABEL[agentStatus]}` : `Pane ${paneNum}`}
+        >
+          {paneNum}
+        </span>
       )}
       <PaneIcon paneId={paneId} />
-      {paneType === 'ai' && <AgentStatusDot paneId={paneId} />}
       {editing ? (
         <input
           className="pane-title-edit"
@@ -374,21 +409,25 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
           }}
         />
       ) : (
-        <span
-          className="pane-title"
-          title="Double-click to rename"
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            startEdit()
-          }}
-        >
-          {title}
-        </span>
+        // Hide the title for AI panes whose name is just the agent command
+        // (the logo already identifies the agent). Custom-renamed panes still show.
+        (paneType !== 'ai' || title !== agentCommand) && (
+          <span
+            className="pane-title"
+            title="Double-click to rename"
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              startEdit()
+            }}
+          >
+            {title}
+          </span>
+        )
       )}
       {paneType === 'ai' && agentCwd && (
         <>
           <span className={clsx('pane-cwd', isActive && 'active')} title={agentCwd}>
-            {agentCwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || agentCwd}
+            {agentCwd}
           </span>
           {tokenCount > 0 && (
             <span className="pane-tok">~{formatTokens(tokenCount)}</span>
@@ -408,52 +447,94 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
       <div className="pane-header-spacer" />
       <div className="pane-controls" onMouseDown={stop} onDoubleClick={stop}>
         <HeaderPopover
-          icon={<StickyNote size={13} style={notes ? { color: 'var(--accent)' } : undefined} />}
-          title={notes ? 'Notes' : 'Add a note'}
-          active={!!notes}
+          icon={
+            <StickyNote
+              size={13}
+              style={notes || todos?.length ? { color: 'var(--accent)' } : undefined}
+            />
+          }
+          title={notes || todos?.length ? 'Notes & to-do' : 'Add a note or to-do'}
+          active={!!notes || !!todos?.length}
+          badge={openTodos || undefined}
           render={() => (
             <div className="pane-notes">
               <textarea
                 className="pane-notes-text"
-                autoFocus
-                rows={6}
+                rows={5}
                 placeholder="Notes for this pane…"
                 value={notes ?? ''}
                 onChange={(e) => updatePane(paneId, { notes: e.target.value || undefined })}
               />
+
+              <div className="pane-todos">
+                {(todos ?? []).map((t) => (
+                  <div key={t.id} className={clsx('pane-todo', t.done && 'done')}>
+                    <input
+                      type="checkbox"
+                      className="pane-todo-check"
+                      checked={t.done}
+                      onChange={() => toggleTodo(t.id)}
+                    />
+                    <span className="pane-todo-text" onClick={() => toggleTodo(t.id)}>
+                      {t.text}
+                    </span>
+                    <button
+                      className="icon-btn pane-todo-del"
+                      title="Remove item"
+                      onClick={() => removeTodo(t.id)}
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+                <div className="pane-todo-add">
+                  <input
+                    className="pane-todo-input"
+                    placeholder="Add a to-do…"
+                    value={todoDraft}
+                    onChange={(e) => setTodoDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addTodo()
+                    }}
+                  />
+                  <button className="icon-btn" title="Add to-do" onClick={addTodo}>
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+
               <span className="pane-notes-hint">Saved automatically</span>
             </div>
           )}
         />
         {hasOtherPanes && (
-          <PaneConnectPicker
+          <PaneConnectMenu
             selfId={paneId}
-            title="Pipe output to…"
-            icon={<Share2 size={13} />}
-            selected={pipeTargets}
-            onToggle={(id) => togglePipeTarget(paneId, id)}
-            onAll={(ids) => setPipeTargets(paneId, ids)}
-            onClear={() => setPipeTargets(paneId, [])}
-          />
-        )}
-        {hasOtherPanes && (
-          <PaneConnectPicker
-            selfId={paneId}
-            title="Broadcast input to…"
-            icon={<Radio size={13} />}
-            selected={broadcastMembers.filter((m) => m !== paneId)}
-            onToggle={(id) => {
-              toggleBroadcastMember(id)
-              setBroadcastEnabled(true)
-            }}
-            onAll={(ids) => {
-              setBroadcastMembers(ids)
-              setBroadcastEnabled(true)
-            }}
-            onClear={() => {
-              setBroadcastMembers([])
-              setBroadcastEnabled(false)
-            }}
+            sections={[
+              {
+                label: 'Pipe output to…',
+                selected: pipeTargets,
+                onToggle: (id) => togglePipeTarget(paneId, id),
+                onAll: (ids) => setPipeTargets(paneId, ids),
+                onClear: () => setPipeTargets(paneId, [])
+              },
+              {
+                label: 'Broadcast input to…',
+                selected: broadcastMembers.filter((m) => m !== paneId),
+                onToggle: (id) => {
+                  toggleBroadcastMember(id)
+                  setBroadcastEnabled(true)
+                },
+                onAll: (ids) => {
+                  setBroadcastMembers(ids)
+                  setBroadcastEnabled(true)
+                },
+                onClear: () => {
+                  setBroadcastMembers([])
+                  setBroadcastEnabled(false)
+                }
+              }
+            ]}
           />
         )}
         {paneType === 'ai' && agentCwd && (
@@ -468,7 +549,7 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         {paneType === 'ai' && agentCwd && (
           <button
             className="icon-btn"
-            title={`Open terminal here · Ctrl+Shift+C\n${agentCwd}`}
+            title={`Open terminal here · Ctrl+Shift+O\n${agentCwd}`}
             onClick={() => openTerminalHere(paneId)}
           >
             <Terminal size={13} />

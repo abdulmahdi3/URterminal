@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import type { MosaicNode } from 'react-mosaic-component'
-import type { Pane } from '@shared/types'
+import type { Pane, LastSessionPayload } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
+import { applyRestore } from '@renderer/store/sessions'
+import { capturePane } from '@renderer/lib/terminalPool'
 import { toast } from '@renderer/store/toasts'
 
 const KEY = 'urterminal.workspace.v1'
@@ -15,7 +17,7 @@ interface Persisted {
 function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   const out: Record<string, Pane> = {}
   for (const [id, p] of Object.entries(panes)) {
-    const clone: Pane = { ...p } // keeps pipeTo, telegramChatId, etc.
+    const clone: Pane = { ...p } // keeps pipeTargets, telegramChatId, notes, etc.
     if (clone.shell) clone.shell = { shell: clone.shell.shell, args: clone.shell.args }
     if (clone.agent) clone.agent = { command: clone.agent.command, cwd: clone.agent.cwd }
     out[id] = clone
@@ -23,42 +25,74 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   return out
 }
 
+/** Capture the chat content (replayable terminal transcript) of every open pane. */
+function captureTranscripts(panes: Record<string, Pane>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const id of Object.keys(panes)) {
+    const text = capturePane(id)
+    if (text) out[id] = text
+  }
+  return out
+}
+
+/** Build the full auto-save snapshot of the current workspace (panes + layout + chats). */
+function snapshot(): LastSessionPayload {
+  const { panes, layout } = useWorkspace.getState()
+  return { panes: sanitize(panes), layout, transcripts: captureTranscripts(panes), savedAt: Date.now() }
+}
+
 export function usePersistence(): void {
   // Restore once on mount, unless the user disabled auto-restore. The flag is
   // mirrored to localStorage by the settings store so it's readable here before
   // the async settings load resolves (absent = on, preserving prior behavior).
   useEffect(() => {
-    try {
-      if (localStorage.getItem('urterminal.autoRestore') === '0') return
-      const raw = localStorage.getItem(KEY)
-      if (!raw) return
-      const data = JSON.parse(raw) as Persisted
-      if (data.layout && data.panes && Object.keys(data.panes).length) {
-        useWorkspace.getState().hydrate(sanitize(data.panes), data.layout)
-      }
-    } catch {
-      toast('Workspace state was corrupted and could not be restored.', 'error')
-    }
+    if (localStorage.getItem('urterminal.autoRestore') === '0') return
+    // Prefer the on-disk full snapshot (includes chat content); fall back to the
+    // legacy localStorage config blob from older versions (layout only).
+    void window.api
+      .readLastSession()
+      .then((last) => {
+        if (last && last.panes && Object.keys(last.panes).length) {
+          applyRestore(
+            last.panes,
+            (last.layout as MosaicNode<string> | null) ?? null,
+            last.transcripts ?? {}
+          )
+          return
+        }
+        try {
+          const raw = localStorage.getItem(KEY)
+          if (!raw) return
+          const data = JSON.parse(raw) as Persisted
+          if (data.layout && data.panes && Object.keys(data.panes).length) {
+            applyRestore(data.panes, data.layout, {})
+          }
+        } catch {
+          toast('Workspace state was corrupted and could not be restored.', 'error')
+        }
+      })
+      .catch(() => {})
   }, [])
 
-  // Persist (debounced) whenever panes/layout change, and flush immediately
-  // when the window is closing so the latest layout/folders are never lost.
+  // Persist (debounced) whenever panes/layout change, and flush synchronously
+  // when the window is closing so the latest layout + chat content is never lost.
   useEffect(() => {
     let handle = 0
     const save = (): void => {
-      const { panes, layout } = useWorkspace.getState()
-      const payload: Persisted = { panes: sanitize(panes), layout }
-      try {
-        localStorage.setItem(KEY, JSON.stringify(payload))
-      } catch {
-        /* quota / serialization errors are non-fatal */
-      }
+      void window.api.writeLastSession(snapshot())
     }
     const unsub = useWorkspace.subscribe(() => {
       window.clearTimeout(handle)
-      handle = window.setTimeout(save, 400)
+      handle = window.setTimeout(save, 800)
     })
-    const flush = (): void => save()
+    const flush = (): void => {
+      try {
+        // synchronous IPC — async writes don't complete during beforeunload
+        window.api.flushLastSession(snapshot())
+      } catch {
+        /* non-fatal */
+      }
+    }
     window.addEventListener('beforeunload', flush)
     return () => {
       window.clearTimeout(handle)

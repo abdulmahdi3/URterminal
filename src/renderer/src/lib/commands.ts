@@ -8,6 +8,7 @@ import { useActivity, activityToMarkdown } from '@renderer/store/activity'
 import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
+import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -104,7 +105,7 @@ export function getCommands(): Command[] {
       id: 'pane.openTerminal',
       title: 'Open terminal in agent folder',
       group: 'Panes',
-      shortcut: 'Ctrl+Shift+C',
+      shortcut: 'Ctrl+Shift+O',
       run: () => {
         const id = ws().activePaneId
         if (id) ws().openTerminalHere(id)
@@ -153,6 +154,28 @@ export function getCommands(): Command[] {
       run: () => {
         const id = ws().activePaneId
         if (id) void window.api.screenshotPane(id)
+      }
+    },
+
+    // ---- clipboard ----
+    {
+      id: 'edit.copy',
+      title: 'Copy selection',
+      group: 'General',
+      shortcut: 'Ctrl+Shift+C',
+      run: () => {
+        const id = ws().activePaneId
+        if (id) copySelection(id)
+      }
+    },
+    {
+      id: 'edit.paste',
+      title: 'Paste into terminal',
+      group: 'General',
+      shortcut: 'Ctrl+Shift+V',
+      run: () => {
+        const id = ws().activePaneId
+        if (id) pasteClipboard(id)
       }
     },
 

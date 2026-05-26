@@ -1,6 +1,6 @@
 {
   "name": "urterminal",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Multi-pane AI + shell terminal",
   "main": "./out/main/index.js",
   "author": "URterminal",
@@ -36,6 +36,7 @@
     "@vitejs/plugin-react": "^4.3.2",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.15.0",
+    "@xterm/addon-serialize": "^0.13.0",
     "@xterm/xterm": "^5.5.0",
     "electron": "^29.4.6",
     "electron-builder": "^25.1.8",

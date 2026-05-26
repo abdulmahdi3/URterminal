@@ -65,6 +65,15 @@ function resolveCommand(command: string): { file: string; args: string[] } {
   return { file: command, args: [] } // not found — let pty surface a clear error
 }
 
+/** Append caller-supplied args (e.g. ["--continue"]) to a resolved command. */
+function appendArgs(
+  resolved: { file: string; args: string[] },
+  extra: string[] | undefined
+): { file: string; args: string[] } {
+  if (!extra?.length) return resolved
+  return { file: resolved.file, args: [...resolved.args, ...extra] }
+}
+
 interface Entry {
   proc: IPty
   paneId: string
@@ -82,7 +91,7 @@ export class PtyManager {
     // becomes the pty process — no shell prompt, no auto-typing. Otherwise we
     // spawn the user's shell.
     const resolved = req.command
-      ? resolveCommand(req.command)
+      ? appendArgs(resolveCommand(req.command), req.commandArgs)
       : { file: req.shell || defaultShell(), args: req.shellArgs ?? [] }
     const proc = pty.spawn(resolved.file, resolved.args, {
       name: 'xterm-256color',

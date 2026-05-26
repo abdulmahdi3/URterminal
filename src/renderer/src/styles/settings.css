@@ -20,6 +20,92 @@
 .modal.small {
   width: 420px;
 }
+.modal.settings {
+  width: 880px;
+}
+
+/* ---- settings: two-pane layout (sidebar nav + scrollable content) ---- */
+.settings-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.settings-nav {
+  flex: 0 0 196px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-faint);
+}
+.settings-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.settings-search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  padding: 6px 0;
+}
+.settings-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-nav-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.settings-nav-item:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+}
+.settings-nav-item.active {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
+.settings-nav-item.dim {
+  opacity: 0.35;
+}
+.settings-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 4px 20px 20px;
+}
+.settings-empty {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  padding: 20px 2px;
+}
+[dir='rtl'] .settings-nav {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
 .modal-header {
   display: flex;
   align-items: center;
@@ -36,18 +122,54 @@
   overflow-y: auto;
 }
 
+/* consistent field width so every input/select/textarea + button group aligns */
+.settings-content {
+  --settings-field-w: 380px;
+}
 .settings-section {
-  padding: 12px 0;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
+}
+.settings-section:first-child {
+  padding-top: 6px;
+}
+/* normalize control widths/heights across every section */
+.settings-control > .input,
+.settings-control > .select,
+.settings-control > textarea.input {
+  max-width: var(--settings-field-w);
+}
+.settings-control > textarea.input {
+  width: 100%;
+  resize: vertical;
+}
+.input.mono,
+textarea.input.mono {
+  font-family: var(--mono);
+}
+.settings-block-hint {
+  display: block;
+  margin-bottom: 10px;
+}
+/* grouped toggle list (notifications, startup) */
+.settings-toggle-list {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  max-width: 560px;
 }
 .settings-toggle {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
   font-size: var(--fs-sm);
   color: var(--text);
   cursor: pointer;
+}
+.settings-toggle + .settings-toggle {
+  border-top: 1px solid var(--border-faint);
 }
 .settings-toggle input {
   width: 15px;
@@ -59,15 +181,45 @@
 .snippet-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
-.snippet-row {
+/* a repeatable snippet card: name + kind on top, body preview below */
+.snippet-item {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  background: var(--bg-elev-2);
+}
+.snippet-item-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
-  background: var(--bg-elev-2);
-  border-radius: var(--r-sm);
+}
+.snippet-del {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+}
+/* the add-new editor */
+.snippet-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+}
+.snippet-add-row {
+  display: flex;
+  gap: 8px;
+}
+.snippet-add-row .input {
+  flex: 1;
+}
+.snippet-add-kind {
+  flex: 0 0 110px;
+  width: 110px;
 }
 .snippet-kind {
   flex: 0 0 auto;
@@ -132,7 +284,30 @@
 }
 .settings-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  max-width: var(--settings-field-w);
+}
+/* status pill sits left; Save/Clear/… group aligns to the right edge */
+.settings-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-faint);
+}
+.settings-status.set {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.settings-status.unset {
+  color: var(--text-faint);
 }
 .hint {
   font-size: 11px;

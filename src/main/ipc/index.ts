@@ -1,8 +1,9 @@
 import { ipcMain, BrowserWindow, dialog, clipboard, app } from 'electron'
-import { writeFile, readFile } from 'fs/promises'
+import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
+import { writeFileSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import type { ClipboardContent } from '@shared/types'
+import type { ClipboardContent, SessionData, LastSessionPayload } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
@@ -205,6 +206,65 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     } catch {
       /* disk errors are non-fatal */
     }
+  })
+
+  // ---- per-session chat content (terminal transcripts), one file per session ----
+  // Kept separate from the metadata list above so listing/saving sessions stays
+  // cheap even when transcripts are large. Stored under <userData>/session-data/.
+  const sessionDataDir = (): string => join(app.getPath('userData'), 'session-data')
+  const sessionDataFile = (id: string): string =>
+    // guard the id so it can't escape the directory
+    join(sessionDataDir(), `${id.replace(/[^a-zA-Z0-9_-]/g, '')}.json`)
+
+  ipcMain.handle(IPC.sessionDataRead, async (_e, id: string): Promise<SessionData | null> => {
+    try {
+      return JSON.parse(await readFile(sessionDataFile(id), 'utf8')) as SessionData
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle(IPC.sessionDataWrite, async (_e, id: string, data: SessionData): Promise<void> => {
+    try {
+      await mkdir(sessionDataDir(), { recursive: true })
+      await writeFile(sessionDataFile(id), JSON.stringify(data), 'utf8')
+    } catch {
+      /* non-fatal */
+    }
+  })
+  ipcMain.handle(IPC.sessionDataDelete, async (_e, id: string): Promise<void> => {
+    try {
+      await unlink(sessionDataFile(id))
+    } catch {
+      /* already gone */
+    }
+  })
+
+  // ---- auto-saved "last session" (full snapshot for close/crash restore) ----
+  const lastSessionFile = (): string => join(app.getPath('userData'), 'last-session.json')
+  ipcMain.handle(IPC.lastSessionRead, async (): Promise<LastSessionPayload | null> => {
+    try {
+      return JSON.parse(await readFile(lastSessionFile(), 'utf8')) as LastSessionPayload
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle(IPC.lastSessionWrite, async (_e, payload: LastSessionPayload): Promise<void> => {
+    try {
+      await writeFile(lastSessionFile(), JSON.stringify(payload), 'utf8')
+    } catch {
+      /* non-fatal */
+    }
+  })
+  // Synchronous flush used from the renderer's `beforeunload`, where async IPC
+  // would not complete before the window is torn down.
+  ipcMain.on(IPC.lastSessionFlush, (e, payload: LastSessionPayload) => {
+    try {
+      mkdirSync(app.getPath('userData'), { recursive: true })
+      writeFileSync(lastSessionFile(), JSON.stringify(payload), 'utf8')
+    } catch {
+      /* non-fatal */
+    }
+    e.returnValue = true // unblock sendSync
   })
 
   // ---- pane registry (renderer → main sync for Telegram /panes command) ----

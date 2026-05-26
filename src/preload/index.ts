@@ -15,7 +15,9 @@ import type {
   PerfSample,
   FileSaveRequest,
   FileSaveResult,
-  PaneInfo
+  PaneInfo,
+  SessionData,
+  LastSessionPayload
 } from '@shared/types'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
@@ -61,6 +63,22 @@ const api = {
   readSessions: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.sessionsRead),
   writeSessions: (sessions: unknown[]): Promise<void> =>
     ipcRenderer.invoke(IPC.sessionsWrite, sessions),
+  // per-session chat content (terminal transcripts)
+  readSessionData: (id: string): Promise<SessionData | null> =>
+    ipcRenderer.invoke(IPC.sessionDataRead, id),
+  writeSessionData: (id: string, data: SessionData): Promise<void> =>
+    ipcRenderer.invoke(IPC.sessionDataWrite, id, data),
+  deleteSessionData: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.sessionDataDelete, id),
+  // auto-saved last session (full snapshot for close/crash restore)
+  readLastSession: (): Promise<LastSessionPayload | null> =>
+    ipcRenderer.invoke(IPC.lastSessionRead),
+  writeLastSession: (payload: LastSessionPayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.lastSessionWrite, payload),
+  /** synchronous final write at window close (async IPC can't finish in beforeunload) */
+  flushLastSession: (payload: LastSessionPayload): void => {
+    ipcRenderer.sendSync(IPC.lastSessionFlush, payload)
+  },
 
   // ---- telegram ----
   getTelegramStatus: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramStatus),

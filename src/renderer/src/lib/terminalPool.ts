@@ -1,6 +1,7 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
+import { SerializeAddon } from '@xterm/addon-serialize'
 import { noteOutputChars } from './outputMetrics'
 import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
@@ -53,6 +54,7 @@ interface Entry {
   term: Terminal
   fit: FitAddon
   search: SearchAddon
+  serialize: SerializeAddon
   command?: string
   cwd?: string
   ptyId: string | null
@@ -63,6 +65,40 @@ interface Entry {
   dispose: () => void
   lastCols: number
   lastRows: number
+}
+
+// ---- session restore seeding ---------------------------------------------
+// When a saved/auto-saved session is restored, the workspace is hydrated with
+// fresh pane ids; before that happens we stash, per pane id, the chat content
+// to replay and/or the resume args to relaunch the agent with. `createEntry`
+// consumes the seed exactly once on first spawn (re-mounts never respawn), so
+// resume flags never fire twice and replayed history isn't duplicated.
+interface RestoreSeed {
+  /** serialized terminal buffer (ANSI) to write back into the pane before spawn */
+  transcript?: string
+  /** extra args to relaunch the agent with so it resumes (e.g. ["--continue"]) */
+  resumeArgs?: string[]
+}
+const restoreSeeds = new Map<string, RestoreSeed>()
+
+/** Stash restore data for a pane id; consumed when its terminal first spawns. */
+export function seedRestore(paneId: string, seed: RestoreSeed): void {
+  restoreSeeds.set(paneId, seed)
+}
+
+/**
+ * Serialize a pane's current buffer (scrollback + screen) to a replayable ANSI
+ * string — the faithful "what you see right now" snapshot used to persist chats.
+ * `maxLines` caps the captured scrollback to bound file size.
+ */
+export function capturePane(paneId: string, maxLines = 2000): string {
+  const entry = pool.get(paneId)
+  if (!entry) return ''
+  try {
+    return entry.serialize.serialize({ scrollback: maxLines })
+  } catch {
+    return ''
+  }
 }
 
 /** Whether a pane's process has already produced output (so no loader needed). */
@@ -180,13 +216,26 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   term.loadAddon(fit)
   const search = new SearchAddon()
   term.loadAddon(search)
+  const serialize = new SerializeAddon()
+  term.loadAddon(serialize)
   term.open(container)
   fit.fit()
+
+  // Consume any restore seed for this pane (set when a session is restored).
+  // Replay the saved chat content into the buffer first, then a divider, so the
+  // freshly spawned process / resumed agent prints below the restored history.
+  const seed = restoreSeeds.get(paneId)
+  restoreSeeds.delete(paneId)
+  if (seed?.transcript) {
+    term.write(seed.transcript)
+    term.write('\r\n\x1b[90m── session restored ──\x1b[0m\r\n')
+  }
 
   const entry: Entry = {
     term,
     fit,
     search,
+    serialize,
     command: opts.command,
     cwd: opts.cwd,
     ptyId: null,
@@ -277,6 +326,8 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
       cols: term.cols,
       rows: term.rows,
       command: opts.command,
+      // resume the agent (e.g. `claude --continue`) when restoring a session
+      commandArgs: opts.command ? seed?.resumeArgs : undefined,
       shell: opts.shell,
       shellArgs: opts.shellArgs,
       cwd: opts.cwd,
@@ -416,6 +467,32 @@ export function onSearchResults(
   if (!entry) return () => {}
   const d = entry.search.onDidChangeResults(cb)
   return () => d.dispose()
+}
+
+/** Copy the active selection of a pane's terminal to the clipboard (keyboard copy). */
+export function copySelection(paneId: string): void {
+  const entry = pool.get(paneId)
+  if (!entry) return
+  const sel = entry.term.getSelection()
+  if (!sel) return
+  void navigator.clipboard.writeText(sel).catch(() => {})
+  flashCopied()
+}
+
+/** Paste the clipboard into a pane's terminal (keyboard paste; image → temp path). */
+export function pasteClipboard(paneId: string): void {
+  const entry = pool.get(paneId)
+  if (!entry) return
+  void window.api
+    .readClipboard()
+    .then((clip) => {
+      if (clip.imagePath) {
+        entry.term.paste(/\s/.test(clip.imagePath) ? `"${clip.imagePath}"` : clip.imagePath)
+      } else if (clip.text) {
+        entry.term.paste(clip.text)
+      }
+    })
+    .catch(() => {})
 }
 
 /** Permanently tear down a pane's terminal + PTY (called when the pane is closed). */

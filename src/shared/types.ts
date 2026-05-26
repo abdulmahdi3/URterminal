@@ -24,6 +24,13 @@ export interface AgentPaneState {
   shell?: string
 }
 
+/** A single checkable item in a pane's to-do list. */
+export interface TodoItem {
+  id: string
+  text: string
+  done: boolean
+}
+
 export interface Pane {
   id: string
   type: PaneType
@@ -36,6 +43,24 @@ export interface Pane {
   pipeTargets?: string[]
   /** free-form note attached to the pane (shown via the header note button) */
   notes?: string
+  /** checkable to-do list attached to the pane (shown in the note popover) */
+  todos?: TodoItem[]
+}
+
+/** Chat content for a saved session: per-pane terminal transcript (replayable ANSI). */
+export interface SessionData {
+  /** paneId -> serialized terminal buffer (ANSI snapshot produced by addon-serialize) */
+  transcripts: Record<string, string>
+}
+
+/** Full auto-saved snapshot of the live workspace, written on change + on close. */
+export interface LastSessionPayload {
+  panes: Record<string, Pane>
+  /** mosaic layout tree (pane-id leaves); kept loose to avoid importing react-mosaic here */
+  layout: unknown
+  transcripts: Record<string, string>
+  /** epoch ms this snapshot was written (used to archive it into the session list) */
+  savedAt?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +189,8 @@ export interface PtySpawnRequest {
   startupCommand?: string
   /** spawn this program directly as the pty process (e.g. "claude"), instead of a shell */
   command?: string
+  /** extra args for the directly-spawned `command` (e.g. ["--continue"] to resume a session) */
+  commandArgs?: string[]
 }
 
 export interface PtyDataEvent {
@@ -315,8 +342,16 @@ export const IPC = {
   systemProcKill: 'system:proc-kill',
 
   // saved sessions (named workspace snapshots persisted to disk)
-  sessionsRead: 'sessions:read',
+  sessionsRead: 'sessions:read', // metadata + pane config list (sessions.json)
   sessionsWrite: 'sessions:write',
+  // per-session chat content (terminal transcripts), stored one file per session
+  sessionDataRead: 'sessions:data-read',
+  sessionDataWrite: 'sessions:data-write',
+  sessionDataDelete: 'sessions:data-delete',
+  // auto-saved "last session" (full snapshot incl. transcripts) for crash/close restore
+  lastSessionRead: 'sessions:last-read',
+  lastSessionWrite: 'sessions:last-write',
+  lastSessionFlush: 'sessions:last-flush', // synchronous write used on window close
 
   // telegram
   telegramStatus: 'telegram:status',

@@ -1,9 +1,26 @@
 import { useEffect } from 'react'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
-import { runCommand } from '@renderer/lib/commands'
+import { getCommands, runCommand } from '@renderer/lib/commands'
 import { eventToCombo } from '@renderer/lib/keys'
-import { useShortcuts } from '@renderer/store/shortcuts'
+import { useShortcuts, effectiveCombo } from '@renderer/store/shortcuts'
+
+/**
+ * Find the command bound to `combo` using the effective bindings (custom
+ * override ?? built-in default; "" = unbound). A custom binding wins over a
+ * built-in default that happens to use the same combo.
+ */
+function commandForCombo(combo: string): string | undefined {
+  const custom = useShortcuts.getState().custom
+  let defaultMatch: string | undefined
+  for (const c of getCommands()) {
+    const eff = effectiveCombo(custom, c.id, c.shortcut)
+    if (eff !== combo) continue
+    if (c.id in custom) return c.id // explicit custom binding takes priority
+    defaultMatch ??= c.id
+  }
+  return defaultMatch
+}
 
 function isTypingTarget(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -23,17 +40,10 @@ export function useHotkeys(): void {
       const mod = e.ctrlKey || e.metaKey
       const ui = useUi.getState()
 
-      // Command palette toggle — works everywhere.
+      // Command palette toggle — reserved, works everywhere (not rebindable).
       if (mod && !e.shiftKey && e.code === 'KeyK') {
         e.preventDefault()
         ui.toggleCommandPalette()
-        return
-      }
-
-      // Scrollback search for the active pane.
-      if (mod && !e.shiftKey && e.code === 'KeyF') {
-        e.preventDefault()
-        ui.setSearchOpen(true)
         return
       }
 
@@ -64,11 +74,12 @@ export function useHotkeys(): void {
         return
       }
 
-      // User-assigned custom shortcuts (take priority over the built-ins below).
+      // All other shortcuts are data-driven: every combo maps to a command via
+      // its effective binding (custom override ?? built-in default), so rebinds
+      // in the Shortcuts modal take effect with no special-casing here.
       const combo = eventToCombo(e)
       if (combo) {
-        const custom = useShortcuts.getState().custom
-        const id = Object.keys(custom).find((k) => custom[k] === combo)
+        const id = commandForCombo(combo)
         if (id) {
           e.preventDefault()
           runCommand(id)
@@ -76,60 +87,10 @@ export function useHotkeys(): void {
         }
       }
 
-      // "?" cheatsheet — only when not typing.
+      // "?" cheatsheet — only when not typing (can't be a combo: no modifier).
       if (!mod && e.key === '?' && !isTypingTarget(e.target)) {
         e.preventDefault()
         runCommand('app.shortcuts')
-        return
-      }
-
-      if (!mod) return
-
-      // Ctrl/Cmd combinations.
-      if (e.shiftKey) {
-        switch (e.code) {
-          case 'KeyD':
-            e.preventDefault()
-            return runCommand('pane.splitDown')
-          case 'KeyT':
-            e.preventDefault()
-            return runCommand('pane.reopen')
-          case 'KeyC':
-            e.preventDefault()
-            return runCommand('pane.openTerminal')
-          case 'KeyS':
-            e.preventDefault()
-            return runCommand('pane.screenshot')
-          case 'Digit5':
-            e.preventDefault()
-            return runCommand('pane.newShell')
-          case 'Enter':
-            e.preventDefault()
-            return runCommand('pane.zoom')
-        }
-        return
-      }
-
-      switch (e.code) {
-        case 'KeyT':
-          e.preventDefault()
-          return runCommand('pane.newAi')
-        case 'KeyD':
-          e.preventDefault()
-          return runCommand('pane.splitRight')
-        case 'KeyW':
-          e.preventDefault()
-          return runCommand('pane.close')
-        case 'Comma':
-          e.preventDefault()
-          return runCommand('app.settings')
-      }
-
-      // Ctrl+1..9 focus pane
-      if (/^Digit[1-9]$/.test(e.code)) {
-        e.preventDefault()
-        const n = Number(e.code.slice(5))
-        useWorkspace.getState().focusByIndex(n - 1)
       }
     }
 

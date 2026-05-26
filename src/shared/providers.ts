@@ -46,3 +46,25 @@ export const AGENT_LABELS: Record<AgentCommand, string> = {
 }
 
 export const DEFAULT_AGENT: AgentCommand = 'claude'
+
+/**
+ * Args that make an agent CLI resume its most recent conversation in the same
+ * working directory. When a pane is restored from a saved session, an agent
+ * listed here is relaunched WITH these args so it continues with its real
+ * memory/context (the CLI reprints its own history). Agents not listed here
+ * fall back to visual replay of the saved terminal transcript.
+ *
+ * Only entries we can vouch for are enabled. To add another agent, append its
+ * resume flag here once confirmed.
+ */
+export const AGENT_RESUME: Partial<Record<string, string[]>> = {
+  claude: ['--continue'] // resumes the latest Claude Code session in the cwd
+}
+
+/** Resume args for a launch command, or undefined if the agent has no resume support. */
+export function resumeArgsFor(command: string | undefined): string[] | undefined {
+  if (!command) return undefined
+  // match on the bare program name (strip any path/extension)
+  const base = command.trim().split(/[\\/]/).pop()?.replace(/\.(exe|cmd|bat)$/i, '') ?? command
+  return AGENT_RESUME[base]
+}
