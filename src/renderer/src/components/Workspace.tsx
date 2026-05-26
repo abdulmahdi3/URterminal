@@ -16,13 +16,15 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useTokens, formatTokens } from '@renderer/store/tokens'
 import { useSessions } from '@renderer/store/sessions'
 import { toast } from '@renderer/store/toasts'
+import { getFullText, getScreenText } from '@renderer/lib/terminalPool'
+import { answerBlocks } from '@renderer/hooks/useChainForwarding'
 import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
@@ -109,6 +111,21 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
     removePane(paneId)
   }
 
+  // Copy the agent's last answer block to the clipboard. Falls back to the
+  // visible screen text for agents whose output isn't in ● answer blocks.
+  const copyLastResult = (): void => {
+    const blocks = answerBlocks(getFullText(paneId))
+    const last = blocks.length ? blocks[blocks.length - 1] : getScreenText(paneId).trim()
+    if (!last) {
+      toast('No result to copy yet', 'info')
+      return
+    }
+    void navigator.clipboard
+      .writeText(last)
+      .then(() => toast('Copied last result', 'ok'))
+      .catch(() => toast('Copy failed', 'error'))
+  }
+
   const stop = (e: React.MouseEvent): void => e.stopPropagation()
 
   return (
@@ -168,6 +185,15 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
       <PaneStatus paneId={paneId} />
       <div className="pane-header-spacer" />
       <div className="pane-controls" onMouseDown={stop} onDoubleClick={stop}>
+        {paneType === 'ai' && agentCwd && (
+          <button
+            className="icon-btn"
+            title="Copy last result"
+            onClick={copyLastResult}
+          >
+            <Copy size={13} />
+          </button>
+        )}
         {paneType === 'ai' && agentCwd && (
           <button
             className="icon-btn"

@@ -85,6 +85,19 @@ export function getScreenText(paneId: string): string {
   return lines.join('\n')
 }
 
+/** Full terminal text including scrollback — used to extract the last agent result. */
+export function getFullText(paneId: string): string {
+  const entry = pool.get(paneId)
+  if (!entry) return ''
+  const buf = entry.term.buffer.active
+  const lines: string[] = []
+  for (let i = 0; i < buf.length; i++) {
+    const line = buf.getLine(i)
+    lines.push(line ? line.translateToString(true) : '')
+  }
+  return lines.join('\n')
+}
+
 /**
  * Terminals (xterm + their PTY) live here, keyed by pane id, independent of
  * React mount/unmount. This keeps the running CLI and its on-screen buffer
