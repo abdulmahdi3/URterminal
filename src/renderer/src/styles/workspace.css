@@ -726,6 +726,41 @@
   gap: 1px;
   cursor: default;
 }
+/* Scrollback search bar — floats over the active pane (top-right). */
+.search-bar {
+  position: fixed;
+  top: 42px;
+  right: 18px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+}
+.search-bar-icon {
+  color: var(--text-faint);
+  flex: 0 0 auto;
+}
+.search-bar-input {
+  width: 200px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+}
+.search-bar-count {
+  min-width: 38px;
+  text-align: right;
+  font-size: var(--fs-2xs);
+  font-family: var(--mono);
+  color: var(--text-faint);
+}
 .pane-move-grip {
   cursor: grab;
 }

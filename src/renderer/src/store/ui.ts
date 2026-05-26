@@ -15,6 +15,8 @@ interface UiState {
   zoomedPaneId: string | null
   /** pane currently being dragged onto a workspace tab (null = no drag in progress) */
   draggingPaneId: string | null
+  /** scrollback search bar visible (operates on the active pane) */
+  searchOpen: boolean
   /** app-wide color theme */
   appTheme: AppTheme
 
@@ -30,6 +32,7 @@ interface UiState {
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPane: (id: string | null) => void
+  setSearchOpen: (v: boolean) => void
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
@@ -58,6 +61,7 @@ export const useUi = create<UiState>((set, get) => ({
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneId: null,
+  searchOpen: false,
   appTheme: 'dark',
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
@@ -84,6 +88,7 @@ export const useUi = create<UiState>((set, get) => ({
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPane: (id) => set({ draggingPaneId: id }),
+  setSearchOpen: (v) => set({ searchOpen: v }),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),
   cycleAppTheme: () =>

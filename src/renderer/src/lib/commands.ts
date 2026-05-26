@@ -107,6 +107,13 @@ export function getCommands(): Command[] {
       }
     },
     {
+      id: 'pane.search',
+      title: 'Search scrollback in active pane',
+      group: 'Panes',
+      shortcut: 'Ctrl+F',
+      run: () => ui().setSearchOpen(true)
+    },
+    {
       id: 'pane.zoom',
       title: 'Toggle zoom (maximize) active pane',
       group: 'Panes',

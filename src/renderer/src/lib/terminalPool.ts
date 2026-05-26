@@ -1,5 +1,6 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import { noteOutputChars } from './outputMetrics'
 import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
@@ -45,6 +46,7 @@ export interface TerminalOpts {
 interface Entry {
   term: Terminal
   fit: FitAddon
+  search: SearchAddon
   command?: string
   cwd?: string
   ptyId: string | null
@@ -145,12 +147,15 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
+  const search = new SearchAddon()
+  term.loadAddon(search)
   term.open(container)
   fit.fit()
 
   const entry: Entry = {
     term,
     fit,
+    search,
     command: opts.command,
     cwd: opts.cwd,
     ptyId: null,
@@ -316,6 +321,45 @@ export function repaintTerminal(paneId: string): void {
     run()
     requestAnimationFrame(run)
   })
+}
+
+// ---- scrollback search (xterm search addon) ----
+const SEARCH_DECORATIONS = {
+  matchBackground: '#5a4a1a',
+  matchBorder: '#d29922',
+  matchOverviewRuler: '#d29922',
+  activeMatchBackground: '#264f78',
+  activeMatchBorder: '#4c8dff',
+  activeMatchColorOverviewRuler: '#4c8dff'
+}
+
+/** Find the next/previous match of `query` in a pane's buffer, highlighting hits. */
+export function searchInPane(paneId: string, query: string, dir: 'next' | 'prev'): void {
+  const entry = pool.get(paneId)
+  if (!entry) return
+  if (!query) {
+    entry.search.clearDecorations()
+    return
+  }
+  const opts = { decorations: SEARCH_DECORATIONS }
+  if (dir === 'next') entry.search.findNext(query, opts)
+  else entry.search.findPrevious(query, opts)
+}
+
+/** Clear any search highlight in a pane. */
+export function clearSearch(paneId: string): void {
+  pool.get(paneId)?.search.clearDecorations()
+}
+
+/** Subscribe to result-count changes for a pane's search (resultIndex is -1 when none). */
+export function onSearchResults(
+  paneId: string,
+  cb: (r: { resultIndex: number; resultCount: number }) => void
+): () => void {
+  const entry = pool.get(paneId)
+  if (!entry) return () => {}
+  const d = entry.search.onDidChangeResults(cb)
+  return () => d.dispose()
 }
 
 /** Permanently tear down a pane's terminal + PTY (called when the pane is closed). */

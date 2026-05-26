@@ -30,8 +30,19 @@ export function useHotkeys(): void {
         return
       }
 
-      // Escape: close overlays → exit zoom.
+      // Scrollback search for the active pane.
+      if (mod && !e.shiftKey && e.code === 'KeyF') {
+        e.preventDefault()
+        ui.setSearchOpen(true)
+        return
+      }
+
+      // Escape: close search → overlays → exit zoom.
       if (e.key === 'Escape') {
+        if (ui.searchOpen) {
+          ui.setSearchOpen(false)
+          return
+        }
         if (
           ui.showCommandPalette ||
           ui.showSettings ||
