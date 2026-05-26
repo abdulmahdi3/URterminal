@@ -126,6 +126,15 @@ export function getCommands(): Command[] {
       }
     },
     {
+      id: 'pane.saveTemplate',
+      title: 'Save active pane as template…',
+      group: 'Panes',
+      run: () => {
+        const id = ws().activePaneId
+        if (id) ui().setSavingTemplatePaneId(id)
+      }
+    },
+    {
       id: 'pane.linkTelegram',
       title: 'Link active pane to Telegram…',
       group: 'Panes',

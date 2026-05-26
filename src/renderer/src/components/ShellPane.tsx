@@ -21,6 +21,7 @@ export default function ShellPane({ pane }: { pane: Pane }): JSX.Element {
       shell={pane.shell?.shell || undefined}
       shellArgs={args}
       cwd={cwd}
+      startupCommand={pane.shell?.startupCommand}
       onReady={(ptyId, resolved) =>
         // Keep an explicit binary (e.g. "wsl.exe") as-is; only adopt the resolved
         // name when the pane launched the blank OS-default shell.

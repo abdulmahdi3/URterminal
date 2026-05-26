@@ -230,6 +230,15 @@
   border: 1px dashed var(--accent-soft, var(--accent));
   color: var(--text);
 }
+.hover-dd-item.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.hover-dd-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
 .hover-dd-item svg {
   flex: 0 0 auto;
 }

@@ -20,6 +20,8 @@ interface UiState {
   searchOpen: boolean
   /** snippet awaiting {{variable}} values before insertion (null = none) */
   fillSnippet: SnippetItem | null
+  /** save-as-template modal open for this pane id (null = closed) */
+  savingTemplatePaneId: string | null
   /** app-wide color theme */
   appTheme: AppTheme
 
@@ -37,6 +39,7 @@ interface UiState {
   setDraggingPane: (id: string | null) => void
   setSearchOpen: (v: boolean) => void
   setFillSnippet: (s: SnippetItem | null) => void
+  setSavingTemplatePaneId: (id: string | null) => void
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
@@ -67,6 +70,7 @@ export const useUi = create<UiState>((set, get) => ({
   draggingPaneId: null,
   searchOpen: false,
   fillSnippet: null,
+  savingTemplatePaneId: null,
   appTheme: 'dark',
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
@@ -95,6 +99,7 @@ export const useUi = create<UiState>((set, get) => ({
   setDraggingPane: (id) => set({ draggingPaneId: id }),
   setSearchOpen: (v) => set({ searchOpen: v }),
   setFillSnippet: (s) => set({ fillSnippet: s }),
+  setSavingTemplatePaneId: (id) => set({ savingTemplatePaneId: id }),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),
   cycleAppTheme: () =>

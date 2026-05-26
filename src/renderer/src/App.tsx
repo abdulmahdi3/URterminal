@@ -10,6 +10,7 @@ import TelegramLinkModal from './components/TelegramLinkModal'
 import TaskManagerModal from './components/TaskManagerModal'
 import AskAllModal from './components/AskAllModal'
 import SnippetFillModal from './components/SnippetFillModal'
+import TemplateSaveModal from './components/TemplateSaveModal'
 import SearchBar from './components/SearchBar'
 import Toaster from './components/Toaster'
 import CopiedFlash from './components/CopiedFlash'
@@ -78,6 +79,7 @@ export default function App(): JSX.Element {
       <TaskManagerModal />
       <AskAllModal />
       <SnippetFillModal />
+      <TemplateSaveModal />
       <SearchBar />
       <ShortcutsModal />
       <Toaster />

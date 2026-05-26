@@ -11,6 +11,8 @@ export interface ShellPaneState {
   args?: string[]
   cwd?: string
   ptyId?: string
+  /** command auto-typed once the shell is ready (used by pane templates) */
+  startupCommand?: string
 }
 
 /** An "AI pane" is a terminal that auto-launches an agent CLI (claude, codex, …). */

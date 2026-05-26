@@ -11,6 +11,8 @@ interface Props {
   shellArgs?: string[]
   /** working directory to launch in */
   cwd?: string
+  /** command auto-typed once the shell is ready (pane templates) */
+  startupCommand?: string
   /** called once the pty exists so the store can track its id */
   onReady?: (ptyId: string, shell: string) => void
   /** called when the pty process exits (e.g. agent quit via Ctrl+C twice) */
@@ -30,6 +32,7 @@ export default function TerminalPane({
   shell,
   shellArgs,
   cwd,
+  startupCommand,
   onReady,
   onExit,
   onStarted
@@ -51,6 +54,7 @@ export default function TerminalPane({
       shell,
       shellArgs,
       cwd,
+      startupCommand,
       onReady: (id, shell) => onReadyRef.current?.(id, shell),
       onExit: (code) => onExitRef.current?.(code),
       onStarted: () => onStartedRef.current?.()

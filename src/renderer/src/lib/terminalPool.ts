@@ -37,6 +37,8 @@ export interface TerminalOpts {
   /** extra args for the shell binary (e.g. ["-d", "Ubuntu"] for a WSL distro) */
   shellArgs?: string[]
   cwd?: string
+  /** command auto-typed once the shell is ready (pane templates) */
+  startupCommand?: string
   onReady?: (ptyId: string, shell: string) => void
   onExit?: (code: number) => void
   /** fired once when the process produces its first output (boot finished) */
@@ -248,7 +250,8 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
       command: opts.command,
       shell: opts.shell,
       shellArgs: opts.shellArgs,
-      cwd: opts.cwd
+      cwd: opts.cwd,
+      startupCommand: opts.startupCommand
     })
     .then((res) => {
       entry.ptyId = res.ptyId

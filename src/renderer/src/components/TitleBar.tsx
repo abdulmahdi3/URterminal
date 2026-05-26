@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Layers, Save } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import type { WorkspaceEntry } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
+import { useSettings } from '@renderer/store/settings'
+import { spawnTemplate, removeTemplate } from '@renderer/lib/templates'
 import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
@@ -176,6 +178,9 @@ export default function TitleBar(): JSX.Element {
   const draggingPaneId = useUi((s) => s.draggingPaneId)
   const setDraggingPane = useUi((s) => s.setDraggingPane)
   const canCloseWorkspace = list.length > 1
+  const templates = useSettings((s) => s.settings?.prefs.templates ?? [])
+  const activePaneId = useWorkspace((s) => s.activePaneId)
+  const setSavingTemplatePaneId = useUi((s) => s.setSavingTemplatePaneId)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
@@ -247,6 +252,55 @@ export default function TitleBar(): JSX.Element {
             <ShellLogo shell={spec.file} args={spec.args} size={15} />
           </button>
         ))}
+
+        <div className="titlebar-sep" />
+
+        {/* Pane templates — one click to spawn a saved agent/shell config */}
+        <HoverDropdown
+          trigger={
+            <button className="icon-btn agent-icon-btn" title="Pane templates">
+              <Layers size={15} />
+            </button>
+          }
+        >
+          <>
+            {templates.length === 0 && (
+              <div className="hover-dd-item" style={{ opacity: 0.6, cursor: 'default' }}>
+                No templates yet
+              </div>
+            )}
+            {templates.map((tpl) => (
+              <div
+                key={tpl.id}
+                className="hover-dd-item"
+                onClick={() => spawnTemplate(tpl)}
+                title={tpl.type === 'ai' ? tpl.agentCommand : tpl.shell}
+              >
+                <span className="hover-dd-item-name">
+                  {tpl.type === 'ai' ? '🤖' : '🖥'} {tpl.name}
+                </span>
+                <button
+                  className="hover-dd-item-close"
+                  title="Delete template"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeTemplate(tpl.id)
+                  }}
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+            <div className="hover-dd-sep" />
+            <div
+              className={clsx('hover-dd-item', !activePaneId && 'disabled')}
+              onClick={() => activePaneId && setSavingTemplatePaneId(activePaneId)}
+            >
+              <Save size={12} />
+              <span className="hover-dd-item-name">Save active pane…</span>
+            </div>
+          </>
+        </HoverDropdown>
       </div>
 
       <div className="titlebar-drag" />
