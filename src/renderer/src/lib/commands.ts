@@ -171,9 +171,9 @@ export function getCommands(): Command[] {
     },
     {
       id: 'edit.paste',
-      title: 'Paste into terminal',
+      title: 'Paste into terminal (text or image)',
       group: 'General',
-      shortcut: 'Ctrl+Shift+V',
+      shortcut: 'Ctrl+V',
       run: () => {
         const id = ws().activePaneId
         if (id) pasteClipboard(id)

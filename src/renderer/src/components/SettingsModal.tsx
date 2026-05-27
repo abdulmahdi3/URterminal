@@ -30,6 +30,22 @@ const ACCENT_PRESETS = [
   { label: 'Rose', value: '#f43f5e' },
 ]
 
+// Common monospace families offered for terminals (layered over the built-in
+// stack, so an unavailable one falls back gracefully). '' = built-in default.
+const FONT_OPTIONS = [
+  { value: '', label: 'Default (JetBrains Mono)' },
+  { value: 'JetBrains Mono', label: 'JetBrains Mono' },
+  { value: 'Cascadia Code', label: 'Cascadia Code' },
+  { value: 'Cascadia Mono', label: 'Cascadia Mono' },
+  { value: 'Consolas', label: 'Consolas' },
+  { value: 'Courier New', label: 'Courier New' },
+  { value: 'Fira Code', label: 'Fira Code' },
+  { value: 'Source Code Pro', label: 'Source Code Pro' },
+  { value: 'Ubuntu Mono', label: 'Ubuntu Mono' },
+  { value: 'Menlo', label: 'Menlo' },
+  { value: 'Monaco', label: 'Monaco' }
+]
+
 const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
   { value: 'dark', label: 'Dark' },
@@ -55,8 +71,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
     'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore'
   ],
   notifications: [
-    'notifyOnDone', 'notifySound', 'telegramNotifyOnDone', 'notifyOnlyUnfocused',
-    'notifyVolume', 'notifySoundName'
+    'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName'
   ],
   appearance: ['appTheme', 'fontFamily', 'fontSize']
 }
@@ -288,8 +303,7 @@ export default function SettingsModal(): JSX.Element | null {
     ],
     notifications: [
       'Desktop notification when an agent finishes', 'Play a sound when an agent finishes',
-      'Send a Telegram message when a linked pane finishes', 'Only notify when window is unfocused',
-      'Notification sound', 'Notification volume'
+      'Only notify when window is unfocused', 'Notification sound', 'Notification volume'
     ],
     telegram: [t('settings.telegramToken'), t('settings.telegramDefaultChat'), 'Allowed chats'],
     snippets: ['Snippets'],
@@ -573,9 +587,13 @@ export default function SettingsModal(): JSX.Element | null {
                   </Row>
                 )}
                 {match('Terminal font') && (
-                  <Row label="Terminal font" hint="Font family for all terminals (empty = built-in mono).">
-                    <input className="input mono" placeholder="Default (JetBrains Mono)" defaultValue={prefs.fontFamily}
-                      onBlur={(e) => setPref({ fontFamily: e.target.value.trim() })} />
+                  <Row label="Terminal font" hint="Font family for all terminals.">
+                    <select className="select" value={prefs.fontFamily} onChange={(e) => setPref({ fontFamily: e.target.value })}>
+                      {!FONT_OPTIONS.some((f) => f.value === prefs.fontFamily) && prefs.fontFamily && (
+                        <option value={prefs.fontFamily}>{prefs.fontFamily} (custom)</option>
+                      )}
+                      {FONT_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    </select>
                   </Row>
                 )}
                 {match('Font size') && (
@@ -651,7 +669,6 @@ export default function SettingsModal(): JSX.Element | null {
                 <div className="settings-toggle-list">
                   {match('Desktop notification when an agent finishes') && <Toggle label="Desktop notification when an agent finishes" checked={prefs.notifyOnDone} onChange={(v) => setPref({ notifyOnDone: v })} />}
                   {match('Play a sound when an agent finishes') && <Toggle label="Play a sound when an agent finishes" checked={prefs.notifySound} onChange={(v) => setPref({ notifySound: v })} />}
-                  {match('Send a Telegram message when a linked pane finishes') && <Toggle label="Send a Telegram message when a linked pane finishes" checked={prefs.telegramNotifyOnDone} onChange={(v) => setPref({ telegramNotifyOnDone: v })} />}
                   {match('Only notify when window is unfocused') && <Toggle label="Only notify when window is unfocused" checked={prefs.notifyOnlyUnfocused} onChange={(v) => setPref({ notifyOnlyUnfocused: v })} />}
                 </div>
                 {match('Notification sound') && (

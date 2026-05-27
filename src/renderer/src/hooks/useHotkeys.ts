@@ -30,6 +30,17 @@ function isTypingTarget(el: EventTarget | null): boolean {
 }
 
 /**
+ * A regular app input (settings field, rename box, search) — i.e. an editable
+ * element that is NOT the terminal's hidden textarea. Used to let the browser's
+ * native copy/paste run there instead of our terminal clipboard shortcuts.
+ */
+function isAppInput(el: EventTarget | null): boolean {
+  const t = el as HTMLElement | null
+  if (!t || !isTypingTarget(t)) return false
+  return !t.closest('.shell-pane') // xterm's input lives inside .shell-pane
+}
+
+/**
  * Single global keydown handler — the only place hotkeys are wired.
  * Keeping the chrome empty (no on-screen buttons) and routing everything
  * through here + the command palette is what keeps the UI uncluttered.
@@ -81,6 +92,9 @@ export function useHotkeys(): void {
       if (combo) {
         const id = commandForCombo(combo)
         if (id) {
+          // In regular app inputs, let the browser handle native copy/paste
+          // instead of routing to the active terminal.
+          if ((id === 'edit.copy' || id === 'edit.paste') && isAppInput(e.target)) return
           e.preventDefault()
           runCommand(id)
           return

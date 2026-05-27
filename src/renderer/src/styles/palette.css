@@ -111,9 +111,8 @@
   font-size: var(--fs-body);
 }
 .palette-item.active {
-  /* faint neutral fill + a bold accent bar on the left edge */
+  /* faint neutral fill only — no accent edge bar */
   background: var(--bg-elev-2);
-  border-left-color: var(--accent);
 }
 .palette-item.active .palette-title {
   color: var(--text);
