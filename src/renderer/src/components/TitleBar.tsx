@@ -237,7 +237,24 @@ export default function TitleBar(): JSX.Element {
         setDraggingPanes(null)
       }}
     >
-      <div className="titlebar-left" data-nodrag>
+      <div
+        className="titlebar-left"
+        data-nodrag
+        // The buttons group is NOT a new-workspace drop target — swallow drops so
+        // dropping on/near a button doesn't spawn a workspace (the drop zone runs
+        // from after this group to the window controls).
+        onDragOver={(e) => {
+          if (!draggingPaneIds) return
+          e.preventDefault()
+          e.stopPropagation()
+          e.dataTransfer.dropEffect = 'none'
+        }}
+        onDrop={(e) => {
+          if (!draggingPaneIds) return
+          e.preventDefault()
+          e.stopPropagation()
+        }}
+      >
         {/* Brand */}
         <AppLogo />
         <span className="brand-name">URterminal</span>
@@ -331,7 +348,7 @@ export default function TitleBar(): JSX.Element {
         </HoverDropdown>
       </div>
 
-      <div className="titlebar-drag" />
+      <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />
 
       <div className="titlebar-workspaces" data-nodrag>
         {visibleList.map((w) => (
@@ -433,7 +450,7 @@ export default function TitleBar(): JSX.Element {
         <SessionsMenu />
       </div>
 
-      <div className="titlebar-drag" />
+      <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />
     </header>
   )
 }
