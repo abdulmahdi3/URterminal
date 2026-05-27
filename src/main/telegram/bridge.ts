@@ -76,19 +76,26 @@ export class TelegramBridge {
   getStatus(): TelegramStatus { return this.status }
 
   async start(): Promise<TelegramStatus> {
+    // Always tear down any previous instance first so only ONE long-polling
+    // loop ever runs (prevents the 409 "terminated by other getUpdates" case
+    // on restart / hot-reload).
     await this.stop()
     const token = this.settings.getTelegramToken()
     if (!token) {
       this.status = { running: false }
       this.emitStatus(this.status)
+      console.log('[TelegramBridge] no token configured — not starting')
       return this.status
     }
+    // "connecting" — not running yet, no error.
+    this.status = { running: false }
     try {
       const bot = new Bot(token)
 
       bot.on('message:text', async (ctx) => {
         const chatId = ctx.chat.id.toString()
         const text = ctx.message.text.trim()
+        console.log(`[TelegramBridge] message-received chat=${chatId} text=${JSON.stringify(text.slice(0, 80))}`)
         if (!this.isAuthorized(chatId)) {
           try { await ctx.reply(`⛔ This chat (${chatId}) is not authorized to control URterminal.`) } catch { /* ignore */ }
           return
@@ -101,16 +108,69 @@ export class TelegramBridge {
         }
       })
 
+      // Middleware (update-processing) errors — keep the poll loop alive.
       bot.catch((err) => this.emitError(err.error ?? err))
+
+      // getMe — validates the token; throws on an invalid token (surfaced below).
       await bot.init()
-      void bot.start({ drop_pending_updates: true })
+      console.log(`[TelegramBridge] connected as @${bot.botInfo.username}`)
+
+      // A previously-set webhook makes getUpdates fail with 409; clearing it (and
+      // dropping the backlog) is the single most common fix for "running but no
+      // messages". Best-effort — continue even if it fails.
+      try {
+        await bot.api.deleteWebhook({ drop_pending_updates: true })
+      } catch (e) {
+        console.warn('[TelegramBridge] deleteWebhook failed (continuing):', e)
+      }
+
       this.bot = bot
-      this.status = { running: true, botUsername: bot.botInfo.username }
+      // bot.start() resolves only when the bot STOPS; onStart fires once the
+      // long-polling loop actually begins, and .catch() surfaces fatal polling
+      // errors (invalid token, persistent 409) so the status never lies.
+      void bot
+        .start({
+          drop_pending_updates: true,
+          onStart: (info) => {
+            this.status = { running: true, botUsername: info.username }
+            this.emitStatus(this.status)
+            console.log('[TelegramBridge] long-polling started')
+          }
+        })
+        .catch((err) => {
+          this.bot = null
+          this.status = { running: false, error: String((err as Error)?.message ?? err) }
+          this.emitStatus(this.status)
+          console.error('[TelegramBridge] polling loop stopped with error:', err)
+        })
+
+      // Known bot identity even before the first poll confirms.
+      this.status = { running: false, botUsername: bot.botInfo.username }
     } catch (err) {
+      this.bot = null
       this.status = { running: false, error: (err as Error).message }
+      console.error('[TelegramBridge] start failed:', err)
     }
     this.emitStatus(this.status)
     return this.status
+  }
+
+  /** Send a test message to the default chat (or first allowed chat) to verify the round trip. */
+  async sendTest(): Promise<{ ok: boolean; error?: string }> {
+    if (!this.bot || !this.status.running) return { ok: false, error: 'Bot is not running' }
+    const target =
+      (this.settings.getTelegramDefaultChat() || '').trim() ||
+      (this.settings.getPrefs().telegramChatWhitelist ?? []).map((s) => s.trim()).find(Boolean)
+    if (!target) return { ok: false, error: 'Set a default chat ID first' }
+    try {
+      await this.bot.api.sendMessage(target, '✅ URterminal test message — Telegram is connected.')
+      console.log(`[TelegramBridge] test message sent to ${target}`)
+      return { ok: true }
+    } catch (err) {
+      const error = String((err as Error)?.message ?? err)
+      console.error('[TelegramBridge] test message failed:', error)
+      return { ok: false, error }
+    }
   }
 
   private emitError(err: unknown): void {
@@ -121,6 +181,7 @@ export class TelegramBridge {
 
   async stop(): Promise<void> {
     if (this.bot) {
+      console.log('[TelegramBridge] stopping previous bot instance')
       try { await this.bot.stop() } catch { /* ignore */ }
       this.bot = null
     }
@@ -136,9 +197,17 @@ export class TelegramBridge {
    * are allowed, so the app can be driven from phone + desktop Telegram.
    */
   private isAuthorized(chatId: string): boolean {
-    const wl = this.settings.getPrefs().telegramChatWhitelist ?? []
-    if (!wl.length) return true
-    return wl.includes(chatId) || chatId === this.settings.getTelegramDefaultChat()
+    // Compare as trimmed strings (chat IDs arrive as strings on both sides);
+    // an empty whitelist means open access.
+    const id = chatId.trim()
+    const wl = (this.settings.getPrefs().telegramChatWhitelist ?? []).map((s) => s.trim()).filter(Boolean)
+    const def = (this.settings.getTelegramDefaultChat() ?? '').trim()
+    const allowed = !wl.length || wl.includes(id) || (def !== '' && id === def)
+    console.log(
+      `[TelegramBridge] filter chat=${id} → ${allowed ? 'ALLOWED' : 'DENIED'} ` +
+        `(whitelist=${wl.length ? wl.join(',') : 'open'}${def ? `, default=${def}` : ''})`
+    )
+    return allowed
   }
 
   linkPane(paneId: string, chatId: string | null): void {
@@ -384,6 +453,7 @@ export class TelegramBridge {
         await reply('Main menu:', this.mainKb())
       } else {
         const paneId = mode.slice(5)
+        console.log(`[TelegramBridge] dispatch → pane ${paneId} (chat ${chatId})`)
         this.emitInbound({ paneId, text, chatId })
       }
       return

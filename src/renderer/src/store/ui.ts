@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SnippetItem } from '@shared/types'
 
-export const APP_THEMES = ['dark', 'amoled', 'ocean', 'forest', 'dusk'] as const
+export const APP_THEMES = ['dark', 'light', 'amoled', 'ocean', 'forest', 'dusk'] as const
 export type AppTheme = (typeof APP_THEMES)[number]
 
 interface UiState {

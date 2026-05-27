@@ -151,6 +151,48 @@ textarea.input.mono {
   display: block;
   margin-bottom: 10px;
 }
+/* section header with an optional per-section reset button */
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.settings-section-head h3 {
+  margin-bottom: 10px;
+}
+.settings-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+.btn.sm {
+  padding: 3px 8px;
+  font-size: var(--fs-2xs);
+}
+.settings-static {
+  font-size: var(--fs-sm);
+  color: var(--text);
+  padding-top: 4px;
+}
+.settings-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* range slider sits inline at the field width */
+.settings-control > input[type='range'].input {
+  padding: 0;
+  height: 22px;
+  accent-color: var(--accent);
+  background: transparent;
+  border: none;
+}
+.settings-control > input[type='number'].input {
+  max-width: 140px;
+}
 /* grouped toggle list (notifications, startup) */
 .settings-toggle-list {
   border: 1px solid var(--border);

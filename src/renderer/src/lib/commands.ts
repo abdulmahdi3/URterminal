@@ -9,6 +9,7 @@ import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
 import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
+import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -88,7 +89,7 @@ export function getCommands(): Command[] {
       shortcut: 'Ctrl+W',
       run: () => {
         const id = ws().activePaneId
-        if (id) {
+        if (id && confirmPaneClose(id)) {
           window.api.linkPaneToTelegram(id, null)
           ws().removePane(id)
         }

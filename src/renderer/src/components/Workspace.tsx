@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
 import type { MosaicNode } from 'react-mosaic-component'
 import { getLeaves } from '@renderer/lib/mosaicTree'
+import { confirmPaneClose } from '@renderer/lib/paneClose'
 
 /** Minimum percentage either side of a split may occupy (prevents tiny panes). */
 const MIN_SPLIT_PCT = 20
@@ -329,6 +330,7 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   }
 
   const close = (): void => {
+    if (!confirmPaneClose(paneId)) return
     window.api.linkPaneToTelegram(paneId, null)
     removePane(paneId)
   }

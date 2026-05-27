@@ -2,17 +2,80 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { SerializeAddon } from '@xterm/addon-serialize'
+import type { CursorStyle } from '@shared/types'
 import { noteOutputChars } from './outputMetrics'
 import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import '@xterm/xterm/css/xterm.css'
 
-const SCROLLBACK = 5000
-const DEFAULT_FONT_STACK = "'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace"
+// 'Segoe UI'/'Tahoma' tail lets Arabic glyphs render (RTL) when present in output.
+const DEFAULT_FONT_STACK =
+  "'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Segoe UI', 'Tahoma', monospace"
 // Current terminal font, updated live from settings and applied to every pane.
 let currentFontFamily = DEFAULT_FONT_STACK
 let currentFontSize = 13
+
+/**
+ * Live terminal options sourced from settings and applied to every pane.
+ * Mutated in place by `setTerminalConfig` so event handlers created in
+ * `createEntry` (copy-on-select, right-click paste) read the current values.
+ */
+const termCfg = {
+  cursorStyle: 'block' as CursorStyle,
+  cursorBlink: true,
+  lineHeight: 1.0,
+  letterSpacing: 0,
+  scrollback: 5000,
+  scrollSensitivity: 1,
+  copyOnSelect: true,
+  pasteOnRightClick: true,
+  bell: false
+}
+
+/** Short terminal-bell blip (WebAudio, no asset). */
+function playBell(): void {
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ctx = new Ctx()
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.connect(g)
+    g.connect(ctx.destination)
+    o.type = 'square'
+    o.frequency.value = 880
+    g.gain.setValueAtTime(0.0001, ctx.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.005)
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12)
+    o.start()
+    o.stop(ctx.currentTime + 0.13)
+    window.setTimeout(() => void ctx.close(), 300)
+  } catch {
+    /* audio unavailable — ignore */
+  }
+}
+
+/** Update terminal options from settings and apply them live to every open pane. */
+export function setTerminalConfig(cfg: Partial<typeof termCfg> & { padding?: number }): void {
+  const { padding, ...rest } = cfg
+  if (padding !== undefined) {
+    document.documentElement.style.setProperty('--term-pad', `${Math.max(0, padding)}px`)
+  }
+  Object.assign(termCfg, rest)
+  for (const [id, entry] of pool) {
+    const o = entry.term.options
+    o.cursorStyle = termCfg.cursorStyle
+    o.cursorBlink = termCfg.cursorBlink
+    o.lineHeight = termCfg.lineHeight > 0 ? termCfg.lineHeight : 1
+    o.letterSpacing = termCfg.letterSpacing
+    o.scrollback = termCfg.scrollback
+    o.scrollSensitivity = termCfg.scrollSensitivity > 0 ? termCfg.scrollSensitivity : 1
+    fitTerminal(id)
+    entry.term.refresh(0, entry.term.rows - 1)
+  }
+}
 // Hide the boot loader only once this many bytes have streamed — early terminal
 // setup sequences are tiny, so a threshold avoids hiding the loader before the
 // CLI has actually painted anything.
@@ -207,8 +270,12 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   const term = new Terminal({
     fontFamily: currentFontFamily,
     fontSize: currentFontSize,
-    scrollback: SCROLLBACK,
-    cursorBlink: true,
+    scrollback: termCfg.scrollback,
+    cursorBlink: termCfg.cursorBlink,
+    cursorStyle: termCfg.cursorStyle,
+    lineHeight: termCfg.lineHeight > 0 ? termCfg.lineHeight : 1,
+    letterSpacing: termCfg.letterSpacing,
+    scrollSensitivity: termCfg.scrollSensitivity > 0 ? termCfg.scrollSensitivity : 1,
     allowProposedApi: true,
     theme: darkTheme
   })
@@ -257,17 +324,22 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   // to the clipboard. Fires on every selection change while dragging; the last
   // write wins, so the clipboard always holds the final selection.
   const onSelection = term.onSelectionChange(() => {
+    if (!termCfg.copyOnSelect) return
     const sel = term.getSelection()
     if (sel) {
       void navigator.clipboard.writeText(sel).catch(() => {})
       flashCopied()
     }
   })
+  const onBell = term.onBell(() => {
+    if (termCfg.bell) playBell()
+  })
   // Right-click to paste. Text is pasted as-is; an image on the clipboard is
   // written to a temp PNG and its path pasted (so the agent can read the file).
   // `term.paste` honors bracketed-paste mode, so multi-line text stays intact.
   const onContextMenu = (ev: MouseEvent): void => {
     ev.preventDefault()
+    if (!termCfg.pasteOnRightClick) return
     void window.api
       .readClipboard()
       .then((clip) => {
@@ -304,6 +376,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     try {
       onData.dispose()
       onSelection.dispose()
+      onBell.dispose()
       term.element?.removeEventListener('contextmenu', onContextMenu)
     } catch {
       /* noop */

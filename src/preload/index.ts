@@ -28,6 +28,9 @@ function on<T>(channel: string, cb: (payload: T) => void): () => void {
 }
 
 const api = {
+  // ---- app info ----
+  getAppInfo: (): Promise<{ version: string }> => ipcRenderer.invoke(IPC.appInfo),
+
   // ---- settings ----
   getSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke(IPC.settingsGet),
   patchSettings: (patch: SettingsPatch): Promise<SettingsPublic> =>
@@ -83,6 +86,8 @@ const api = {
   // ---- telegram ----
   getTelegramStatus: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramStatus),
   restartTelegram: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramRestart),
+  testTelegram: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.telegramTest),
   linkPaneToTelegram: (paneId: string, chatId: string | null): Promise<void> =>
     ipcRenderer.invoke(IPC.telegramLinkPane, { paneId, chatId }),
   forwardToTelegram: (paneId: string, text: string): void =>

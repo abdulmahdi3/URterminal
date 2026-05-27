@@ -2,8 +2,11 @@ import { useEffect } from 'react'
 import type { MosaicNode } from 'react-mosaic-component'
 import type { Pane, LastSessionPayload } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
+import { useSettings } from '@renderer/store/settings'
 import { applyRestore } from '@renderer/store/sessions'
 import { capturePane } from '@renderer/lib/terminalPool'
+import { getLeaves } from '@renderer/lib/mosaicTree'
+import { buildAutoLayout } from '@renderer/lib/layoutPresets'
 import { toast } from '@renderer/store/toasts'
 
 const KEY = 'urterminal.workspace.v1'
@@ -41,6 +44,21 @@ function snapshot(): LastSessionPayload {
   return { panes: sanitize(panes), layout, transcripts: captureTranscripts(panes), savedAt: Date.now() }
 }
 
+/** Cap a restored snapshot to the first `max` panes (0 = unlimited), rebalancing the layout. */
+function capPanes(
+  panes: Record<string, Pane>,
+  layout: MosaicNode<string> | null,
+  max: number
+): { panes: Record<string, Pane>; layout: MosaicNode<string> | null } {
+  if (!max || max <= 0) return { panes, layout }
+  const leaves = getLeaves(layout)
+  if (leaves.length <= max) return { panes, layout }
+  const keep = leaves.slice(0, max)
+  const kept: Record<string, Pane> = {}
+  for (const id of keep) if (panes[id]) kept[id] = panes[id]
+  return { panes: kept, layout: buildAutoLayout(keep) }
+}
+
 export function usePersistence(): void {
   // Restore once on mount, unless the user disabled auto-restore. The flag is
   // mirrored to localStorage by the settings store so it's readable here before
@@ -52,12 +70,14 @@ export function usePersistence(): void {
     void window.api
       .readLastSession()
       .then((last) => {
+        const max = useSettings.getState().settings?.prefs.maxRestorePanes ?? 0
         if (last && last.panes && Object.keys(last.panes).length) {
-          applyRestore(
+          const capped = capPanes(
             last.panes,
             (last.layout as MosaicNode<string> | null) ?? null,
-            last.transcripts ?? {}
+            max
           )
+          applyRestore(capped.panes, capped.layout, last.transcripts ?? {})
           return
         }
         try {
@@ -65,7 +85,8 @@ export function usePersistence(): void {
           if (!raw) return
           const data = JSON.parse(raw) as Persisted
           if (data.layout && data.panes && Object.keys(data.panes).length) {
-            applyRestore(data.panes, data.layout, {})
+            const capped = capPanes(data.panes, data.layout, max)
+            applyRestore(capped.panes, capped.layout, {})
           }
         } catch {
           toast('Workspace state was corrupted and could not be restored.', 'error')
@@ -83,12 +104,18 @@ export function usePersistence(): void {
     }
     const unsub = useWorkspace.subscribe(() => {
       window.clearTimeout(handle)
-      handle = window.setTimeout(save, 800)
+      const secs = useSettings.getState().settings?.prefs.autoSaveSeconds ?? 1
+      handle = window.setTimeout(save, Math.max(250, secs * 1000))
     })
     const flush = (): void => {
       try {
-        // synchronous IPC — async writes don't complete during beforeunload
-        window.api.flushLastSession(snapshot())
+        // synchronous IPC — async writes don't complete during beforeunload.
+        // "Clear workspace on exit" persists an empty snapshot so the next
+        // launch starts fresh.
+        const clear = useSettings.getState().settings?.prefs.clearWorkspaceOnExit
+        window.api.flushLastSession(
+          clear ? { panes: {}, layout: null, transcripts: {}, savedAt: Date.now() } : snapshot()
+        )
       } catch {
         /* non-fatal */
       }

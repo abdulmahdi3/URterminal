@@ -53,7 +53,14 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
 
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
-    settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername)
+    settings.getPublic(
+      telegram.isRunning(),
+      telegram.getStatus().botUsername,
+      telegram.getStatus().error
+    )
+
+  // ---- app info ----
+  ipcMain.handle(IPC.appInfo, () => ({ version: app.getVersion() }))
 
   // ---- settings ----
   ipcMain.handle(IPC.settingsGet, () => publicSettings())
@@ -68,6 +75,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // ---- telegram ----
   ipcMain.handle(IPC.telegramStatus, () => telegram.getStatus())
   ipcMain.handle(IPC.telegramRestart, () => telegram.start())
+  ipcMain.handle(IPC.telegramTest, () => telegram.sendTest())
   ipcMain.handle(
     IPC.telegramLinkPane,
     (_e, { paneId, chatId }: { paneId: string; chatId: string | null }) =>

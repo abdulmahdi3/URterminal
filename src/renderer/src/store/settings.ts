@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import type { SettingsPublic, SettingsPatch } from '@shared/types'
 import i18n from '@renderer/i18n/i18n'
-import { setTerminalFont } from '@renderer/lib/terminalPool'
+import { setTerminalFont, setTerminalConfig } from '@renderer/lib/terminalPool'
 import { useWorkspace } from './workspace'
+import { useUi, type AppTheme } from './ui'
 
 interface SettingsState {
   settings: SettingsPublic | null
@@ -49,10 +50,36 @@ function applySideEffects(s: SettingsPublic): void {
     model: s.defaultModel,
     agent: s.defaultAgent,
     shell: s.defaultShell,
-    shellArgs: s.defaultShellArgs
+    shellArgs: s.defaultShellArgs,
+    shellCwd: s.prefs.defaultShellCwd,
+    focusNewPane: s.prefs.focusNewPane
   })
+  // pane title bars (settings-controlled) — collapse the mosaic toolbar when off
+  document.documentElement.classList.toggle('hide-pane-headers', !s.prefs.showPaneHeaders)
   applyAccentColor(s.accentColor || '#4c8dff')
   setTerminalFont(s.prefs.fontFamily || '', s.prefs.fontSize || 13)
+  setTerminalConfig({
+    cursorStyle: s.prefs.cursorStyle,
+    cursorBlink: s.prefs.cursorBlink,
+    lineHeight: s.prefs.lineHeight,
+    letterSpacing: s.prefs.letterSpacing,
+    scrollback: s.prefs.scrollback,
+    scrollSensitivity: s.prefs.scrollSensitivity,
+    copyOnSelect: s.prefs.copyOnSelect,
+    pasteOnRightClick: s.prefs.pasteOnRightClick,
+    bell: s.prefs.terminalBell,
+    padding: s.prefs.terminalPadding
+  })
+  // App color theme: 'system' resolves to light/dark via the OS preference;
+  // every other value is a concrete theme class applied on .app (see App.tsx).
+  const themePref = s.prefs.appTheme || 'dark'
+  const resolved =
+    themePref === 'system'
+      ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'
+      : themePref
+  useUi.getState().setAppTheme(resolved as AppTheme)
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({

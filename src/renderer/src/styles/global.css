@@ -33,9 +33,9 @@
   --info: #58a6ff;
   --magenta: #bc8cff;
 
-  /* Typography */
-  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Typography — 'Segoe UI'/'Tahoma' tail provides Arabic glyph shaping (RTL) */
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Consolas', 'Segoe UI', 'Tahoma', monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Tahoma', sans-serif;
   --fs-body: 13px;
   --fs-sm: 12px;
   --fs-xs: 11px;
@@ -70,6 +70,19 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* ---- RTL (Arabic) ----
+   The UI chrome mirrors via [dir='rtl'] on <html> (set from the language
+   setting). Terminals must stay logically LTR: shell/CLI output and code are
+   not bidi text, so the terminal box and its xterm contents never mirror —
+   only the surrounding UI does. (xterm itself does not shape Arabic; that is a
+   renderer limitation, but at least letters render with a fallback font and the
+   box keeps its correct orientation.) */
+.shell-pane,
+.shell-pane .xterm {
+  direction: ltr;
+  text-align: left;
 }
 
 html,

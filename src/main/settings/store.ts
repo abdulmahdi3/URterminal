@@ -97,13 +97,12 @@ export class SettingsStore {
     }
   }
 
-  getPublic(telegramRunning = false, botUsername?: string): SettingsPublic {
+  getPublic(telegramRunning = false, botUsername?: string, telegramError?: string): SettingsPublic {
     const s = this.raw()
     const aKey = decrypt(s.providers.anthropic.keyEnc)
     const oKey = decrypt(s.providers.openai.keyEnc)
     const gKey = decrypt(s.providers.gemini.keyEnc)
     const tToken = decrypt(s.telegram.tokenEnc)
-    void botUsername
     return {
       providers: {
         anthropic: { keySet: !!aKey, keyPreview: preview(aKey) },
@@ -115,7 +114,9 @@ export class SettingsStore {
         tokenSet: !!tToken,
         tokenPreview: preview(tToken),
         defaultChatId: s.telegram.defaultChatId,
-        running: telegramRunning
+        running: telegramRunning,
+        botUsername,
+        error: telegramError
       },
       defaultProvider: s.defaultProvider,
       defaultModel: s.defaultModel,

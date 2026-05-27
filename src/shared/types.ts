@@ -79,6 +79,10 @@ export interface TelegramSettingsPublic {
   tokenPreview?: string
   defaultChatId?: string
   running: boolean
+  /** bot @username once connected (getMe succeeded) */
+  botUsername?: string
+  /** last connection/polling error, surfaced in the UI when the bot isn't running */
+  error?: string
 }
 
 export type ThemeName = 'dark' | 'light'
@@ -104,6 +108,9 @@ export interface PaneTemplate {
   startupCommand?: string
 }
 
+export type CursorStyle = 'block' | 'bar' | 'underline'
+export type NotifySound = 'chime' | 'beep'
+
 /** Free-form user preferences persisted as one JSON blob via electron-store. */
 export interface AppPrefs {
   /** desktop notification when an agent finishes a turn */
@@ -124,6 +131,54 @@ export interface AppPrefs {
   snippets: SnippetItem[]
   /** saved pane configurations */
   templates: PaneTemplate[]
+
+  // ---- appearance / terminal ----
+  /** app color theme (matches APP_THEMES: dark, amoled, ocean, forest, dusk, light, system) */
+  appTheme: string
+  /** terminal caret shape */
+  cursorStyle: CursorStyle
+  /** terminal caret blink */
+  cursorBlink: boolean
+  /** terminal line height multiplier (1.0 = default) */
+  lineHeight: number
+  /** terminal letter spacing in px */
+  letterSpacing: number
+  /** terminal scrollback buffer size (lines) */
+  scrollback: number
+  /** inner padding around terminal contents (px) */
+  terminalPadding: number
+  /** show the per-pane title/header bar */
+  showPaneHeaders: boolean
+  /** terminal scroll speed multiplier */
+  scrollSensitivity: number
+  /** play a short sound when the terminal emits a bell (\\a) */
+  terminalBell: boolean
+
+  // ---- behavior / workflow ----
+  /** warn before closing a pane whose process is still running */
+  confirmClose: boolean
+  /** working directory new shell panes open in ('' = home) */
+  defaultShellCwd: string
+  /** debounce (seconds) before the live workspace is auto-saved to disk */
+  autoSaveSeconds: number
+  /** cap on how many panes are restored on launch (0 = unlimited) */
+  maxRestorePanes: number
+  /** focus a newly created pane automatically */
+  focusNewPane: boolean
+  /** copy the terminal selection to the clipboard automatically */
+  copyOnSelect: boolean
+  /** paste on right-click in a terminal */
+  pasteOnRightClick: boolean
+  /** clear the saved workspace on exit (next launch starts empty) */
+  clearWorkspaceOnExit: boolean
+
+  // ---- notifications ----
+  /** only fire desktop/sound notifications when the window is NOT focused */
+  notifyOnlyUnfocused: boolean
+  /** notification chime volume (0–100) */
+  notifyVolume: number
+  /** which built-in notification sound to play */
+  notifySoundName: NotifySound
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -135,7 +190,31 @@ export const DEFAULT_PREFS: AppPrefs = {
   fontSize: 13,
   autoRestore: true,
   snippets: [],
-  templates: []
+  templates: [],
+
+  appTheme: 'dark',
+  cursorStyle: 'block',
+  cursorBlink: true,
+  lineHeight: 1.0,
+  letterSpacing: 0,
+  scrollback: 5000,
+  terminalPadding: 8,
+  showPaneHeaders: true,
+  scrollSensitivity: 1,
+  terminalBell: false,
+
+  confirmClose: false,
+  defaultShellCwd: '',
+  autoSaveSeconds: 1,
+  maxRestorePanes: 0,
+  focusNewPane: true,
+  copyOnSelect: true,
+  pasteOnRightClick: true,
+  clearWorkspaceOnExit: false,
+
+  notifyOnlyUnfocused: false,
+  notifyVolume: 60,
+  notifySoundName: 'chime'
 }
 
 export interface SettingsPublic {
@@ -315,6 +394,9 @@ export interface FileSaveResult {
 // ---------------------------------------------------------------------------
 
 export const IPC = {
+  // app info (version, etc.)
+  appInfo: 'app:info',
+
   // settings
   settingsGet: 'settings:get',
   settingsPatch: 'settings:patch',
@@ -356,6 +438,7 @@ export const IPC = {
   // telegram
   telegramStatus: 'telegram:status',
   telegramRestart: 'telegram:restart',
+  telegramTest: 'telegram:test', // send a test message to verify the round trip
   telegramLinkPane: 'telegram:link-pane',
   telegramForward: 'telegram:forward',
   telegramStartTurn: 'telegram:start-turn', // show prompt + "working" placeholder

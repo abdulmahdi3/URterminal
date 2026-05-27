@@ -44,6 +44,10 @@ export interface WorkspaceState {
   /** shell binary new shell panes launch by default ("" = OS default) */
   defaultShell: string
   defaultShellArgs: string[]
+  /** working directory new shell panes open in ("" = home) */
+  defaultShellCwd: string
+  /** focus a newly created pane automatically (settings-controlled) */
+  focusNewPane: boolean
 
   addPane: (type: PaneType, direction?: MosaicDirection, init?: PaneInit) => string
   splitPane: (id: string) => void
@@ -78,6 +82,8 @@ export interface WorkspaceState {
     agent: string
     shell: string
     shellArgs: string[]
+    shellCwd?: string
+    focusNewPane?: boolean
   }) => void
   /** replace whole workspace (used by persistence restore) */
   hydrate: (panes: Record<string, Pane>, layout: MosaicNode<string> | null) => void
@@ -114,6 +120,7 @@ interface PaneDefaults {
   agent: string
   shell: string
   shellArgs: string[]
+  shellCwd: string
 }
 
 function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane {
@@ -127,12 +134,14 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
     base.agent = { command }
   } else if (type === 'shell') {
     base.title = init?.label ?? `Shell ${paneCounter}`
+    const cwd = init?.shell !== undefined ? undefined : defaults.shellCwd || undefined
     if (init?.shell !== undefined) {
       base.shell = { shell: init.shell, args: init.shellArgs }
     } else {
       base.shell = {
         shell: defaults.shell,
-        args: defaults.shellArgs.length ? defaults.shellArgs : undefined
+        args: defaults.shellArgs.length ? defaults.shellArgs : undefined,
+        cwd
       }
     }
   } else {
@@ -143,7 +152,12 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
 
 /** Snapshot of the pane defaults sourced from settings. */
 function paneDefaults(s: WorkspaceState): PaneDefaults {
-  return { agent: s.defaultAgent, shell: s.defaultShell, shellArgs: s.defaultShellArgs }
+  return {
+    agent: s.defaultAgent,
+    shell: s.defaultShell,
+    shellArgs: s.defaultShellArgs,
+    shellCwd: s.defaultShellCwd
+  }
 }
 
 export const useWorkspace = create<WorkspaceState>((set, get) => ({
@@ -159,6 +173,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   defaultAgent: DEFAULT_AGENT,
   defaultShell: '',
   defaultShellArgs: [],
+  defaultShellCwd: '',
+  focusNewPane: true,
 
   addPane: (type, direction, init) => {
     const s0 = get()
@@ -179,7 +195,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       panes: { ...s.panes, [pane.id]: pane },
       layout: nextLayout,
-      activePaneId: pane.id,
+      // "focus new pane on create" (settings-controlled); first pane always focuses
+      activePaneId: s.focusNewPane || !s.activePaneId ? pane.id : s.activePaneId,
       entering: { ...s.entering, [pane.id]: true }
     }))
     scheduleEnterClear(set, pane.id)
@@ -427,7 +444,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       defaultModel: d.model,
       defaultAgent: d.agent || DEFAULT_AGENT,
       defaultShell: d.shell,
-      defaultShellArgs: d.shellArgs
+      defaultShellArgs: d.shellArgs,
+      ...(d.shellCwd !== undefined ? { defaultShellCwd: d.shellCwd } : {}),
+      ...(d.focusNewPane !== undefined ? { focusNewPane: d.focusNewPane } : {})
     }),
 
   applyLayoutPreset: (presetId) => {

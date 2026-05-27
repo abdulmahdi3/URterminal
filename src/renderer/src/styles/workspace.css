@@ -553,11 +553,16 @@
 .shell-pane {
   height: 100%;
   width: 100%;
-  padding: var(--sp-3) 0 var(--sp-3) var(--sp-4);
+  /* inner padding is settings-controlled (Terminal → padding) */
+  padding: var(--term-pad, 8px);
   background: var(--bg);
 }
 .shell-pane .xterm {
   height: 100%;
+}
+/* "Show pane title bars" off → collapse the per-pane header (drag/rename gone) */
+.hide-pane-headers .mosaic-urterminal .mosaic-window-toolbar {
+  display: none !important;
 }
 
 /* ---- custom pane header (replaces the default mosaic toolbar) ---- */
