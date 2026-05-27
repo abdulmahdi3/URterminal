@@ -130,6 +130,19 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
   ipcMain.on(IPC.windowClose, () => getWindow()?.close())
   ipcMain.handle(IPC.windowIsMaximized, () => getWindow()?.isMaximized() ?? false)
+  // Recolor the native caption-button overlay so min/max/close match the theme.
+  ipcMain.on(
+    IPC.windowSetOverlay,
+    (_e, { color, symbolColor }: { color: string; symbolColor: string }) => {
+      const win = getWindow()
+      if (!win || process.platform !== 'win32') return
+      try {
+        win.setTitleBarOverlay({ color, symbolColor, height: 40 })
+      } catch {
+        /* overlay API unavailable on this platform/version */
+      }
+    }
+  )
 
   // ---- directory picker (choose folder to open an agent in) ----
   ipcMain.handle(IPC.dialogOpenDir, async (_e, defaultPath?: string): Promise<string | null> => {

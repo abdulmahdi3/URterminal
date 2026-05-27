@@ -81,6 +81,20 @@ function applySideEffects(s: SettingsPublic): void {
       : themePref
   useUi.getState().setAppTheme(resolved as AppTheme)
   setTerminalTheme(resolved) // agent/shell terminal background follows the theme
+  // Recolor the native window caption buttons to match the theme's title-bar
+  // (--bg-elev) and dim text (--text-dim).
+  const ov = OVERLAY_COLORS[resolved] ?? OVERLAY_COLORS.dark
+  window.api.setWindowOverlay(ov.color, ov.symbol)
+}
+
+/** Native caption-overlay colors per theme — color = --bg-elev, symbol = --text-dim. */
+const OVERLAY_COLORS: Record<string, { color: string; symbol: string }> = {
+  dark: { color: '#12151c', symbol: '#8b94a6' },
+  light: { color: '#ffffff', symbol: '#4f5b6e' },
+  amoled: { color: '#090909', symbol: '#8b94a6' },
+  ocean: { color: '#0c1524', symbol: '#8b94a6' },
+  forest: { color: '#0b160e', symbol: '#8b94a6' },
+  dusk: { color: '#1b1610', symbol: '#8b94a6' }
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({

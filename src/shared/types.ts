@@ -457,6 +457,7 @@ export const IPC = {
   windowClose: 'window:close',
   windowIsMaximized: 'window:is-maximized',
   windowMaximizedChanged: 'window:maximized-changed', // main -> renderer (event)
+  windowSetOverlay: 'window:set-overlay', // recolor the native caption-button overlay (theme)
 
   // file save dialog
   fileSave: 'file:save',

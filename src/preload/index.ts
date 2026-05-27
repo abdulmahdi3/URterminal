@@ -115,6 +115,8 @@ const api = {
   windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke(IPC.windowIsMaximized),
   onWindowMaximizedChanged: (cb: (maximized: boolean) => void): (() => void) =>
     on<boolean>(IPC.windowMaximizedChanged, cb),
+  setWindowOverlay: (color: string, symbolColor: string): void =>
+    ipcRenderer.send(IPC.windowSetOverlay, { color, symbolColor }),
 
   // ---- file save ----
   saveFile: (req: FileSaveRequest): Promise<FileSaveResult> =>
