@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SettingsPublic, SettingsPatch } from '@shared/types'
 import i18n from '@renderer/i18n/i18n'
-import { setTerminalFont, setTerminalConfig } from '@renderer/lib/terminalPool'
+import { setTerminalFont, setTerminalConfig, setTerminalTheme } from '@renderer/lib/terminalPool'
 import { useWorkspace } from './workspace'
 import { useUi, type AppTheme } from './ui'
 
@@ -80,6 +80,7 @@ function applySideEffects(s: SettingsPublic): void {
         : 'dark'
       : themePref
   useUi.getState().setAppTheme(resolved as AppTheme)
+  setTerminalTheme(resolved) // agent/shell terminal background follows the theme
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({

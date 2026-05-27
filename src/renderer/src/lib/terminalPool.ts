@@ -98,6 +98,40 @@ const darkTheme = {
   brightWhite: '#f0f6fc'
 }
 
+// Per-app-theme terminal surface colors so the agent/shell background follows
+// the selected theme (the ANSI palette is inherited from darkTheme). Each
+// background matches the theme's --bg in themes.css so the pane and terminal
+// surface are seamless.
+const THEME_SURFACE: Record<string, Partial<typeof darkTheme>> = {
+  dark: {},
+  amoled: { background: '#000000' },
+  ocean: { background: '#060c16', cursor: '#00b4e6', selectionBackground: '#16405e' },
+  forest: { background: '#060e09', cursor: '#3fb950', selectionBackground: '#1c4026' },
+  dusk: { background: '#100d08', cursor: '#e09a40', selectionBackground: '#473018' },
+  // Light theme needs dark text on a light surface to stay readable.
+  light: {
+    background: '#f4f6fa',
+    foreground: '#1a2230',
+    cursor: '#2f74f0',
+    selectionBackground: '#bcd0f0',
+    black: '#1a2230',
+    white: '#3b4757',
+    brightWhite: '#1a2230'
+  }
+}
+
+/** Live xterm theme, updated from the selected app theme via setTerminalTheme. */
+let currentTheme: typeof darkTheme = { ...darkTheme }
+
+/** Apply an app theme's surface colors to every terminal (and new ones). */
+export function setTerminalTheme(themeName: string): void {
+  currentTheme = { ...darkTheme, ...(THEME_SURFACE[themeName] ?? {}) }
+  for (const [, entry] of pool) {
+    entry.term.options.theme = currentTheme
+    entry.term.refresh(0, entry.term.rows - 1)
+  }
+}
+
 export interface TerminalOpts {
   command?: string
   /** explicit shell executable to spawn (e.g. "powershell.exe"); blank = OS default */
@@ -277,7 +311,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     letterSpacing: termCfg.letterSpacing,
     scrollSensitivity: termCfg.scrollSensitivity > 0 ? termCfg.scrollSensitivity : 1,
     allowProposedApi: true,
-    theme: darkTheme
+    theme: currentTheme
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
