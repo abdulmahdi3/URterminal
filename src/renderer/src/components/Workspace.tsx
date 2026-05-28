@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
 import type { MosaicNode } from 'react-mosaic-component'
-import { getLeaves } from '@renderer/lib/mosaicTree'
+import { getLeaves, moveLeafToEdge, type DropEdge } from '@renderer/lib/mosaicTree'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 
 /** Minimum percentage either side of a split may occupy (prevents tiny panes). */
@@ -621,6 +621,70 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   )
 })
 
+/**
+ * Edge drop zones overlaid on each pane while another pane is being dragged
+ * within the same workspace. Dropping on an edge slots the dragged pane in
+ * next to this one in the layout (top/bottom → column split, left/right → row
+ * split). React-mosaic's own drag is disabled because the pane header is our
+ * native cross-workspace drag source — these zones replace its intra-workspace
+ * drop behaviour. Cross-workspace title-bar drops still work because they
+ * sit outside this overlay.
+ */
+function InPaneDropZones({ paneId }: { paneId: string }): JSX.Element | null {
+  const draggingPaneIds = useUi((s) => s.draggingPaneIds)
+  const setDraggingPanes = useUi((s) => s.setDraggingPanes)
+  const layout = useWorkspace((s) => s.layout)
+  const setLayout = useWorkspace((s) => s.setLayout)
+  const [hover, setHover] = useState<DropEdge | null>(null)
+  if (!draggingPaneIds || draggingPaneIds.length === 0) return null
+  // Don't show on a pane that's itself being dragged (or whose group is being dragged).
+  if (draggingPaneIds.includes(paneId)) return null
+
+  // Pick the edge whose perpendicular distance from the cursor is smallest:
+  // top/bottom use vertical distance, left/right use horizontal — so each edge
+  // owns the full-length band closest to it (corners broken by whichever axis
+  // the cursor is nearer to).
+  const edgeFromEvent = (e: React.DragEvent): DropEdge => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - r.left
+    const y = e.clientY - r.top
+    const dTop = y
+    const dBottom = r.height - y
+    const dLeft = x
+    const dRight = r.width - x
+    const min = Math.min(dTop, dBottom, dLeft, dRight)
+    if (min === dTop) return 'top'
+    if (min === dBottom) return 'bottom'
+    if (min === dLeft) return 'left'
+    return 'right'
+  }
+
+  return (
+    <div
+      className="pane-drop-overlay"
+      onDragOver={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'move'
+        const next = edgeFromEvent(e)
+        if (next !== hover) setHover(next)
+      }}
+      onDragLeave={() => setHover(null)}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const edge = edgeFromEvent(e)
+        setHover(null)
+        const draggedId = draggingPaneIds.find((id) => id !== paneId)
+        if (draggedId) setLayout(moveLeafToEdge(layout, draggedId, paneId, edge))
+        setDraggingPanes(null)
+      }}
+    >
+      {hover && <div className={clsx('pane-drop-preview', hover)} />}
+    </div>
+  )
+}
+
 export default function Workspace(): JSX.Element {
   const layout = useWorkspace((s) => s.layout)
   const setLayout = useWorkspace((s) => s.setLayout)
@@ -783,6 +847,7 @@ export default function Workspace(): JSX.Element {
         >
           <div className="pane-capture" data-pane-id={id}>
             <PaneView paneId={id} />
+            <InPaneDropZones paneId={id} />
           </div>
         </MosaicWindow>
       )}

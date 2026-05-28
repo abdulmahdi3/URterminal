@@ -157,9 +157,10 @@
   padding: 0;
 }
 
-/* close button — fades in on tab hover */
+/* close button — appears only on tab hover, so the tab extends to reveal it
+   (rather than reserving width for an invisible icon). */
 .ws-tab-close {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 14px;
@@ -172,12 +173,9 @@
   margin-left: 5px;
   flex-shrink: 0;
   cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
 }
 .ws-tab:hover .ws-tab-close {
-  opacity: 1;
-  pointer-events: auto;
+  display: inline-flex;
 }
 .ws-tab-close:hover {
   background: rgba(240, 93, 87, 0.18);

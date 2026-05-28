@@ -11,7 +11,28 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
+/* Drop overlay shown over each non-dragged pane while another pane is being
+   dragged within the same workspace. The overlay catches drag events; the
+   highlighted preview child shows where the dragged pane will slot in. */
+.pane-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+.pane-drop-preview {
+  position: absolute;
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  border-radius: var(--r-sm);
+  pointer-events: none;
+}
+.pane-drop-preview.top    { top: 0;    left: 0;   right: 0;  height: 50%; }
+.pane-drop-preview.bottom { bottom: 0; left: 0;   right: 0;  height: 50%; }
+.pane-drop-preview.left   { top: 0;    bottom: 0; left: 0;   width: 50%; }
+.pane-drop-preview.right  { top: 0;    bottom: 0; right: 0;  width: 50%; }
 
 /* ---- empty state ---- */
 .workspace-empty {
