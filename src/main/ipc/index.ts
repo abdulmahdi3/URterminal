@@ -3,7 +3,7 @@ import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
 import { writeFileSync, mkdirSync } from 'fs'
 import { tmpdir, userInfo } from 'os'
 import { join } from 'path'
-import type { ClipboardContent, SessionData, LastSessionPayload } from '@shared/types'
+import type { ClipboardContent, SessionData, LastSessionPayload, NoteDoc } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
@@ -20,6 +20,7 @@ import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
 import { computeClaudeUsage } from '../usage/claudeUsage'
+import { TickTickClient, TickTickError } from '../integrations/ticktick'
 
 export interface IpcContext {
   getWindow: () => BrowserWindow | null
@@ -323,6 +324,63 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       /* non-fatal */
     }
     e.returnValue = true // unblock sendSync
+  })
+
+  // ---- TickTick OAuth + Open API proxy (main-process bearer storage) ----
+  const tickTick = new TickTickClient(settings)
+  const ttHandle = async <T>(fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn()
+    } catch (e) {
+      const err = e as TickTickError
+      throw new Error(err.message ?? String(e))
+    }
+  }
+  ipcMain.handle(IPC.tickTickConnect, async () => {
+    await ttHandle(() => tickTick.connect())
+    // Push fresh settings so the renderer updates the "Connected" pill immediately.
+    emit(IPC.settingsChanged, settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername))
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.tickTickDisconnect, () => {
+    tickTick.disconnect()
+    emit(IPC.settingsChanged, settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername))
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.tickTickListProjects, () => ttHandle(() => tickTick.listProjects()))
+  ipcMain.handle(IPC.tickTickProjectData, (_e, projectId: string) =>
+    ttHandle(() => tickTick.getProjectData(projectId))
+  )
+  ipcMain.handle(IPC.tickTickCreateTask, (_e, input) =>
+    ttHandle(() => tickTick.createTask(input))
+  )
+  ipcMain.handle(IPC.tickTickUpdateTask, (_e, input) =>
+    ttHandle(() => tickTick.updateTask(input))
+  )
+  ipcMain.handle(IPC.tickTickCompleteTask, (_e, ids: { projectId: string; taskId: string }) =>
+    ttHandle(() => tickTick.completeTask(ids.projectId, ids.taskId))
+  )
+  ipcMain.handle(IPC.tickTickDeleteTask, (_e, ids: { projectId: string; taskId: string }) =>
+    ttHandle(() => tickTick.deleteTask(ids.projectId, ids.taskId))
+  )
+
+  // ---- standalone notes (app-wide, separate from per-pane notes) ----
+  const notesFile = (): string => join(app.getPath('userData'), 'notes.json')
+  ipcMain.handle(IPC.notesRead, async (): Promise<NoteDoc[]> => {
+    try {
+      const raw = await readFile(notesFile(), 'utf8')
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? (parsed as NoteDoc[]) : []
+    } catch {
+      return []
+    }
+  })
+  ipcMain.handle(IPC.notesWrite, async (_e, notes: NoteDoc[]): Promise<void> => {
+    try {
+      await writeFile(notesFile(), JSON.stringify(notes), 'utf8')
+    } catch {
+      /* non-fatal */
+    }
   })
 
   // ---- pane registry (renderer → main sync for Telegram /panes command) ----

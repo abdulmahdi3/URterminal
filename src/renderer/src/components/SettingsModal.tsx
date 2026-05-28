@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import { Check, Search, Trash2, RotateCcw, Download, Upload, Keyboard } from 'lucide-react'
-import type { ProviderId, AppPrefs, SettingsPatch } from '@shared/types'
+import type { ProviderId, AppPrefs, SettingsPatch, IntegrationId, IntegrationStatus } from '@shared/types'
 import { DEFAULT_PREFS } from '@shared/types'
 import {
   PROVIDER_LABELS,
@@ -87,6 +87,272 @@ function KeyStatus({ set }: { set: boolean }): JSX.Element {
         'Not set'
       )}
     </span>
+  )
+}
+
+/**
+ * Metadata for the to-do service cards. Each service uses the connection
+ * method that fits it best — Todoist and Notion offer simple personal tokens
+ * we can paste; TickTick / Microsoft To Do / Google Tasks require a registered
+ * OAuth client to fully sign in, so they fall back to "open the service" plus
+ * an access-token paste once the user has one.
+ */
+type IntegrationKind = 'token' | 'oauth'
+interface IntegrationMeta {
+  id: IntegrationId
+  name: string
+  initials: string
+  kind: IntegrationKind
+  /** false = shown grayed-out with "Coming soon" — only TickTick is wired up right now */
+  active: boolean
+  desc: string
+  /** where to get a token / sign in */
+  setupUrl: string
+  setupLabel: string
+  /** placeholder shown in the token input */
+  tokenPlaceholder: string
+}
+const INTEGRATIONS: IntegrationMeta[] = [
+  {
+    id: 'ticktick',
+    name: 'TickTick',
+    initials: 'TT',
+    kind: 'oauth',
+    active: true,
+    desc: 'OAuth sign-in — paste a TickTick access token once you have one, or open TickTick to manage your tasks.',
+    setupUrl: 'https://developer.ticktick.com/',
+    setupLabel: 'TickTick developer portal',
+    tokenPlaceholder: 'Access token'
+  },
+  {
+    id: 'todoist',
+    name: 'Todoist',
+    initials: 'TD',
+    kind: 'token',
+    active: false,
+    desc: 'Connect with a personal API token to sync your Todoist tasks alongside your notes.',
+    setupUrl: 'https://app.todoist.com/app/settings/integrations/developer',
+    setupLabel: 'Get my Todoist token',
+    tokenPlaceholder: 'Personal API token'
+  },
+  {
+    id: 'microsoftTodo',
+    name: 'Microsoft To Do',
+    initials: 'MS',
+    kind: 'oauth',
+    active: false,
+    desc: 'Microsoft Graph access token. Use the Graph Explorer to generate one for the Tasks.ReadWrite scope.',
+    setupUrl: 'https://developer.microsoft.com/en-us/graph/graph-explorer',
+    setupLabel: 'Open Graph Explorer',
+    tokenPlaceholder: 'Graph access token'
+  },
+  {
+    id: 'googleTasks',
+    name: 'Google Tasks',
+    initials: 'GT',
+    kind: 'oauth',
+    active: false,
+    desc: 'Google OAuth access token with the Tasks scope. Paste a token from the OAuth Playground to connect.',
+    setupUrl: 'https://developers.google.com/oauthplayground/',
+    setupLabel: 'Open OAuth Playground',
+    tokenPlaceholder: 'OAuth access token'
+  },
+  {
+    id: 'notion',
+    name: 'Notion',
+    initials: 'No',
+    kind: 'token',
+    active: false,
+    desc: 'Create an internal integration in Notion, share a database with it, and paste its secret here.',
+    setupUrl: 'https://www.notion.so/my-integrations',
+    setupLabel: 'Create a Notion integration',
+    tokenPlaceholder: 'Internal integration secret'
+  }
+]
+
+/**
+ * TickTick has its own form because it's the only integration that's actually
+ * wired up. It needs the user's registered app credentials (clientId +
+ * clientSecret) and runs a full OAuth code-grant flow via the main process.
+ */
+function TickTickCard({
+  status,
+  onSaveClient,
+  onConnect,
+  onDisconnect
+}: {
+  status: import('@shared/types').TickTickStatus
+  onSaveClient: (clientId: string, clientSecret: string) => Promise<void>
+  onConnect: () => Promise<void>
+  onDisconnect: () => Promise<void>
+}): JSX.Element {
+  const [clientId, setClientId] = useState(status.clientId ?? '')
+  const [clientSecret, setClientSecret] = useState('')
+  const [busy, setBusy] = useState(false)
+  const credsReady = !!(clientId.trim() && (clientSecret.trim() || status.clientSecretSet))
+  const connected = status.connected
+
+  return (
+    <div className={clsx('integration-card', connected && 'connected')}>
+      <div className="integration-head">
+        <span className="integration-logo ticktick">TT</span>
+        <h4 className="integration-title">TickTick</h4>
+        <span className={clsx('integration-status', connected && 'connected')}>
+          {connected ? 'Connected' : credsReady ? 'Ready to connect' : 'Setup required'}
+        </span>
+      </div>
+      <p className="integration-desc">
+        Register an app on the TickTick developer portal with redirect URI{' '}
+        <code>http://localhost:23123/callback</code>, then paste the client ID and secret here
+        and click <strong>Connect</strong> to sign in.
+      </p>
+
+      <div className="integration-field">
+        <label>Client ID</label>
+        <input
+          type="text"
+          placeholder="Client ID from developer.ticktick.com"
+          value={clientId}
+          onChange={(e) => setClientId(e.target.value)}
+          spellCheck={false}
+        />
+      </div>
+      <div className="integration-field">
+        <label>Client secret</label>
+        <input
+          type="password"
+          placeholder={status.clientSecretSet ? '•••• saved' : 'Client secret'}
+          value={clientSecret}
+          onChange={(e) => setClientSecret(e.target.value)}
+        />
+      </div>
+
+      <div className="integration-actions">
+        <button
+          className="btn sm"
+          disabled={busy || (!clientId.trim() && !clientSecret.trim())}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await onSaveClient(clientId.trim(), clientSecret.trim())
+              setClientSecret('')
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Save credentials
+        </button>
+        <button
+          className="btn primary sm"
+          disabled={busy || !credsReady}
+          onClick={async () => {
+            // Persist any unsaved creds first so the OAuth flow can read them.
+            if (clientId.trim() || clientSecret.trim()) {
+              await onSaveClient(clientId.trim(), clientSecret.trim())
+              setClientSecret('')
+            }
+            setBusy(true)
+            try {
+              await onConnect()
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          {connected ? 'Reconnect' : 'Connect via OAuth'}
+        </button>
+        {connected && (
+          <button
+            className="btn danger sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await onDisconnect()
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Disconnect
+          </button>
+        )}
+      </div>
+      <div className="integration-help">
+        <a href="https://developer.ticktick.com/" target="_blank" rel="noreferrer">
+          Open TickTick developer portal ↗
+        </a>
+      </div>
+    </div>
+  )
+}
+
+/** One card in the Integrations section — token input + connect/disconnect. */
+function IntegrationCard({
+  meta,
+  status,
+  onConnect,
+  onDisconnect
+}: {
+  meta: IntegrationMeta
+  status: IntegrationStatus
+  onConnect: (token: string) => void
+  onDisconnect: () => void
+}): JSX.Element {
+  const [token, setToken] = useState('')
+  const connected = status.connected
+  const disabled = !meta.active
+  return (
+    <div className={clsx('integration-card', connected && 'connected', disabled && 'inactive')}>
+      <div className="integration-head">
+        <span className={clsx('integration-logo', meta.id)}>{meta.initials}</span>
+        <h4 className="integration-title">{meta.name}</h4>
+        <span className={clsx('integration-status', connected && 'connected', disabled && 'inactive')}>
+          {disabled ? 'Coming soon' : connected ? 'Connected' : 'Not connected'}
+        </span>
+      </div>
+      <p className="integration-desc">{meta.desc}</p>
+      <div className="integration-actions">
+        <input
+          type="password"
+          placeholder={meta.tokenPlaceholder}
+          value={token}
+          disabled={disabled}
+          onChange={(e) => setToken(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !disabled && token.trim()) {
+              onConnect(token.trim())
+              setToken('')
+            }
+          }}
+        />
+        <button
+          className="btn primary sm"
+          disabled={disabled || !token.trim()}
+          onClick={() => {
+            onConnect(token.trim())
+            setToken('')
+          }}
+        >
+          {connected ? 'Update' : 'Connect'}
+        </button>
+        {connected && !disabled && (
+          <button className="btn danger sm" onClick={onDisconnect} title="Disconnect">
+            Disconnect
+          </button>
+        )}
+      </div>
+      <div className="integration-help">
+        {disabled ? (
+          <span>Not yet implemented — only TickTick can be connected for now.</span>
+        ) : (
+          <a href={meta.setupUrl} target="_blank" rel="noreferrer">
+            {meta.setupLabel} ↗
+          </a>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -302,6 +568,7 @@ export default function SettingsModal(): JSX.Element | null {
       'Only notify when window is unfocused', 'Notification sound', 'Notification volume'
     ],
     telegram: [t('settings.telegramToken'), t('settings.telegramDefaultChat'), 'Allowed chats'],
+    integrations: ['Integrations', 'Todoist', 'TickTick', 'Microsoft To Do', 'Google Tasks', 'Notion'],
     snippets: ['Snippets'],
     keyboard: ['Keyboard shortcuts'],
     about: ['About', 'Version', 'Export settings', 'Import settings', 'Reset all data']
@@ -314,6 +581,7 @@ export default function SettingsModal(): JSX.Element | null {
     { id: 'behavior', title: 'Behavior' },
     { id: 'notifications', title: 'Notifications' },
     { id: 'telegram', title: t('settings.telegram') },
+    { id: 'integrations', title: 'Integrations' },
     { id: 'snippets', title: 'Snippets' },
     { id: 'keyboard', title: 'Keyboard' },
     { id: 'about', title: 'About' }
@@ -747,6 +1015,70 @@ export default function SettingsModal(): JSX.Element | null {
                     />
                   </Row>
                 )}
+              </section>
+            )}
+
+            {/* Integrations — connect external to-do services */}
+            {sectionVisible('integrations', 'Integrations') && (
+              <section className="settings-section" ref={sectionRef('integrations')}>
+                <h3>Integrations</h3>
+                <span className="hint settings-block-hint">
+                  Connect your favourite to-do services. Tokens are encrypted on disk
+                  via the OS keychain and never leave this machine.
+                </span>
+                <div className="integrations-grid">
+                  {INTEGRATIONS.map((meta) => {
+                    if (meta.id === 'ticktick') {
+                      const tt = settings.integrations?.ticktick ?? {
+                        connected: false,
+                        clientSecretSet: false
+                      }
+                      return (
+                        <TickTickCard
+                          key={meta.id}
+                          status={tt}
+                          onSaveClient={async (clientId, clientSecret) => {
+                            const p: SettingsPatch = {}
+                            if (clientId) p.tickTickClientId = clientId
+                            if (clientSecret) p.tickTickClientSecret = clientSecret
+                            if (Object.keys(p).length) await patch(p)
+                          }}
+                          onConnect={async () => {
+                            try {
+                              await window.api.tickTickConnect()
+                              toast('TickTick connected', 'ok')
+                            } catch (e) {
+                              toast(`TickTick connect failed: ${(e as Error).message}`, 'error')
+                            }
+                          }}
+                          onDisconnect={async () => {
+                            try {
+                              await window.api.tickTickDisconnect()
+                              toast('TickTick disconnected', 'info')
+                            } catch (e) {
+                              toast(`Disconnect failed: ${(e as Error).message}`, 'error')
+                            }
+                          }}
+                        />
+                      )
+                    }
+                    return (
+                      <IntegrationCard
+                        key={meta.id}
+                        meta={meta}
+                        status={settings.integrations?.[meta.id] ?? { connected: false }}
+                        onConnect={(token) => {
+                          void patch({ integrationToken: { id: meta.id, token } })
+                          toast(`${meta.name} connected`, 'ok')
+                        }}
+                        onDisconnect={() => {
+                          void patch({ integrationToken: { id: meta.id, token: null } })
+                          toast(`${meta.name} disconnected`, 'info')
+                        }}
+                      />
+                    )
+                  })}
+                </div>
               </section>
             )}
 

@@ -222,6 +222,81 @@ export const DEFAULT_PREFS: AppPrefs = {
   notifySoundName: 'chime'
 }
 
+/** External to-do services the user can connect for syncing tasks. */
+export type IntegrationId = 'todoist' | 'ticktick' | 'microsoftTodo' | 'googleTasks' | 'notion'
+
+/** Public view of a connected integration — never exposes raw token, just status. */
+export interface IntegrationStatus {
+  /** true if a credential/token is stored for this service */
+  connected: boolean
+  /** epoch ms the user connected (or last refreshed the token) */
+  connectedAt?: number
+}
+/** TickTick has extra setup fields (client_id/client_secret) it needs from the user. */
+export interface TickTickStatus extends IntegrationStatus {
+  /** the user's app client_id, shown plain (it's not secret on its own) */
+  clientId?: string
+  /** whether a client_secret has been saved (not the value itself) */
+  clientSecretSet: boolean
+}
+export interface IntegrationsPublic {
+  todoist: IntegrationStatus
+  ticktick: TickTickStatus
+  microsoftTodo: IntegrationStatus
+  googleTasks: IntegrationStatus
+  notion: IntegrationStatus
+}
+
+// ---------------------------------------------------------------------------
+// TickTick open API surface (subset we actually use)
+// ---------------------------------------------------------------------------
+
+export interface TickTickProject {
+  id: string
+  name: string
+  color?: string
+  closed?: boolean
+  viewMode?: string
+  kind?: 'TASK' | 'NOTE' | string
+}
+
+export interface TickTickChecklistItem {
+  id: string
+  title: string
+  status: number // 0 = normal, 1 = completed
+  startDate?: string
+  isAllDay?: boolean
+  timeZone?: string
+  sortOrder?: number
+  completedTime?: string
+}
+
+export interface TickTickTask {
+  id: string
+  projectId: string
+  title: string
+  content?: string
+  desc?: string
+  isAllDay?: boolean
+  startDate?: string
+  dueDate?: string
+  timeZone?: string
+  reminders?: string[]
+  tags?: string[]
+  repeatFlag?: string
+  priority?: number // 0 None, 1 Low, 3 Medium, 5 High
+  status?: number // 0 Open, 2 Completed
+  completedTime?: string
+  sortOrder?: number
+  items?: TickTickChecklistItem[]
+}
+
+export interface TickTickProjectData {
+  project: TickTickProject
+  tasks: TickTickTask[]
+  columns?: unknown[]
+}
+
 export interface SettingsPublic {
   providers: ProviderSettingsPublic
   telegram: TelegramSettingsPublic
@@ -236,6 +311,22 @@ export interface SettingsPublic {
   theme: ThemeName
   accentColor: string
   prefs: AppPrefs
+  integrations: IntegrationsPublic
+}
+
+/** A standalone, app-wide note (lives outside any pane; persisted to disk). */
+export interface NoteDoc {
+  id: string
+  title: string
+  body: string
+  /** optional tags for grouping in the notes panel */
+  tags?: string[]
+  /** optional inline to-do list */
+  todos?: TodoItem[]
+  createdAt: number
+  updatedAt: number
+  /** "pinned to top" in the notes panel sidebar */
+  pinned?: boolean
 }
 
 // Patch shapes the renderer may send to mutate settings.
@@ -253,6 +344,12 @@ export interface SettingsPatch {
   accentColor?: string
   /** shallow-merged into the stored prefs blob */
   prefs?: Partial<AppPrefs>
+  /** set or clear a to-do service credential (token = null disconnects) */
+  integrationToken?: { id: IntegrationId; token: string | null }
+  /** set TickTick app client_id (registered on developer.ticktick.com); null clears it */
+  tickTickClientId?: string | null
+  /** set TickTick app client_secret; null clears it */
+  tickTickClientSecret?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -470,6 +567,20 @@ export const IPC = {
   lastSessionRead: 'sessions:last-read',
   lastSessionWrite: 'sessions:last-write',
   lastSessionFlush: 'sessions:last-flush', // synchronous write used on window close
+
+  // standalone, app-wide notes (separate file under userData, survives close)
+  notesRead: 'notes:read',
+  notesWrite: 'notes:write',
+
+  // TickTick to-do integration (OAuth via main-process loopback server + REST)
+  tickTickConnect: 'ticktick:connect',
+  tickTickDisconnect: 'ticktick:disconnect',
+  tickTickListProjects: 'ticktick:list-projects',
+  tickTickProjectData: 'ticktick:project-data',
+  tickTickCreateTask: 'ticktick:create-task',
+  tickTickUpdateTask: 'ticktick:update-task',
+  tickTickCompleteTask: 'ticktick:complete-task',
+  tickTickDeleteTask: 'ticktick:delete-task',
 
   // telegram
   telegramStatus: 'telegram:status',

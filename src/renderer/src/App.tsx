@@ -12,6 +12,7 @@ import AskAllModal from './components/AskAllModal'
 import SnippetFillModal from './components/SnippetFillModal'
 import TemplateSaveModal from './components/TemplateSaveModal'
 import SshConnectModal from './components/SshConnectModal'
+import NotesModal from './components/NotesModal'
 import SearchBar from './components/SearchBar'
 import Toaster from './components/Toaster'
 import CopiedFlash from './components/CopiedFlash'
@@ -100,6 +101,7 @@ export default function App(): JSX.Element {
       <SnippetFillModal />
       <TemplateSaveModal />
       <SshConnectModal />
+      <NotesModal />
       <SearchBar />
       <ShortcutsModal />
       <Toaster />

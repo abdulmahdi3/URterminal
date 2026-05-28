@@ -34,12 +34,14 @@ interface WorkspacesState {
   movePanesTo: (paneIds: string[], targetId: string) => void
   /** move several panes into a brand-new workspace, then open it */
   movePanesToNew: (paneIds: string[]) => void
+  /** patch a pane in any workspace (active or background-snapshot) by id */
+  patchPaneIn: (workspaceId: string, paneId: string, patch: Partial<Pane>) => void
 }
 
 const firstId = uid()
 
 export const useWorkspaces = create<WorkspacesState>((set, get) => ({
-  list: [{ id: firstId, name: 'URterminal' }],
+  list: [{ id: firstId, name: 'Workspace' }],
   activeId: firstId,
   _counter: 0,
   badges: {},
@@ -158,6 +160,24 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
     after.setActive(moving[moving.length - 1])
     after.clearPaneSelection()
     for (const id of moving) repaintTerminal(id)
+  },
+
+  patchPaneIn: (workspaceId, paneId, patch) => {
+    const { activeId, list } = get()
+    // Active workspace's panes live in useWorkspace (not the saved snapshot),
+    // so patch them through that store so the open UI re-renders.
+    if (workspaceId === activeId) {
+      useWorkspace.getState().updatePane(paneId, patch)
+      return
+    }
+    set({
+      list: list.map((w) => {
+        if (w.id !== workspaceId) return w
+        const cur = w.panes?.[paneId]
+        if (!cur) return w
+        return { ...w, panes: { ...w.panes, [paneId]: { ...cur, ...patch } } }
+      })
+    })
   },
 
   movePanesToNew: (paneIds) => {

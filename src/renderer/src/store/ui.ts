@@ -24,6 +24,8 @@ interface UiState {
   savingTemplatePaneId: string | null
   /** SSH connect prompt open */
   showSshPrompt: boolean
+  /** standalone notes panel open */
+  showNotes: boolean
   /** app-wide color theme */
   appTheme: AppTheme
 
@@ -43,6 +45,8 @@ interface UiState {
   setFillSnippet: (s: SnippetItem | null) => void
   setSavingTemplatePaneId: (id: string | null) => void
   setShowSshPrompt: (v: boolean) => void
+  setShowNotes: (v: boolean) => void
+  toggleNotes: () => void
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
@@ -59,6 +63,7 @@ const ALL_CLOSED = {
   showTaskManager: false,
   showAskAll: false,
   showSshPrompt: false,
+  showNotes: false,
   linkingPaneId: null as string | null
 }
 
@@ -76,6 +81,7 @@ export const useUi = create<UiState>((set, get) => ({
   fillSnippet: null,
   savingTemplatePaneId: null,
   showSshPrompt: false,
+  showNotes: false,
   appTheme: 'dark',
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
@@ -106,6 +112,9 @@ export const useUi = create<UiState>((set, get) => ({
   setFillSnippet: (s) => set({ fillSnippet: s }),
   setSavingTemplatePaneId: (id) => set({ savingTemplatePaneId: id }),
   setShowSshPrompt: (v) => set(v ? { ...ALL_CLOSED, showSshPrompt: true } : { showSshPrompt: false }),
+  setShowNotes: (v) => set(v ? { ...ALL_CLOSED, showNotes: true } : { showNotes: false }),
+  toggleNotes: () =>
+    set((s) => (s.showNotes ? { showNotes: false } : { ...ALL_CLOSED, showNotes: true })),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),
   cycleAppTheme: () =>
@@ -122,6 +131,7 @@ export const useUi = create<UiState>((set, get) => ({
       showTaskManager: false,
       showAskAll: false,
       showSshPrompt: false,
+      showNotes: false,
       linkingPaneId: null
     })
 }))

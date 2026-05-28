@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, X, Network } from 'lucide-react'
+import { Plus, X, Network, NotebookPen } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
@@ -184,6 +184,7 @@ export default function TitleBar(): JSX.Element {
   const badges = useWorkspaces((s) => s.badges)
   const canCloseWorkspace = list.length > 1
   const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
+  const toggleNotes = useUi((s) => s.toggleNotes)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
@@ -295,6 +296,15 @@ export default function TitleBar(): JSX.Element {
           onClick={() => setShowSshPrompt(true)}
         >
           <Network size={15} />
+        </button>
+
+        {/* Standalone notes panel (separate from per-pane notes) */}
+        <button
+          className="icon-btn agent-icon-btn"
+          title="Notes"
+          onClick={toggleNotes}
+        >
+          <NotebookPen size={15} />
         </button>
       </div>
 

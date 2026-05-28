@@ -19,7 +19,11 @@ import type {
   FileSaveResult,
   PaneInfo,
   SessionData,
-  LastSessionPayload
+  LastSessionPayload,
+  NoteDoc,
+  TickTickProject,
+  TickTickProjectData,
+  TickTickTask
 } from '@shared/types'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
@@ -86,6 +90,37 @@ const api = {
   flushLastSession: (payload: LastSessionPayload): void => {
     ipcRenderer.sendSync(IPC.lastSessionFlush, payload)
   },
+
+  // ---- standalone notes (app-wide, persisted to userData/notes.json) ----
+  readNotes: (): Promise<NoteDoc[]> => ipcRenderer.invoke(IPC.notesRead),
+  writeNotes: (notes: NoteDoc[]): Promise<void> => ipcRenderer.invoke(IPC.notesWrite, notes),
+
+  // ---- TickTick to-do integration (OAuth + Open API proxy) ----
+  tickTickConnect: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.tickTickConnect),
+  tickTickDisconnect: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.tickTickDisconnect),
+  tickTickListProjects: (): Promise<TickTickProject[]> =>
+    ipcRenderer.invoke(IPC.tickTickListProjects),
+  tickTickProjectData: (projectId: string): Promise<TickTickProjectData> =>
+    ipcRenderer.invoke(IPC.tickTickProjectData, projectId),
+  tickTickCreateTask: (input: {
+    projectId: string
+    title: string
+    content?: string
+    desc?: string
+    dueDate?: string
+    startDate?: string
+    isAllDay?: boolean
+    priority?: number
+    tags?: string[]
+    items?: Array<{ title: string; status?: number; sortOrder?: number }>
+  }): Promise<TickTickTask> => ipcRenderer.invoke(IPC.tickTickCreateTask, input),
+  tickTickUpdateTask: (
+    input: Partial<TickTickTask> & { id: string; projectId: string }
+  ): Promise<TickTickTask> => ipcRenderer.invoke(IPC.tickTickUpdateTask, input),
+  tickTickCompleteTask: (projectId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.tickTickCompleteTask, { projectId, taskId }),
+  tickTickDeleteTask: (projectId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.tickTickDeleteTask, { projectId, taskId }),
 
   // ---- telegram ----
   getTelegramStatus: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramStatus),
