@@ -366,3 +366,59 @@
   font-size: var(--fs-2xs);
   color: var(--text-faint);
 }
+
+/* ---- self-update banner (bottom of window, above the status bar) ---- */
+.update-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--statusbar-h) + 12px);
+  z-index: 350;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.update-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.update-toast-text {
+  white-space: nowrap;
+}
+.update-toast-text strong {
+  font-weight: 600;
+}
+.update-toast-btn {
+  margin-left: 4px;
+}
+.update-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+}
+.update-toast-close:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}

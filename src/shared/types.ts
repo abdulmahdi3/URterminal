@@ -226,6 +226,13 @@ export const DEFAULT_PREFS: AppPrefs = {
 export type IntegrationId = 'todoist' | 'ticktick' | 'microsoftTodo' | 'googleTasks' | 'notion'
 
 /** Public view of a connected integration — never exposes raw token, just status. */
+/** Update-related payload pushed from the main-process auto-updater. */
+export interface UpdaterStatus {
+  version: string
+  releaseNotes?: string
+  releaseDate?: string
+}
+
 export interface IntegrationStatus {
   /** true if a credential/token is stored for this service */
   connected: boolean
@@ -571,6 +578,12 @@ export const IPC = {
   // standalone, app-wide notes (separate file under userData, survives close)
   notesRead: 'notes:read',
   notesWrite: 'notes:write',
+
+  // app self-update (electron-updater backed by GitHub releases)
+  updaterAvailable: 'updater:available', // main -> renderer (event)
+  updaterDownloaded: 'updater:downloaded', // main -> renderer (event)
+  updaterError: 'updater:error', // main -> renderer (event)
+  updaterInstall: 'updater:install', // renderer -> main: quit + apply
 
   // TickTick to-do integration (OAuth via main-process loopback server + REST)
   tickTickConnect: 'ticktick:connect',

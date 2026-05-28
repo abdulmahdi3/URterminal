@@ -13,6 +13,7 @@ import SnippetFillModal from './components/SnippetFillModal'
 import TemplateSaveModal from './components/TemplateSaveModal'
 import SshConnectModal from './components/SshConnectModal'
 import NotesModal from './components/NotesModal'
+import UpdateToast from './components/UpdateToast'
 import SearchBar from './components/SearchBar'
 import Toaster from './components/Toaster'
 import CopiedFlash from './components/CopiedFlash'
@@ -106,6 +107,7 @@ export default function App(): JSX.Element {
       <ShortcutsModal />
       <Toaster />
       <CopiedFlash />
+      <UpdateToast />
     </div>
   )
 }

@@ -23,7 +23,8 @@ import type {
   NoteDoc,
   TickTickProject,
   TickTickProjectData,
-  TickTickTask
+  TickTickTask,
+  UpdaterStatus
 } from '@shared/types'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
@@ -121,6 +122,15 @@ const api = {
     ipcRenderer.invoke(IPC.tickTickCompleteTask, { projectId, taskId }),
   tickTickDeleteTask: (projectId: string, taskId: string): Promise<void> =>
     ipcRenderer.invoke(IPC.tickTickDeleteTask, { projectId, taskId }),
+
+  // ---- self-update (electron-updater backed by GitHub releases) ----
+  onUpdateAvailable: (cb: (s: UpdaterStatus) => void): (() => void) =>
+    on<UpdaterStatus>(IPC.updaterAvailable, cb),
+  onUpdateDownloaded: (cb: (s: UpdaterStatus) => void): (() => void) =>
+    on<UpdaterStatus>(IPC.updaterDownloaded, cb),
+  onUpdateError: (cb: (msg: string) => void): (() => void) =>
+    on<string>(IPC.updaterError, cb),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.updaterInstall),
 
   // ---- telegram ----
   getTelegramStatus: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramStatus),
