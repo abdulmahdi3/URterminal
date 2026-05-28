@@ -24,7 +24,8 @@ import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
 import { usePaneStatus, type PaneStatus } from '@renderer/store/paneStatus'
 import { useUi } from '@renderer/store/ui'
-import { useTokens, formatTokens } from '@renderer/store/tokens'
+import { useTokens } from '@renderer/store/tokens'
+import { useClaudeUsage, formatResetIn } from '@renderer/store/claudeUsage'
 import { useSessions } from '@renderer/store/sessions'
 import { toast } from '@renderer/store/toasts'
 import { getFullText, getScreenText } from '@renderer/lib/terminalPool'
@@ -270,7 +271,9 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const shellCwd = useWorkspace((s) => s.panes[paneId]?.shell?.cwd)
   const agentStatus = usePaneStatus((s) => s.status[paneId]) ?? 'idle'
   const isActive = useTokens((s) => !!s.activePanes[paneId])
-  const tokenCount = useTokens((s) => s.byPane[paneId] ?? 0)
+  // Account-global Claude usage (real `/usage` numbers) — shown only in claude panes.
+  const isClaude = agentCommand === 'claude'
+  const claudeUsage = useClaudeUsage((s) => (isClaude && s.ok ? s : null))
   const broadcastOn = useBroadcastStore((s) => s.enabled)
   const isBroadcastSource = useWorkspace((s) => s.activePaneId === paneId)
   const isBroadcastMember = useBroadcastStore((s) => s.members.includes(paneId))
@@ -428,11 +431,32 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
       )}
       {paneType === 'ai' && agentCwd && (
         <>
-          <span className={clsx('pane-cwd', isActive && 'active')} title={agentCwd}>
+          <span
+            className={clsx('pane-cwd', 'clickable', isActive && 'active')}
+            title={`Open folder\n${agentCwd}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              void window.api.openPath(agentCwd)
+            }}
+          >
             {agentCwd}
           </span>
-          {tokenCount > 0 && (
-            <span className="pane-tok">~{formatTokens(tokenCount)}</span>
+          {claudeUsage?.fiveHour && (
+            <span
+              className={clsx(
+                'pane-usage',
+                claudeUsage.fiveHour.percent >= 80 && 'high',
+                claudeUsage.fiveHour.percent >= 95 && 'over'
+              )}
+              title={
+                `Claude 5-hour usage: ${claudeUsage.fiveHour.percent}% · resets in ${formatResetIn(claudeUsage.fiveHour.resetInMs)}` +
+                (claudeUsage.sevenDay
+                  ? `\n7-day usage: ${claudeUsage.sevenDay.percent}% · resets in ${formatResetIn(claudeUsage.sevenDay.resetInMs)}`
+                  : '')
+              }
+            >
+              {claudeUsage.fiveHour.percent}% · {formatResetIn(claudeUsage.fiveHour.resetInMs)}
+            </span>
           )}
         </>
       )}
@@ -715,7 +739,7 @@ export default function Workspace(): JSX.Element {
           </div>
         )}
         <div className="empty-footer">
-          <span><kbd>Ctrl</kbd>+<kbd>K</kbd> command palette</span>
+          <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> command palette</span>
         </div>
       </div>
     )

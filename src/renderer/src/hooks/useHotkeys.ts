@@ -52,7 +52,7 @@ export function useHotkeys(): void {
       const ui = useUi.getState()
 
       // Command palette toggle — reserved, works everywhere (not rebindable).
-      if (mod && !e.shiftKey && e.code === 'KeyK') {
+      if (mod && e.shiftKey && e.code === 'KeyK') {
         e.preventDefault()
         ui.toggleCommandPalette()
         return

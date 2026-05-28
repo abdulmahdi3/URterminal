@@ -4,6 +4,7 @@ import type { Pane } from '@shared/types'
 import { getLeaves } from '@renderer/lib/mosaicTree'
 import { buildAutoLayout } from '@renderer/lib/layoutPresets'
 import { repaintTerminal } from '@renderer/lib/terminalPool'
+import { busyAgentCount } from '@renderer/lib/paneClose'
 import { useWorkspace } from './workspace'
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
@@ -82,6 +83,18 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
 
   remove: (id) => {
     const { list, activeId } = get()
+    // Warn if any agent in this workspace is mid-turn (closing stops it). The
+    // active workspace's panes are live; a background one's are in its snapshot.
+    const panes =
+      id === activeId ? useWorkspace.getState().panes : list.find((w) => w.id === id)?.panes ?? {}
+    const busy = busyAgentCount(panes)
+    if (busy > 0) {
+      const msg =
+        busy === 1
+          ? 'An agent is still working in this workspace. Close it and stop the agent?'
+          : `${busy} agents are still working in this workspace. Close it and stop them?`
+      if (!window.confirm(msg)) return
+    }
     // Last workspace: clear its content but keep the tab
     if (list.length <= 1) {
       if (id === activeId) useWorkspace.getState().hydrate({}, null)

@@ -95,7 +95,7 @@ export default function StatusBar(): JSX.Element {
       </button>
       <button
         className="sb-item sb-icon-btn"
-        title="Command palette (Ctrl+K)"
+        title="Command palette (Ctrl+Shift+K)"
         onClick={toggleCommandPalette}
       >
         <CommandIcon size={12} />

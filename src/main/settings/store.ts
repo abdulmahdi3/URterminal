@@ -18,6 +18,8 @@ interface RawSettings {
     ollama: { baseUrl: string }
   }
   telegram: { tokenEnc?: string; defaultChatId?: string }
+  /** saved SSH passwords, keyed by target ("user@host"), encrypted like API keys */
+  ssh: { passwords: Record<string, string> }
   defaultProvider: ProviderId
   defaultModel: string
   defaultAgent: string
@@ -36,6 +38,7 @@ const DEFAULTS: RawSettings = {
     ollama: { baseUrl: DEFAULT_OLLAMA_URL }
   },
   telegram: {},
+  ssh: { passwords: {} },
   defaultProvider: 'anthropic',
   defaultModel: DEFAULT_MODELS.anthropic[0],
   defaultAgent: DEFAULT_AGENT,
@@ -91,6 +94,7 @@ export class SettingsStore {
         ollama: { baseUrl: s.providers?.ollama?.baseUrl || DEFAULT_OLLAMA_URL }
       },
       telegram: { ...s.telegram },
+      ssh: { passwords: { ...s.ssh?.passwords } },
       prefs: { ...DEFAULT_PREFS, ...s.prefs }
     }
   }
@@ -149,6 +153,19 @@ export class SettingsStore {
 
   getTelegramDefaultChat(): string | undefined {
     return this.raw().telegram.defaultChatId
+  }
+
+  /** Decrypted saved SSH password for a target ("user@host"), if one was saved. */
+  getSshPassword(target: string): string | undefined {
+    return decrypt(this.raw().ssh.passwords[target])
+  }
+
+  /** Save (or, with null, forget) the SSH password for a target. */
+  setSshPassword(target: string, password: string | null): void {
+    const s = this.raw()
+    if (password) s.ssh.passwords[target] = encrypt(password)
+    else delete s.ssh.passwords[target]
+    this.store.set(s)
   }
 
   patch(patch: SettingsPatch): void {

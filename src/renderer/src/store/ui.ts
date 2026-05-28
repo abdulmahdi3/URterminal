@@ -22,6 +22,8 @@ interface UiState {
   fillSnippet: SnippetItem | null
   /** save-as-template modal open for this pane id (null = closed) */
   savingTemplatePaneId: string | null
+  /** SSH connect prompt open */
+  showSshPrompt: boolean
   /** app-wide color theme */
   appTheme: AppTheme
 
@@ -40,6 +42,7 @@ interface UiState {
   setSearchOpen: (v: boolean) => void
   setFillSnippet: (s: SnippetItem | null) => void
   setSavingTemplatePaneId: (id: string | null) => void
+  setShowSshPrompt: (v: boolean) => void
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
@@ -55,6 +58,7 @@ const ALL_CLOSED = {
   showPipeMode: false,
   showTaskManager: false,
   showAskAll: false,
+  showSshPrompt: false,
   linkingPaneId: null as string | null
 }
 
@@ -71,6 +75,7 @@ export const useUi = create<UiState>((set, get) => ({
   searchOpen: false,
   fillSnippet: null,
   savingTemplatePaneId: null,
+  showSshPrompt: false,
   appTheme: 'dark',
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
@@ -100,6 +105,7 @@ export const useUi = create<UiState>((set, get) => ({
   setSearchOpen: (v) => set({ searchOpen: v }),
   setFillSnippet: (s) => set({ fillSnippet: s }),
   setSavingTemplatePaneId: (id) => set({ savingTemplatePaneId: id }),
+  setShowSshPrompt: (v) => set(v ? { ...ALL_CLOSED, showSshPrompt: true } : { showSshPrompt: false }),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),
   cycleAppTheme: () =>
@@ -115,6 +121,7 @@ export const useUi = create<UiState>((set, get) => ({
       showPipeMode: false,
       showTaskManager: false,
       showAskAll: false,
+      showSshPrompt: false,
       linkingPaneId: null
     })
 }))

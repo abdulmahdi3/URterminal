@@ -331,6 +331,71 @@ textarea.input.mono {
   flex-wrap: wrap;
   max-width: var(--settings-field-w);
 }
+/* SSH connect — save-credentials toggle */
+.ssh-save {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.ssh-save input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+.ssh-save input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.ssh-save input:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+/* SSH connect — recent connections listed under the input */
+.ssh-recent {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ssh-recent-head {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+.ssh-recent-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ssh-recent-item:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
 /* status pill sits left; Save/Clear/… group aligns to the right edge */
 .settings-status {
   display: inline-flex;

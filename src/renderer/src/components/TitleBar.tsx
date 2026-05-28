@@ -1,22 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, X, Layers, Save } from 'lucide-react'
+import { Plus, X, Network } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import type { WorkspaceEntry } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
-import { useSettings } from '@renderer/store/settings'
-import { spawnTemplate, removeTemplate } from '@renderer/lib/templates'
 import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import SessionsMenu from './SessionsMenu'
-import logoPng from '@renderer/assets/logo.png'
-
-function AppLogo(): JSX.Element {
-  return <img src={logoPng} width={16} height={16} className="brand-logo" alt="URterminal" />
-}
 
 /**
  * Hover-to-open dropdown. Uses a short close delay (not pure CSS :hover) so the
@@ -190,9 +183,7 @@ export default function TitleBar(): JSX.Element {
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const badges = useWorkspaces((s) => s.badges)
   const canCloseWorkspace = list.length > 1
-  const templates = useSettings((s) => s.settings?.prefs.templates ?? [])
-  const activePaneId = useWorkspace((s) => s.activePaneId)
-  const setSavingTemplatePaneId = useUi((s) => s.setSavingTemplatePaneId)
+  const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
@@ -256,7 +247,6 @@ export default function TitleBar(): JSX.Element {
         }}
       >
         {/* Brand */}
-        <AppLogo />
         <span className="brand-name">URterminal</span>
 
         <div className="titlebar-sep" />
@@ -298,54 +288,14 @@ export default function TitleBar(): JSX.Element {
           </button>
         ))}
 
-        <div className="titlebar-sep" />
-
-        {/* Pane templates — one click to spawn a saved agent/shell config */}
-        <HoverDropdown
-          trigger={
-            <button className="icon-btn agent-icon-btn" title="Pane templates">
-              <Layers size={15} />
-            </button>
-          }
+        {/* SSH — opens a prompt pre-filled with the last host, Enter to connect */}
+        <button
+          className="icon-btn agent-icon-btn"
+          title="SSH connect…"
+          onClick={() => setShowSshPrompt(true)}
         >
-          <>
-            {templates.length === 0 && (
-              <div className="hover-dd-item" style={{ opacity: 0.6, cursor: 'default' }}>
-                No templates yet
-              </div>
-            )}
-            {templates.map((tpl) => (
-              <div
-                key={tpl.id}
-                className="hover-dd-item"
-                onClick={() => spawnTemplate(tpl)}
-                title={tpl.type === 'ai' ? tpl.agentCommand : tpl.shell}
-              >
-                <span className="hover-dd-item-name">
-                  {tpl.type === 'ai' ? '🤖' : '🖥'} {tpl.name}
-                </span>
-                <button
-                  className="hover-dd-item-close"
-                  title="Delete template"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeTemplate(tpl.id)
-                  }}
-                >
-                  <X size={11} />
-                </button>
-              </div>
-            ))}
-            <div className="hover-dd-sep" />
-            <div
-              className={clsx('hover-dd-item', !activePaneId && 'disabled')}
-              onClick={() => activePaneId && setSavingTemplatePaneId(activePaneId)}
-            >
-              <Save size={12} />
-              <span className="hover-dd-item-name">Save active pane…</span>
-            </div>
-          </>
-        </HoverDropdown>
+          <Network size={15} />
+        </button>
       </div>
 
       <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />

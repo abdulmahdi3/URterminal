@@ -3,8 +3,8 @@ import { existsSync } from 'fs'
 import { isAbsolute, join, delimiter } from 'path'
 import { randomUUID } from 'crypto'
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
-import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch'
 import type { PtySpawnRequest, PtyDataEvent, PtyExitEvent, PtyTaskInfo } from '@shared/types'
+import type { PtyLike } from '../ssh/sshPty'
 
 type Emit = (channel: string, payload: PtyDataEvent | PtyExitEvent) => void
 
@@ -75,7 +75,9 @@ function appendArgs(
 }
 
 interface Entry {
-  proc: IPty
+  // node-pty's IPty satisfies PtyLike, as does the SSH session adapter, so both
+  // local shells and SSH sessions live in the same map and share write/resize/kill.
+  proc: PtyLike
   paneId: string
   shell: string
   startedAt: number
@@ -127,6 +129,21 @@ export class PtyManager {
       this.ptys.delete(ptyId)
     })
 
+    return { ptyId, shell }
+  }
+
+  /**
+   * Adopt an externally-created PtyLike (e.g. an SSH session) so it streams to
+   * the renderer through the same pty:data/pty:exit events as a real shell.
+   */
+  adopt(proc: PtyLike, paneId: string, shell: string): { ptyId: string; shell: string } {
+    const ptyId = randomUUID()
+    this.ptys.set(ptyId, { proc, paneId, shell, startedAt: Date.now() })
+    proc.onData((data) => this.emit('pty:data', { ptyId, paneId, data }))
+    proc.onExit(({ exitCode }) => {
+      this.emit('pty:exit', { ptyId, paneId, exitCode })
+      this.ptys.delete(ptyId)
+    })
     return { ptyId, shell }
   }
 

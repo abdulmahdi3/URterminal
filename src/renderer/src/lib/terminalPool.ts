@@ -141,10 +141,23 @@ export interface TerminalOpts {
   cwd?: string
   /** command auto-typed once the shell is ready (pane templates) */
   startupCommand?: string
+  /** when set, spawn an SSH session (via ssh2) instead of a local shell */
+  ssh?: { target: string }
   onReady?: (ptyId: string, shell: string) => void
   onExit?: (code: number) => void
   /** fired once when the process produces its first output (boot finished) */
   onStarted?: () => void
+}
+
+// Ephemeral SSH credentials, keyed by pane id — set when the user connects and
+// consumed once at spawn. Kept out of the pane/session state so passwords are
+// never written to disk by the renderer (saving is handled in the main process).
+const pendingSshCreds = new Map<string, { password?: string; savePassword?: boolean }>()
+export function setSshCreds(
+  paneId: string,
+  creds: { password?: string; savePassword?: boolean }
+): void {
+  pendingSshCreds.set(paneId, creds)
 }
 
 interface Entry {
@@ -427,27 +440,40 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   pool.set(paneId, entry)
 
-  void window.api
-    .spawnPty({
-      paneId,
-      cols: term.cols,
-      rows: term.rows,
-      command: opts.command,
-      // resume the agent (e.g. `claude --continue`) when restoring a session
-      commandArgs: opts.command ? seed?.resumeArgs : undefined,
-      shell: opts.shell,
-      shellArgs: opts.shellArgs,
-      cwd: opts.cwd,
-      startupCommand: opts.startupCommand
-    })
+  const creds = pendingSshCreds.get(paneId) ?? {}
+  pendingSshCreds.delete(paneId)
+  const spawn = opts.ssh
+    ? window.api.spawnSsh({
+        paneId,
+        target: opts.ssh.target,
+        password: creds.password,
+        savePassword: creds.savePassword,
+        cols: term.cols,
+        rows: term.rows
+      })
+    : window.api.spawnPty({
+        paneId,
+        cols: term.cols,
+        rows: term.rows,
+        command: opts.command,
+        // resume the agent (e.g. `claude --continue`) when restoring a session
+        commandArgs: opts.command ? seed?.resumeArgs : undefined,
+        shell: opts.shell,
+        shellArgs: opts.shellArgs,
+        cwd: opts.cwd,
+        startupCommand: opts.startupCommand
+      })
+  void spawn
     .then((res) => {
       entry.ptyId = res.ptyId
       opts.onReady?.(res.ptyId, res.shell)
     })
     .catch((err: Error) => {
-      const msg = opts.command
-        ? `\r\n\x1b[31mCould not launch "${opts.command}". Is it installed and on your PATH?\x1b[0m\r\n${err.message}\r\n`
-        : `\r\n\x1b[31mFailed to start shell.\x1b[0m\r\n${err.message}\r\n`
+      const msg = opts.ssh
+        ? `\r\n\x1b[31mFailed to start SSH session.\x1b[0m\r\n${err.message}\r\n`
+        : opts.command
+          ? `\r\n\x1b[31mCould not launch "${opts.command}". Is it installed and on your PATH?\x1b[0m\r\n${err.message}\r\n`
+          : `\r\n\x1b[31mFailed to start shell.\x1b[0m\r\n${err.message}\r\n`
       term.write(msg)
     })
 
@@ -491,6 +517,27 @@ export function setTerminalFont(family: string, size: number): void {
     fitTerminal(id)
     entry.term.refresh(0, entry.term.rows - 1)
   }
+}
+
+/** Bounds for Ctrl+scroll font zoom. */
+const FONT_MIN = 8
+const FONT_MAX = 32
+
+/**
+ * Adjust the terminal font size by `delta` px (Ctrl+scroll zoom), applying it
+ * live to every open pane. Returns the clamped new size so the caller can
+ * persist it to settings.
+ */
+export function bumpFontSize(delta: number): number {
+  const next = Math.max(FONT_MIN, Math.min(FONT_MAX, currentFontSize + delta))
+  if (next === currentFontSize) return next
+  currentFontSize = next
+  for (const [id, entry] of pool) {
+    entry.term.options.fontSize = currentFontSize
+    fitTerminal(id)
+    entry.term.refresh(0, entry.term.rows - 1)
+  }
+  return next
 }
 
 /** Re-fit a terminal to its container and push the new size to the PTY (if changed). */

@@ -13,6 +13,8 @@ export interface ShellPaneState {
   ptyId?: string
   /** command auto-typed once the shell is ready (used by pane templates) */
   startupCommand?: string
+  /** when set, this pane is an SSH session (target = "user@host[:port]") */
+  ssh?: { target: string }
 }
 
 /** An "AI pane" is a terminal that auto-launches an agent CLI (claude, codex, …). */
@@ -131,6 +133,8 @@ export interface AppPrefs {
   snippets: SnippetItem[]
   /** saved pane configurations */
   templates: PaneTemplate[]
+  /** recent SSH targets (most recent first, e.g. "user@host"), shown by the SSH button */
+  sshHosts: string[]
 
   // ---- appearance / terminal ----
   /** app color theme (matches APP_THEMES: dark, amoled, ocean, forest, dusk, light, system) */
@@ -191,6 +195,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   autoRestore: true,
   snippets: [],
   templates: [],
+  sshHosts: [],
 
   appTheme: 'dark',
   cursorStyle: 'block',
@@ -268,6 +273,19 @@ export interface PtySpawnRequest {
   command?: string
   /** extra args for the directly-spawned `command` (e.g. ["--continue"] to resume a session) */
   commandArgs?: string[]
+}
+
+/** Open an SSH session that streams through the same pty:data/pty:exit channels. */
+export interface SshSpawnRequest {
+  paneId: string
+  /** "user@host" or "user@host:port" */
+  target: string
+  /** password for a fresh connection; omit to use a previously saved one */
+  password?: string
+  /** persist the password (encrypted) for next time */
+  savePassword?: boolean
+  cols: number
+  rows: number
 }
 
 export interface PtyDataEvent {
@@ -369,6 +387,26 @@ export interface PerfSample {
   timestamp: number
 }
 
+/**
+ * Live Claude usage from Anthropic's OAuth usage endpoint (the same source as
+ * `/usage`). Account-global, not per-pane. `percent` is the real plan
+ * utilization; `resetInMs` counts down to the window reset.
+ */
+export interface ClaudeUsageWindow {
+  /** Plan utilization for this window, 0–100 (rounded). */
+  percent: number
+  /** Milliseconds until this window resets. */
+  resetInMs: number
+}
+export interface ClaudeUsage {
+  /** A usage reading was obtained (token present + endpoint answered). */
+  ok: boolean
+  /** Rolling 5-hour window. */
+  fiveHour: ClaudeUsageWindow | null
+  /** Rolling 7-day window. */
+  sevenDay: ClaudeUsageWindow | null
+}
+
 // ---------------------------------------------------------------------------
 // Window controls + file save (frameless window)
 // ---------------------------------------------------------------------------
@@ -449,6 +487,9 @@ export const IPC = {
   // perf
   perfSample: 'perf:sample',
 
+  // claude usage (live from Anthropic's OAuth /usage endpoint)
+  claudeUsage: 'claude:usage',
+
   // window controls (frameless)
   windowMinimize: 'window:minimize',
   windowMaximizeToggle: 'window:maximize-toggle',
@@ -462,6 +503,12 @@ export const IPC = {
 
   // directory picker (choose the folder to open an agent in)
   dialogOpenDir: 'dialog:open-dir',
+
+  // open a path in the OS file manager (Explorer / Finder)
+  shellOpenPath: 'shell:open-path',
+
+  // open an SSH session (streams via the pty:data/pty:exit channels)
+  sshSpawn: 'ssh:spawn',
 
   // pane registry (renderer pushes snapshot to main on every workspace change)
   panesUpdate: 'panes:update',

@@ -1,22 +1,25 @@
-import { ipcMain, BrowserWindow, dialog, clipboard, app } from 'electron'
+import { ipcMain, BrowserWindow, dialog, clipboard, app, shell } from 'electron'
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
 import { writeFileSync, mkdirSync } from 'fs'
-import { tmpdir } from 'os'
+import { tmpdir, userInfo } from 'os'
 import { join } from 'path'
 import type { ClipboardContent, SessionData, LastSessionPayload } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
+  SshSpawnRequest,
   SettingsPatch,
   FileSaveRequest,
   FileSaveResult
 } from '@shared/types'
+import { createSshPty } from '../ssh/sshPty'
 import { PtyManager } from '../pty/manager'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
+import { computeClaudeUsage } from '../usage/claudeUsage'
 
 export interface IpcContext {
   getWindow: () => BrowserWindow | null
@@ -120,6 +123,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     }
   })
 
+  // ---- claude usage (live from Anthropic's /usage endpoint) ----
+  ipcMain.handle(IPC.claudeUsage, () => computeClaudeUsage())
+
   // ---- window controls (frameless window) ----
   ipcMain.on(IPC.windowMinimize, () => getWindow()?.minimize())
   ipcMain.on(IPC.windowMaximizeToggle, () => {
@@ -156,6 +162,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     return res.filePaths[0]
   })
 
+  // ---- open a folder in the OS file manager ----
+  ipcMain.handle(IPC.shellOpenPath, async (_e, path: string): Promise<void> => {
+    if (path) await shell.openPath(path)
+  })
+
   // ---- file save (transcript export, etc.) ----
   ipcMain.handle(IPC.fileSave, async (_e, req: FileSaveRequest): Promise<FileSaveResult> => {
     const win = getWindow()
@@ -188,6 +199,32 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   )
   ipcMain.on(IPC.ptyKill, (_e, { ptyId }: { ptyId: string }) => pty.kill(ptyId))
   ipcMain.handle(IPC.ptyList, () => pty.list())
+
+  // ---- ssh (connects via ssh2, then streams through the pty channels) ----
+  ipcMain.handle(IPC.sshSpawn, (_e, req: SshSpawnRequest) => {
+    // Parse "user@host[:port]" → username / host / port.
+    const trimmed = req.target.trim()
+    const at = trimmed.indexOf('@')
+    let username = at >= 0 ? trimmed.slice(0, at) : ''
+    let rest = at >= 0 ? trimmed.slice(at + 1) : trimmed
+    let port = 22
+    const colon = rest.lastIndexOf(':')
+    if (colon >= 0) {
+      const p = parseInt(rest.slice(colon + 1), 10)
+      if (!Number.isNaN(p)) {
+        rest = rest.slice(0, colon)
+        port = p
+      }
+    }
+    const host = rest
+    if (!username) username = userInfo().username
+    // Use the freshly-typed password, else a previously saved one.
+    const password = req.password ?? settings.getSshPassword(req.target) ?? ''
+    if (req.savePassword && req.password) settings.setSshPassword(req.target, req.password)
+
+    const proc = createSshPty({ host, port, username, password, cols: req.cols, rows: req.rows })
+    return pty.adopt(proc, req.paneId, `ssh ${req.target}`)
+  })
 
   // ---- shells ----
   ipcMain.handle(IPC.shellListWsl, () => listWslDistros())

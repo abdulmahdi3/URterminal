@@ -652,6 +652,13 @@
   text-overflow: ellipsis;
   flex: 0 1 auto;
 }
+.pane-cwd.clickable {
+  cursor: pointer;
+}
+.pane-cwd.clickable:hover {
+  color: var(--text);
+  background: var(--bg-elev-3);
+}
 .pane-broadcast-tag {
   display: inline-flex;
   align-items: center;
@@ -712,6 +719,26 @@
   font-family: var(--mono);
   color: var(--text-faint);
   flex-shrink: 0;
+}
+/* Claude 5-hour usage meter (account-global; shown in claude pane titles). */
+.pane-usage {
+  font-size: var(--fs-2xs);
+  font-family: var(--mono);
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-faint);
+  background: var(--bg-elev-2);
+}
+.pane-usage.high {
+  color: var(--warn, #d6a700);
+  border-color: var(--warn, #d6a700);
+}
+.pane-usage.over {
+  color: var(--danger, #e5534b);
+  border-color: var(--danger, #e5534b);
 }
 .pane-header-spacer {
   flex: 1;
@@ -920,12 +947,36 @@
   align-items: center;
   gap: 6px;
 }
+/* Fully custom box so the *unchecked* state follows the theme instead of the
+   browser-default white. Checked = accent fill + checkmark. */
 .pane-todo-check {
   flex: none;
+  appearance: none;
+  -webkit-appearance: none;
   width: 13px;
   height: 13px;
-  accent-color: var(--accent);
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-sunken);
   cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+.pane-todo-check:hover {
+  border-color: var(--accent);
+}
+.pane-todo-check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pane-todo-check:checked::after {
+  content: '';
+  width: 3px;
+  height: 6px;
+  border: solid var(--bg);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) translateY(-1px);
 }
 .pane-todo-text {
   flex: 1;

@@ -224,7 +224,7 @@ export function getCommands(): Command[] {
       id: 'app.shortcuts',
       title: 'Keyboard shortcuts',
       group: 'App',
-      shortcut: '?',
+      shortcut: 'Ctrl+/',
       run: () => ui().setShowShortcuts(true)
     },
     {

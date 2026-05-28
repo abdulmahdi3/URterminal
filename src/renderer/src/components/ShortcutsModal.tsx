@@ -16,12 +16,13 @@ const GROUP_ORDER = ['General', 'Panes', 'Agent', 'Shells', 'App']
  */
 const EXTRAS: Record<string, [string, string][]> = {
   General: [
-    ['Ctrl+K', 'Command palette'],
+    ['Ctrl+Shift+K', 'Command palette'],
     ['Esc', 'Stop stream · close overlay · exit zoom']
   ],
   Panes: [
     ['Ctrl+1…9', 'Focus pane by number'],
-    ['F2 / double-click', 'Rename pane']
+    ['F2 / double-click', 'Rename pane'],
+    ['Ctrl+Scroll', 'Zoom terminal font in / out']
   ]
 }
 

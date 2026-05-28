@@ -4,6 +4,7 @@ import type {
   SettingsPublic,
   SettingsPatch,
   PtySpawnRequest,
+  SshSpawnRequest,
   PtyDataEvent,
   PtyExitEvent,
   PtyTaskInfo,
@@ -13,6 +14,7 @@ import type {
   TelegramInbound,
   TelegramCreatePane,
   PerfSample,
+  ClaudeUsage,
   FileSaveRequest,
   FileSaveResult,
   PaneInfo,
@@ -41,6 +43,8 @@ const api = {
   // ---- pty ----
   spawnPty: (req: PtySpawnRequest): Promise<{ ptyId: string; shell: string }> =>
     ipcRenderer.invoke(IPC.ptySpawn, req),
+  spawnSsh: (req: SshSpawnRequest): Promise<{ ptyId: string; shell: string }> =>
+    ipcRenderer.invoke(IPC.sshSpawn, req),
   writePty: (ptyId: string, data: string): void => ipcRenderer.send(IPC.ptyWrite, { ptyId, data }),
   resizePty: (ptyId: string, cols: number, rows: number): void =>
     ipcRenderer.send(IPC.ptyResize, { ptyId, cols, rows }),
@@ -108,6 +112,9 @@ const api = {
   // ---- perf ----
   getPerfSample: (): Promise<PerfSample> => ipcRenderer.invoke(IPC.perfSample),
 
+  // ---- claude usage ----
+  getClaudeUsage: (): Promise<ClaudeUsage> => ipcRenderer.invoke(IPC.claudeUsage),
+
   // ---- window controls (frameless) ----
   windowMinimize: (): void => ipcRenderer.send(IPC.windowMinimize),
   windowMaximizeToggle: (): void => ipcRenderer.send(IPC.windowMaximizeToggle),
@@ -125,6 +132,9 @@ const api = {
   // ---- directory picker ----
   pickDirectory: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.dialogOpenDir, defaultPath),
+
+  // ---- open a folder in the OS file manager ----
+  openPath: (path: string): Promise<void> => ipcRenderer.invoke(IPC.shellOpenPath, path),
 
   // ---- pane registry (keeps main process in sync for Telegram /panes) ----
   updatePaneRegistry: (panes: PaneInfo[]): Promise<void> =>
