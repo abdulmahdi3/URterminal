@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import {
   Plus, Search, NotebookPen, ListTodo, X, Check, FileText, RefreshCw, ListChecks,
-  ChevronRight, ChevronDown, Calendar, Flag, Tag as TagIcon, Trash2, Save
+  ChevronRight, ChevronDown, Calendar, Flag, Tag as TagIcon, Trash2, Save,
+  Sun, CalendarDays, AlarmClock, Inbox, Clock, Bell, Repeat
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
@@ -37,6 +38,266 @@ function inputToTtDate(s: string): string | undefined {
   return `${s}T00:00:00+0000`
 }
 
+/** Local "yyyy-mm-dd" for today (matches ttDateToInput's date-only format). */
+function localToday(): string {
+  const d = new Date()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+/** Add n days to a "yyyy-mm-dd" string, returning the same format. */
+function addDaysStr(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + n)
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${dt.getFullYear()}-${mm}-${dd}`
+}
+
+/** The browser/OS IANA timezone, e.g. "Asia/Baghdad" (falls back to UTC). */
+function localTz(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+/** Current UTC offset as a "+0300" / "-0500" string for timed ISO stamps. */
+function localOffset(): string {
+  const mins = -new Date().getTimezoneOffset()
+  const sign = mins >= 0 ? '+' : '-'
+  const abs = Math.abs(mins)
+  return `${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}${String(abs % 60).padStart(2, '0')}`
+}
+/**
+ * Split a TickTick timestamp into <input>-friendly date + time. All-day tasks
+ * use the raw date portion (never local-converted — that would shift the day
+ * across the UTC boundary); timed tasks are converted to local wall-clock.
+ */
+function ttDatePart(s: string | undefined, allDay: boolean): { date: string; time: string } {
+  if (!s) return { date: '', time: '' }
+  if (allDay) return { date: ttDateToInput(s), time: '' }
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return { date: ttDateToInput(s), time: '' }
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return {
+    date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
+    time: `${p(d.getHours())}:${p(d.getMinutes())}`
+  }
+}
+/** Build a TickTick timestamp from date + optional time (all-day → midnight UTC). */
+function composeTt(date: string, time: string, allDay: boolean): string | undefined {
+  if (!date) return undefined
+  if (allDay || !time) return `${date}T00:00:00+0000`
+  return `${date}T${time}:00${localOffset()}`
+}
+
+const REMINDER_OPTS: Array<{ value: string; label: string; trigger: string }> = [
+  { value: 'none', label: 'No reminder', trigger: '' },
+  { value: 'ontime', label: 'At time of task', trigger: 'TRIGGER:PT0S' },
+  { value: '5m', label: '5 minutes before', trigger: 'TRIGGER:-PT5M' },
+  { value: '30m', label: '30 minutes before', trigger: 'TRIGGER:-PT30M' },
+  { value: '1h', label: '1 hour before', trigger: 'TRIGGER:-PT1H' },
+  { value: '1d', label: '1 day before', trigger: 'TRIGGER:-P1D' }
+]
+const REPEAT_OPTS: Array<{ value: string; label: string; rrule: string }> = [
+  { value: 'none', label: "Doesn't repeat", rrule: '' },
+  { value: 'daily', label: 'Daily', rrule: 'RRULE:FREQ=DAILY;INTERVAL=1' },
+  { value: 'weekly', label: 'Weekly', rrule: 'RRULE:FREQ=WEEKLY;INTERVAL=1' },
+  { value: 'monthly', label: 'Monthly', rrule: 'RRULE:FREQ=MONTHLY;INTERVAL=1' },
+  { value: 'yearly', label: 'Yearly', rrule: 'RRULE:FREQ=YEARLY;INTERVAL=1' }
+]
+/** Map a stored reminder trigger back to one of our presets ('none' if unknown). */
+function deriveReminder(task: TickTickTask): string {
+  const first = (task.reminders ?? [])[0]
+  if (!first) return 'none'
+  return REMINDER_OPTS.find((o) => o.trigger && o.trigger === first)?.value ?? 'ontime'
+}
+/** Map a stored repeatFlag (RRULE) back to a preset by its FREQ. */
+function deriveRepeat(task: TickTickTask): string {
+  const flag = task.repeatFlag
+  if (!flag) return 'none'
+  const freq = flag.match(/FREQ=([A-Z]+)/)?.[1]
+  const byFreq: Record<string, string> = {
+    DAILY: 'daily',
+    WEEKLY: 'weekly',
+    MONTHLY: 'monthly',
+    YEARLY: 'yearly'
+  }
+  return freq ? byFreq[freq] ?? 'none' : 'none'
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** CSS modifier class for a task's priority (drives the left accent bar). */
+function priorityClass(p?: number): string {
+  if ((p ?? 0) >= 5) return 'pri-high'
+  if ((p ?? 0) >= 3) return 'pri-med'
+  if ((p ?? 0) >= 1) return 'pri-low'
+  return ''
+}
+/** CSS modifier for a due date relative to today: overdue / today / soon. */
+function dueClass(due?: string): string {
+  const d = ttDateToInput(due)
+  if (!d) return ''
+  const today = localToday()
+  if (d < today) return 'overdue'
+  if (d === today) return 'today'
+  if (d <= addDaysStr(today, 2)) return 'soon'
+  return ''
+}
+/** Human-readable due label: Today / Tomorrow / Yesterday / "May 30" / "May 30, 2027". */
+function dueLabel(due?: string): string {
+  const d = ttDateToInput(due)
+  if (!d) return ''
+  const today = localToday()
+  if (d === today) return 'Today'
+  if (d === addDaysStr(today, 1)) return 'Tomorrow'
+  if (d === addDaysStr(today, -1)) return 'Yesterday'
+  const [y, m, day] = d.split('-').map(Number)
+  const base = `${MONTHS[m - 1]} ${day}`
+  return String(y) === today.slice(0, 4) ? base : `${base}, ${y}`
+}
+
+export type SmartView = 'today' | 'next7' | 'overdue' | 'all'
+
+const SMART_VIEWS: Array<{ id: SmartView; label: string; icon: typeof Sun }> = [
+  { id: 'today', label: 'Today', icon: Sun },
+  { id: 'next7', label: 'Next 7 days', icon: CalendarDays },
+  { id: 'overdue', label: 'Overdue', icon: AlarmClock },
+  { id: 'all', label: 'All tasks', icon: Inbox }
+]
+
+/** Sort by due date ascending (undated last), then by priority descending. */
+function sortTasks(tasks: TickTickTask[]): TickTickTask[] {
+  return [...tasks].sort((a, b) => {
+    const da = ttDateToInput(a.dueDate)
+    const db = ttDateToInput(b.dueDate)
+    if (da !== db) {
+      if (!da) return 1
+      if (!db) return -1
+      return da < db ? -1 : 1
+    }
+    return (b.priority ?? 0) - (a.priority ?? 0)
+  })
+}
+
+/** Parsed quick-add fields. */
+export interface QuickAdd {
+  title: string
+  priority?: number
+  tags?: string[]
+  dueDate?: string
+}
+
+/**
+ * Parse a quick-add string into TickTick fields:
+ *   #tag            → tag (repeatable)
+ *   ! / !! / !!!    → priority low / medium / high
+ *   today/tomorrow  → due date
+ *   +Nd             → due in N days
+ * Everything left over (collapsed whitespace) becomes the title.
+ */
+function parseQuickAdd(raw: string): QuickAdd {
+  let text = ` ${raw} `
+  const tags: string[] = []
+  text = text.replace(/\s#([^\s#]+)/g, (_m, tag: string) => {
+    tags.push(tag)
+    return ' '
+  })
+  let priority: number | undefined
+  const prio = text.match(/\s(!{1,3})(?=\s)/)
+  if (prio) {
+    priority = prio[1].length === 3 ? 5 : prio[1].length === 2 ? 3 : 1
+    text = text.replace(prio[0], ' ')
+  }
+  const today = localToday()
+  let due: string | undefined
+  if (/\btomorrow\b/i.test(text)) {
+    due = addDaysStr(today, 1)
+    text = text.replace(/\btomorrow\b/i, ' ')
+  } else if (/\btoday\b/i.test(text)) {
+    due = today
+    text = text.replace(/\btoday\b/i, ' ')
+  }
+  const nd = text.match(/\s\+(\d+)d\b/i)
+  if (nd) {
+    due = addDaysStr(today, parseInt(nd[1], 10))
+    text = text.replace(nd[0], ' ')
+  }
+  return {
+    title: text.replace(/\s+/g, ' ').trim(),
+    priority,
+    tags: tags.length ? tags : undefined,
+    dueDate: due ? inputToTtDate(due) : undefined
+  }
+}
+
+/** Quick-add bar shown above every TickTick view; parses tokens on submit. */
+function TtQuickAdd({
+  targetName,
+  onAdd
+}: {
+  targetName: string
+  onAdd: (parsed: QuickAdd) => Promise<void>
+}): JSX.Element {
+  const [val, setVal] = useState('')
+  const submit = (): void => {
+    const parsed = parseQuickAdd(val)
+    if (!parsed.title) return
+    void onAdd(parsed)
+    setVal('')
+  }
+  return (
+    <div className="tt-quickadd">
+      <Plus size={14} className="tt-quickadd-icon" />
+      <input
+        className="tt-quickadd-input"
+        placeholder={`Add to ${targetName}…  e.g.  Email Sam #work !! tomorrow`}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submit()
+        }}
+      />
+      <button className="btn sm primary" disabled={!val.trim()} onClick={submit}>
+        Add
+      </button>
+    </div>
+  )
+}
+
+/** True if a task matches a lower-cased search query (title/content/desc/tags). */
+function taskMatchesQuery(t: TickTickTask, q: string): boolean {
+  if (t.title?.toLowerCase().includes(q)) return true
+  if (t.content?.toLowerCase().includes(q)) return true
+  if (t.desc?.toLowerCase().includes(q)) return true
+  if ((t.tags ?? []).some((tg) => tg.toLowerCase().includes(q))) return true
+  return false
+}
+
+/** Filter the full open-task set down to one smart view, sorted for display. */
+function filterSmart(tasks: TickTickTask[], view: SmartView): TickTickTask[] {
+  const open = tasks.filter((t) => (t.status ?? 0) === 0)
+  if (view === 'all') return sortTasks(open)
+  const today = localToday()
+  if (view === 'overdue') {
+    return sortTasks(open.filter((t) => {
+      const d = ttDateToInput(t.dueDate)
+      return !!d && d < today
+    }))
+  }
+  if (view === 'today') {
+    return sortTasks(open.filter((t) => ttDateToInput(t.dueDate) === today))
+  }
+  // next7: due today through today+7 inclusive
+  const end = addDaysStr(today, 7)
+  return sortTasks(open.filter((t) => {
+    const d = ttDateToInput(t.dueDate)
+    return !!d && d >= today && d <= end
+  }))
+}
+
 /**
  * Inline editor for one TickTick task. Expanded under the task row; saves
  * with a single round-trip through tickTickUpdateTask. Subtasks (`items`) are
@@ -56,7 +317,16 @@ function TaskRowEditor({
   const [title, setTitle] = useState(task.title ?? '')
   const [content, setContent] = useState(task.content ?? '')
   const [desc, setDesc] = useState(task.desc ?? '')
-  const [dueDate, setDueDate] = useState(ttDateToInput(task.dueDate))
+  const allDayInit = task.isAllDay ?? true
+  const dueInit = ttDatePart(task.dueDate, allDayInit)
+  const startInit = ttDatePart(task.startDate, allDayInit)
+  const [allDay, setAllDay] = useState(allDayInit)
+  const [dueDate, setDueDate] = useState(dueInit.date)
+  const [dueTime, setDueTime] = useState(dueInit.time)
+  const [startDate, setStartDate] = useState(startInit.date)
+  const [startTime, setStartTime] = useState(startInit.time)
+  const [reminder, setReminder] = useState(deriveReminder(task))
+  const [repeat, setRepeat] = useState(deriveRepeat(task))
   const [priority, setPriority] = useState<number>(task.priority ?? 0)
   const [tagsDraft, setTagsDraft] = useState((task.tags ?? []).join(', '))
   const [items, setItems] = useState(task.items ?? [])
@@ -90,11 +360,18 @@ function TaskRowEditor({
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
+      const reminderTrigger = REMINDER_OPTS.find((o) => o.value === reminder)?.trigger ?? ''
+      const repeatRrule = REPEAT_OPTS.find((o) => o.value === repeat)?.rrule ?? ''
       await onSave({
         title,
         content: content || undefined,
         desc: desc || undefined,
-        dueDate: inputToTtDate(dueDate),
+        isAllDay: allDay,
+        dueDate: composeTt(dueDate, dueTime, allDay),
+        startDate: composeTt(startDate, startTime, allDay),
+        timeZone: dueDate || startDate ? localTz() : undefined,
+        reminders: dueDate || startDate ? (reminderTrigger ? [reminderTrigger] : []) : undefined,
+        repeatFlag: dueDate ? repeatRrule : undefined,
         priority,
         tags: tags.length ? tags : undefined,
         items: items.length ? items : undefined
@@ -128,25 +405,95 @@ function TaskRowEditor({
         onChange={(e) => setDesc(e.target.value)}
       />
 
-      <div className="tt-edit-row">
-        <label className="tt-edit-field">
-          <Calendar size={11} /> Due date
+      <div className="tt-sched">
+        <label className="tt-sched-allday">
           <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            type="checkbox"
+            checked={allDay}
+            onChange={(e) => setAllDay(e.target.checked)}
           />
+          All-day
         </label>
-        <label className="tt-edit-field">
-          <Flag size={11} /> Priority
-          <select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
-            {TT_PRIORITIES.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
+
+        <div className="tt-edit-row">
+          <label className="tt-edit-field">
+            <Calendar size={11} /> Start date
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </label>
+          {!allDay && (
+            <label className="tt-edit-field">
+              <Clock size={11} /> Start time
+              <input
+                type="time"
+                value={startTime}
+                disabled={!startDate}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="tt-edit-row">
+          <label className="tt-edit-field">
+            <Calendar size={11} /> Due date
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </label>
+          {!allDay && (
+            <label className="tt-edit-field">
+              <Clock size={11} /> Due time
+              <input
+                type="time"
+                value={dueTime}
+                disabled={!dueDate}
+                onChange={(e) => setDueTime(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="tt-edit-row">
+          <label className="tt-edit-field">
+            <Bell size={11} /> Reminder
+            <select
+              value={reminder}
+              disabled={!dueDate && !startDate}
+              onChange={(e) => setReminder(e.target.value)}
+            >
+              {REMINDER_OPTS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="tt-edit-field">
+            <Repeat size={11} /> Repeat
+            <select
+              value={repeat}
+              disabled={!dueDate}
+              onChange={(e) => setRepeat(e.target.value)}
+            >
+              {REPEAT_OPTS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="tt-edit-row">
+          <label className="tt-edit-field">
+            <Flag size={11} /> Priority
+            <select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
+              {TT_PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <label className="tt-edit-field full">
@@ -216,6 +563,190 @@ function TaskRowEditor({
 }
 
 /**
+ * One task row, shared by the per-project editor and the smart views. Shows
+ * the completion checkbox, an expand chevron (opens the inline TaskRowEditor),
+ * title + priority flag, optional project label (smart views span projects),
+ * due date, subtask count, and tags.
+ */
+function TtTaskRow({
+  task,
+  isDone,
+  isOpen,
+  onToggleExpand,
+  onComplete,
+  onUpdate,
+  onDelete,
+  projectLabel
+}: {
+  task: TickTickTask
+  isDone: boolean
+  isOpen: boolean
+  onToggleExpand: () => void
+  onComplete: () => Promise<void>
+  onUpdate: (patch: Partial<TickTickTask>) => Promise<void>
+  onDelete: () => Promise<void>
+  projectLabel?: { name: string; color?: string }
+}): JSX.Element {
+  const sub = task.items ?? []
+  const subOpen = sub.filter((it) => (it.status ?? 0) === 0).length
+  return (
+    <div className={clsx('tt-task', isDone && 'done', !isDone && priorityClass(task.priority))}>
+      <div className="tt-task-row">
+        <button
+          className={clsx('notes-todo-check', 'tt-check', isDone && 'checked')}
+          title={isDone ? 'Already completed' : 'Mark complete'}
+          disabled={isDone}
+          onClick={() => void onComplete()}
+        >
+          {isDone ? <Check size={12} /> : null}
+        </button>
+        <button
+          className="tt-task-expand"
+          title={isOpen ? 'Collapse' : 'Expand to edit'}
+          onClick={onToggleExpand}
+        >
+          {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+        <span className="tt-task-title">{task.title}</span>
+        <div className="tt-task-meta-group">
+          {projectLabel && (
+            <span className="tt-task-project" title={projectLabel.name}>
+              <span
+                className="tt-project-dot"
+                style={{ background: projectLabel.color ?? 'var(--text-faint)' }}
+              />
+              {projectLabel.name}
+            </span>
+          )}
+          {sub.length > 0 && (
+            <span className="tt-task-meta" title="Subtasks">
+              <ListChecks size={11} /> {subOpen}/{sub.length}
+            </span>
+          )}
+          {(task.tags ?? []).slice(0, 3).map((tg) => (
+            <span key={tg} className="tt-task-tag">
+              #{tg}
+            </span>
+          ))}
+          {task.dueDate && (
+            <span
+              className={clsx('tt-due', dueClass(task.dueDate))}
+              title={`Due ${ttDateToInput(task.dueDate)}`}
+            >
+              <Calendar size={11} /> {dueLabel(task.dueDate)}
+            </span>
+          )}
+        </div>
+        <button className="icon-btn notes-todo-del tt-task-del" title="Delete" onClick={() => void onDelete()}>
+          <X size={12} />
+        </button>
+      </div>
+      {isOpen && (
+        <TaskRowEditor
+          task={task}
+          onSave={onUpdate}
+          onDelete={onDelete}
+          onClose={onToggleExpand}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Aggregated read/edit list across every project (used by smart views and
+ * search results). Tasks carry their own projectId so the mutation handlers
+ * are project-scoped per row, and each row shows a project label.
+ */
+function TickTickTaskList({
+  title,
+  icon: Icon,
+  tasks,
+  projectsById,
+  emptyText,
+  onUpdate,
+  onComplete,
+  onDelete
+}: {
+  title: string
+  icon: typeof Sun
+  tasks: TickTickTask[]
+  projectsById: Record<string, TickTickProject>
+  emptyText: string
+  onUpdate: (projectId: string, taskId: string, patch: Partial<TickTickTask>) => Promise<void>
+  onComplete: (projectId: string, taskId: string) => Promise<void>
+  onDelete: (projectId: string, taskId: string) => Promise<void>
+}): JSX.Element {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  return (
+    <>
+      <div className="notes-editor-head">
+        <div className="notes-editor-title">
+          <Icon size={14} />
+          <span className="notes-editor-pane">{title}</span>
+          <span className="notes-editor-ws">TickTick</span>
+        </div>
+      </div>
+
+      <div className="notes-todos-section ticktick">
+        <div className="notes-todos-head">
+          <ListTodo size={13} />
+          <span>{title} · {tasks.length}</span>
+        </div>
+        {tasks.length === 0 && <div className="notes-todos-empty">{emptyText}</div>}
+        {tasks.map((t) => (
+          <TtTaskRow
+            key={t.id}
+            task={t}
+            isDone={(t.status ?? 0) !== 0}
+            isOpen={expanded === t.id}
+            onToggleExpand={() => setExpanded(expanded === t.id ? null : t.id)}
+            onComplete={() => onComplete(t.projectId, t.id)}
+            onUpdate={(patch) => onUpdate(t.projectId, t.id, patch)}
+            onDelete={() => onDelete(t.projectId, t.id)}
+            projectLabel={{
+              name: projectsById[t.projectId]?.name ?? 'Inbox',
+              color: projectsById[t.projectId]?.color
+            }}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** Smart filter view (Today / Next 7 days / Overdue / All tasks). */
+function TickTickSmartView({
+  view,
+  tasks,
+  projectsById,
+  onUpdate,
+  onComplete,
+  onDelete
+}: {
+  view: SmartView
+  tasks: TickTickTask[]
+  projectsById: Record<string, TickTickProject>
+  onUpdate: (projectId: string, taskId: string, patch: Partial<TickTickTask>) => Promise<void>
+  onComplete: (projectId: string, taskId: string) => Promise<void>
+  onDelete: (projectId: string, taskId: string) => Promise<void>
+}): JSX.Element {
+  const meta = SMART_VIEWS.find((v) => v.id === view)!
+  return (
+    <TickTickTaskList
+      title={meta.label}
+      icon={meta.icon}
+      tasks={tasks}
+      projectsById={projectsById}
+      emptyText={view === 'overdue' ? 'Nothing overdue 🎉' : 'No tasks here.'}
+      onUpdate={onUpdate}
+      onComplete={onComplete}
+      onDelete={onDelete}
+    />
+  )
+}
+
+/**
  * Editor panel for a TickTick project. Header shows tag + due filters; each
  * task is an expandable row (click chevron to edit title/content/due/priority/
  * tags/subtasks). Completed section collapsible.
@@ -228,7 +759,8 @@ function TickTickEditor({
   onAdd,
   onUpdate,
   onComplete,
-  onDelete
+  onDelete,
+  onDeleteProject
 }: {
   project: TickTickProject
   tasks: TickTickTask[]
@@ -238,6 +770,7 @@ function TickTickEditor({
   onUpdate: (taskId: string, patch: Partial<TickTickTask>) => Promise<void>
   onComplete: (taskId: string) => Promise<void>
   onDelete: (taskId: string) => Promise<void>
+  onDeleteProject: () => Promise<void>
 }): JSX.Element {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filterTag, setFilterTag] = useState<string>('')
@@ -264,78 +797,18 @@ function TickTickEditor({
   const open = tasks.filter((t) => (t.status ?? 0) === 0 && matchesFilters(t))
   const completed = tasks.filter((t) => (t.status ?? 0) !== 0 && matchesFilters(t))
 
-  const priorityColor = (p: number): string | undefined => {
-    if (p === 5) return '#ef4444'
-    if (p === 3) return '#f59e0b'
-    if (p === 1) return '#3b82f6'
-    return undefined
-  }
-
-  const renderTaskRow = (t: TickTickTask, isDone: boolean): JSX.Element => {
-    const isOpen = expanded === t.id
-    const sub = t.items ?? []
-    const subOpen = sub.filter((it) => (it.status ?? 0) === 0).length
-    return (
-      <div key={t.id} className={clsx('tt-task', isDone && 'done')}>
-        <div className="tt-task-row">
-          <button
-            className="notes-todo-check"
-            title={isDone ? 'Already completed' : 'Mark complete'}
-            disabled={isDone}
-            onClick={() => void onComplete(t.id)}
-          >
-            {isDone ? <Check size={11} /> : null}
-          </button>
-          <button
-            className="tt-task-expand"
-            title={isOpen ? 'Collapse' : 'Expand to edit'}
-            onClick={() => setExpanded(isOpen ? null : t.id)}
-          >
-            {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          </button>
-          <span className="notes-todo-text">
-            {(t.priority ?? 0) > 0 && (
-              <Flag
-                size={10}
-                style={{ color: priorityColor(t.priority ?? 0), marginRight: 4 }}
-              />
-            )}
-            {t.title}
-          </span>
-          {t.dueDate && (
-            <span className="tt-task-meta" title={`Due ${t.dueDate}`}>
-              <Calendar size={10} /> {ttDateToInput(t.dueDate)}
-            </span>
-          )}
-          {sub.length > 0 && (
-            <span className="tt-task-meta" title="Subtasks">
-              {subOpen}/{sub.length}
-            </span>
-          )}
-          {(t.tags ?? []).slice(0, 3).map((tg) => (
-            <span key={tg} className="tt-task-tag">
-              {tg}
-            </span>
-          ))}
-          <button
-            className="icon-btn notes-todo-del"
-            title="Delete"
-            onClick={() => void onDelete(t.id)}
-          >
-            <X size={11} />
-          </button>
-        </div>
-        {isOpen && (
-          <TaskRowEditor
-            task={t}
-            onSave={(patch) => onUpdate(t.id, patch)}
-            onDelete={() => onDelete(t.id)}
-            onClose={() => setExpanded(null)}
-          />
-        )}
-      </div>
-    )
-  }
+  const renderTaskRow = (t: TickTickTask, isDone: boolean): JSX.Element => (
+    <TtTaskRow
+      key={t.id}
+      task={t}
+      isDone={isDone}
+      isOpen={expanded === t.id}
+      onToggleExpand={() => setExpanded(expanded === t.id ? null : t.id)}
+      onComplete={() => onComplete(t.id)}
+      onUpdate={(patch) => onUpdate(t.id, patch)}
+      onDelete={() => onDelete(t.id)}
+    />
+  )
 
   return (
     <>
@@ -345,6 +818,13 @@ function TickTickEditor({
           <span className="notes-editor-pane">{project.name}</span>
           <span className="notes-editor-ws">TickTick</span>
         </div>
+        <button
+          className="icon-btn"
+          title="Delete this list"
+          onClick={() => void onDeleteProject()}
+        >
+          <Trash2 size={13} />
+        </button>
       </div>
 
       <div className="tt-filters">
@@ -463,15 +943,26 @@ export default function NotesModal(): JSX.Element {
   type Selection =
     | { kind: 'pane'; wsId: string; paneId: string }
     | { kind: 'ticktick'; projectId: string }
+    | { kind: 'tt-smart'; view: SmartView }
+    | { kind: 'tt-search' }
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Selection | null>(null)
   const [todoDraft, setTodoDraft] = useState('')
+
+  // Which source the panel is showing: local pane notes, TickTick, or the
+  // (not-yet-built) Google Tasks integration.
+  type NotesTab = 'notes' | 'ticktick' | 'google'
+  const [notesTab, setNotesTab] = useState<NotesTab>('notes')
+  const isTtSelection = (s: Selection | null): boolean =>
+    s?.kind === 'ticktick' || s?.kind === 'tt-smart' || s?.kind === 'tt-search'
 
   // ---- TickTick state (loaded lazily once the user is connected) ----
   const [ttProjects, setTtProjects] = useState<TickTickProject[]>([])
   const [ttTasksByProject, setTtTasksByProject] = useState<Record<string, TickTickTask[]>>({})
   const [ttLoading, setTtLoading] = useState(false)
   const [ttTaskDraft, setTtTaskDraft] = useState('')
+  const [ttNewProject, setTtNewProject] = useState('')
+  const [ttAddingProject, setTtAddingProject] = useState(false)
 
   const refreshTickTick = async (): Promise<void> => {
     if (!tickTickConnected) return
@@ -566,10 +1057,157 @@ export default function NotesModal(): JSX.Element {
     return ttProjects.find((p) => p.id === selected.projectId) ?? null
   }, [selected, ttProjects])
 
-  // Auto-select the first entry on first open so the editor is never blank.
-  if (show && !sel && !ttSel && entries.length > 0) {
+  const ttSmart = selected?.kind === 'tt-smart' ? selected.view : null
+  const ttSearch = selected?.kind === 'tt-search'
+
+  // Flat task set + project lookup for the cross-project smart views.
+  const projectsById = useMemo(
+    () => Object.fromEntries(ttProjects.map((p) => [p.id, p])) as Record<string, TickTickProject>,
+    [ttProjects]
+  )
+  const allTtTasks = useMemo(
+    () => Object.values(ttTasksByProject).flat(),
+    [ttTasksByProject]
+  )
+  const smartCounts = useMemo(() => {
+    const c: Record<SmartView, number> = { today: 0, next7: 0, overdue: 0, all: 0 }
+    for (const v of SMART_VIEWS) c[v.id] = filterSmart(allTtTasks, v.id).length
+    return c
+  }, [allTtTasks])
+  const smartTasks = useMemo(
+    () => (ttSmart ? filterSmart(allTtTasks, ttSmart) : []),
+    [ttSmart, allTtTasks]
+  )
+
+  // TickTick task matches for the global search box (shared `query`).
+  const ttSearchResults = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return sortTasks(allTtTasks.filter((t) => taskMatchesQuery(t, q)))
+  }, [query, allTtTasks])
+
+  // Auto-select the first pane on first open (Notes tab) so it's never blank.
+  if (show && notesTab === 'notes' && !sel && entries.length > 0) {
     const first = entries[0]
     setSelected({ kind: 'pane', wsId: first.workspaceId, paneId: first.paneId })
+  }
+
+  // Switch source tabs, seeding a sensible default selection for the new tab.
+  const switchTab = (tab: NotesTab): void => {
+    if (tab === 'google' || tab === notesTab) return
+    setNotesTab(tab)
+    setQuery('')
+    if (tab === 'ticktick') {
+      if (!isTtSelection(selected)) setSelected({ kind: 'tt-smart', view: 'today' })
+    } else if (entries.length > 0) {
+      if (selected?.kind !== 'pane') {
+        const first = entries[0]
+        setSelected({ kind: 'pane', wsId: first.workspaceId, paneId: first.paneId })
+      }
+    } else {
+      setSelected(null)
+    }
+  }
+
+  // ---- Project-scoped TickTick mutations (shared by editor + smart views) ----
+  const ttCreate = async (projectId: string, title: string): Promise<void> => {
+    try {
+      const t = await window.api.tickTickCreateTask({ projectId, title })
+      setTtTasksByProject((m) => ({ ...m, [projectId]: [t, ...(m[projectId] ?? [])] }))
+    } catch (e) {
+      toast(`Create failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const ttQuickAdd = async (projectId: string, parsed: QuickAdd): Promise<void> => {
+    try {
+      const t = await window.api.tickTickCreateTask({ projectId, ...parsed })
+      setTtTasksByProject((m) => ({ ...m, [projectId]: [t, ...(m[projectId] ?? [])] }))
+      toast('Task added', 'ok')
+    } catch (e) {
+      toast(`Create failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const ttUpdate = async (
+    projectId: string,
+    taskId: string,
+    patch: Partial<TickTickTask>
+  ): Promise<void> => {
+    try {
+      // Strip local-only ids from new subtasks before sending.
+      const items = patch.items?.map((it) =>
+        it.id?.startsWith('new-') ? { ...it, id: undefined as unknown as string } : it
+      )
+      const updated = await window.api.tickTickUpdateTask({
+        id: taskId,
+        projectId,
+        ...patch,
+        ...(items ? { items } : {})
+      })
+      setTtTasksByProject((m) => ({
+        ...m,
+        [projectId]: (m[projectId] ?? []).map((t) => (t.id === taskId ? { ...t, ...updated } : t))
+      }))
+      toast('Task updated', 'ok')
+    } catch (e) {
+      toast(`Update failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const ttComplete = async (projectId: string, taskId: string): Promise<void> => {
+    try {
+      await window.api.tickTickCompleteTask(projectId, taskId)
+      setTtTasksByProject((m) => ({
+        ...m,
+        [projectId]: (m[projectId] ?? []).map((t) => (t.id === taskId ? { ...t, status: 2 } : t))
+      }))
+    } catch (e) {
+      toast(`Complete failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const ttDelete = async (projectId: string, taskId: string): Promise<void> => {
+    try {
+      await window.api.tickTickDeleteTask(projectId, taskId)
+      setTtTasksByProject((m) => ({
+        ...m,
+        [projectId]: (m[projectId] ?? []).filter((t) => t.id !== taskId)
+      }))
+    } catch (e) {
+      toast(`Delete failed: ${(e as Error).message}`, 'error')
+    }
+  }
+
+  const ttCreateProject = async (name: string): Promise<void> => {
+    const n = name.trim()
+    if (!n) return
+    try {
+      const p = await window.api.tickTickCreateProject({ name: n })
+      setTtProjects((cur) => [...cur, p])
+      setTtTasksByProject((m) => ({ ...m, [p.id]: [] }))
+      setTtNewProject('')
+      setTtAddingProject(false)
+      setSelected({ kind: 'ticktick', projectId: p.id })
+      toast(`List "${p.name}" created`, 'ok')
+    } catch (e) {
+      toast(`Create list failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const ttDeleteProject = async (projectId: string): Promise<void> => {
+    if (
+      !window.confirm('Delete this list and all its tasks on TickTick? This cannot be undone.')
+    )
+      return
+    try {
+      await window.api.tickTickDeleteProject(projectId)
+      setTtProjects((cur) => cur.filter((p) => p.id !== projectId))
+      setTtTasksByProject((m) => {
+        const next = { ...m }
+        delete next[projectId]
+        return next
+      })
+      setSelected(null)
+      toast('List deleted', 'ok')
+    } catch (e) {
+      toast(`Delete list failed: ${(e as Error).message}`, 'error')
+    }
   }
 
   const totalTodos = (p: Pane): { open: number; total: number } => {
@@ -616,6 +1254,35 @@ export default function NotesModal(): JSX.Element {
           </button>
         </div>
 
+        <div className="notes-tabs" role="tablist">
+          <button
+            role="tab"
+            className={clsx('notes-tab', notesTab === 'notes' && 'active')}
+            onClick={() => switchTab('notes')}
+          >
+            <NotebookPen size={13} /> Notes
+          </button>
+          <button
+            role="tab"
+            className={clsx('notes-tab', notesTab === 'ticktick' && 'active')}
+            onClick={() => switchTab('ticktick')}
+          >
+            <ListChecks size={13} /> TickTick
+            {tickTickConnected && smartCounts.today > 0 && (
+              <span className="notes-tab-badge">{smartCounts.today}</span>
+            )}
+          </button>
+          <button
+            role="tab"
+            className="notes-tab disabled"
+            disabled
+            title="Google Tasks — coming soon"
+          >
+            <ListChecks size={13} /> Google Tasks
+            <span className="notes-tab-soon">soon</span>
+          </button>
+        </div>
+
         <div className="notes-layout">
           <aside className="notes-sidebar">
             <div className="notes-sidebar-head">
@@ -623,26 +1290,35 @@ export default function NotesModal(): JSX.Element {
                 <Search size={13} />
                 <input
                   className="notes-search-input"
-                  placeholder="Search notes & to-dos…"
+                  placeholder={
+                    notesTab === 'ticktick' ? 'Search TickTick tasks…' : 'Search notes & to-dos…'
+                  }
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
               <div className="notes-summary">
-                {entries.length} pane{entries.length === 1 ? '' : 's'} · {entries.reduce((n, e) => n + (e.pane.todos?.length ?? 0), 0)} to-dos
+                {notesTab === 'ticktick'
+                  ? `${ttProjects.length} list${ttProjects.length === 1 ? '' : 's'} · ${allTtTasks.filter((t) => (t.status ?? 0) === 0).length} open`
+                  : `${entries.length} pane${entries.length === 1 ? '' : 's'} · ${entries.reduce((n, e) => n + (e.pane.todos?.length ?? 0), 0)} to-dos`}
               </div>
             </div>
 
             <div className="notes-list">
-              {entries.length === 0 && (
+              {notesTab === 'notes' && entries.length === 0 && (
                 <div className="notes-empty-list">
                   No panes yet — open a pane to start taking notes.
                 </div>
               )}
-              {entries.length > 0 && filtered.length === 0 && (
+              {notesTab === 'notes' && entries.length > 0 && filtered.length === 0 && (
                 <div className="notes-empty-list">No notes match.</div>
               )}
-              {tickTickConnected && (
+              {notesTab === 'ticktick' && !tickTickConnected && (
+                <div className="notes-empty-list">
+                  TickTick isn’t connected. Connect it in Settings → Integrations.
+                </div>
+              )}
+              {notesTab === 'ticktick' && tickTickConnected && (
                 <div className="notes-group">
                   <div className="notes-group-head notes-group-tt">
                     <span>TickTick</span>
@@ -654,6 +1330,43 @@ export default function NotesModal(): JSX.Element {
                     >
                       <RefreshCw size={11} />
                     </button>
+                  </div>
+                  {query.trim() && (
+                    <button
+                      className={clsx('notes-smart-view', ttSearch && 'active')}
+                      onClick={() => setSelected({ kind: 'tt-search' })}
+                    >
+                      <Search size={12} className="notes-smart-icon" />
+                      <span className="notes-smart-label">Search results</span>
+                      {ttSearchResults.length > 0 && (
+                        <span className="notes-list-badge">{ttSearchResults.length}</span>
+                      )}
+                    </button>
+                  )}
+                  <div className="notes-smart-views">
+                    {SMART_VIEWS.map((v) => {
+                      const Icon = v.icon
+                      const count = smartCounts[v.id]
+                      const isSel = ttSmart === v.id
+                      return (
+                        <button
+                          key={v.id}
+                          className={clsx('notes-smart-view', isSel && 'active')}
+                          onClick={() => setSelected({ kind: 'tt-smart', view: v.id })}
+                        >
+                          <Icon size={12} className="notes-smart-icon" />
+                          <span className="notes-smart-label">{v.label}</span>
+                          {count > 0 && (
+                            <span
+                              className={clsx('notes-list-badge', v.id === 'overdue' && 'danger')}
+                              title={`${count} task${count === 1 ? '' : 's'}`}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                   {ttProjects.length === 0 && !ttLoading && (
                     <div className="notes-empty-list">No projects.</div>
@@ -683,9 +1396,41 @@ export default function NotesModal(): JSX.Element {
                       </button>
                     )
                   })}
+                  {ttAddingProject ? (
+                    <div className="notes-newlist">
+                      <input
+                        className="notes-todo-input"
+                        autoFocus
+                        placeholder="New list name…"
+                        value={ttNewProject}
+                        onChange={(e) => setTtNewProject(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void ttCreateProject(ttNewProject)
+                          if (e.key === 'Escape') {
+                            setTtAddingProject(false)
+                            setTtNewProject('')
+                          }
+                        }}
+                      />
+                      <button
+                        className="btn sm"
+                        disabled={!ttNewProject.trim()}
+                        onClick={() => void ttCreateProject(ttNewProject)}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="notes-newlist-trigger"
+                      onClick={() => setTtAddingProject(true)}
+                    >
+                      <Plus size={12} /> New list
+                    </button>
+                  )}
                 </div>
               )}
-              {grouped.map(([wsId, group]) => (
+              {notesTab === 'notes' && grouped.map(([wsId, group]) => (
                 <div className="notes-group" key={wsId}>
                   <div className="notes-group-head">{group.name}{wsId === activeId && <span className="notes-group-active"> · current</span>}</div>
                   {group.items.map((e) => {
@@ -717,68 +1462,65 @@ export default function NotesModal(): JSX.Element {
           </aside>
 
           <div className="notes-content">
-            {ttSel ? (
-              <TickTickEditor
-                project={ttSel}
-                tasks={ttTasksByProject[ttSel.id] ?? []}
-                draft={ttTaskDraft}
-                setDraft={setTtTaskDraft}
-                onAdd={async (title) => {
-                  try {
-                    const t = await window.api.tickTickCreateTask({ projectId: ttSel.id, title })
-                    setTtTasksByProject((m) => ({ ...m, [ttSel.id]: [t, ...(m[ttSel.id] ?? [])] }))
-                  } catch (e) {
-                    toast(`Create failed: ${(e as Error).message}`, 'error')
-                  }
-                }}
-                onUpdate={async (taskId, patch) => {
-                  try {
-                    // Strip local-only ids from new subtasks before sending.
-                    const items = patch.items?.map((it) =>
-                      it.id?.startsWith('new-') ? { ...it, id: undefined as unknown as string } : it
-                    )
-                    const updated = await window.api.tickTickUpdateTask({
-                      id: taskId,
-                      projectId: ttSel.id,
-                      ...patch,
-                      ...(items ? { items } : {})
-                    })
-                    setTtTasksByProject((m) => ({
-                      ...m,
-                      [ttSel.id]: (m[ttSel.id] ?? []).map((t) =>
-                        t.id === taskId ? { ...t, ...updated } : t
-                      )
-                    }))
-                    toast('Task updated', 'ok')
-                  } catch (e) {
-                    toast(`Update failed: ${(e as Error).message}`, 'error')
-                  }
-                }}
-                onComplete={async (taskId) => {
-                  try {
-                    await window.api.tickTickCompleteTask(ttSel.id, taskId)
-                    setTtTasksByProject((m) => ({
-                      ...m,
-                      [ttSel.id]: (m[ttSel.id] ?? []).map((t) =>
-                        t.id === taskId ? { ...t, status: 2 } : t
-                      )
-                    }))
-                  } catch (e) {
-                    toast(`Complete failed: ${(e as Error).message}`, 'error')
-                  }
-                }}
-                onDelete={async (taskId) => {
-                  try {
-                    await window.api.tickTickDeleteTask(ttSel.id, taskId)
-                    setTtTasksByProject((m) => ({
-                      ...m,
-                      [ttSel.id]: (m[ttSel.id] ?? []).filter((t) => t.id !== taskId)
-                    }))
-                  } catch (e) {
-                    toast(`Delete failed: ${(e as Error).message}`, 'error')
-                  }
-                }}
-              />
+            {notesTab === 'ticktick' ? (
+              !tickTickConnected ? (
+                <div className="notes-empty-state">
+                  <ListChecks size={32} strokeWidth={1.2} />
+                  <div>Connect TickTick in Settings → Integrations to see your tasks here.</div>
+                </div>
+              ) : (
+                <>
+                  {(() => {
+                    const target = ttSel ?? ttProjects[0]
+                    return target ? (
+                      <TtQuickAdd
+                        targetName={target.name}
+                        onAdd={(parsed) => ttQuickAdd(target.id, parsed)}
+                      />
+                    ) : null
+                  })()}
+                  {ttSearch ? (
+                    <TickTickTaskList
+                      title={query.trim() ? `Search · "${query.trim()}"` : 'Search'}
+                      icon={Search}
+                      tasks={ttSearchResults}
+                      projectsById={projectsById}
+                      emptyText={
+                        query.trim() ? 'No tasks match your search.' : 'Type in the search box above.'
+                      }
+                      onUpdate={ttUpdate}
+                      onComplete={ttComplete}
+                      onDelete={ttDelete}
+                    />
+                  ) : ttSmart ? (
+                    <TickTickSmartView
+                      view={ttSmart}
+                      tasks={smartTasks}
+                      projectsById={projectsById}
+                      onUpdate={ttUpdate}
+                      onComplete={ttComplete}
+                      onDelete={ttDelete}
+                    />
+                  ) : ttSel ? (
+                    <TickTickEditor
+                      project={ttSel}
+                      tasks={ttTasksByProject[ttSel.id] ?? []}
+                      draft={ttTaskDraft}
+                      setDraft={setTtTaskDraft}
+                      onAdd={(title) => ttCreate(ttSel.id, title)}
+                      onUpdate={(taskId, patch) => ttUpdate(ttSel.id, taskId, patch)}
+                      onComplete={(taskId) => ttComplete(ttSel.id, taskId)}
+                      onDelete={(taskId) => ttDelete(ttSel.id, taskId)}
+                      onDeleteProject={() => ttDeleteProject(ttSel.id)}
+                    />
+                  ) : (
+                    <div className="notes-empty-state">
+                      <ListChecks size={32} strokeWidth={1.2} />
+                      <div>Pick a list or smart view on the left.</div>
+                    </div>
+                  )}
+                </>
+              )
             ) : !sel ? (
               <div className="notes-empty-state">
                 <NotebookPen size={32} strokeWidth={1.2} />

@@ -194,6 +194,24 @@ export class TickTickClient {
     return this.call<TickTickProject[]>('/project')
   }
 
+  /** Create a new list/project. TickTick returns the created project. */
+  createProject(input: {
+    name: string
+    color?: string
+    viewMode?: string
+    kind?: string
+  }): Promise<TickTickProject> {
+    return this.call<TickTickProject>('/project', {
+      method: 'POST',
+      body: JSON.stringify(input)
+    })
+  }
+
+  /** Permanently delete a project (and its tasks) on TickTick. */
+  deleteProject(projectId: string): Promise<void> {
+    return this.call<void>(`/project/${encodeURIComponent(projectId)}`, { method: 'DELETE' })
+  }
+
   getProjectData(projectId: string): Promise<TickTickProjectData> {
     return this.call<TickTickProjectData>(`/project/${encodeURIComponent(projectId)}/data`)
   }

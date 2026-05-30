@@ -589,6 +589,8 @@ export const IPC = {
   tickTickConnect: 'ticktick:connect',
   tickTickDisconnect: 'ticktick:disconnect',
   tickTickListProjects: 'ticktick:list-projects',
+  tickTickCreateProject: 'ticktick:create-project',
+  tickTickDeleteProject: 'ticktick:delete-project',
   tickTickProjectData: 'ticktick:project-data',
   tickTickCreateTask: 'ticktick:create-task',
   tickTickUpdateTask: 'ticktick:update-task',

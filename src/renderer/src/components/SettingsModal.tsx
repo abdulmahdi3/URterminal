@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
-import { Check, Search, Trash2, RotateCcw, Download, Upload, Keyboard } from 'lucide-react'
+import {
+  Check, Search, Trash2, RotateCcw, Download, Upload, Keyboard,
+  Volume2, Volume1, VolumeX, Play, Monitor, EyeOff,
+  KeyRound, Cpu, Bot, SquareTerminal, Server,
+  TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed,
+  Bell, Copy, ClipboardPaste, PanelTop,
+  Palette, Type, CaseSensitive, Droplet,
+  FolderOpen, Save, Layers, Focus, History, Eraser,
+  Send, MessageSquare, Users, Info
+} from 'lucide-react'
 import type { ProviderId, AppPrefs, SettingsPatch, IntegrationId, IntegrationStatus } from '@shared/types'
 import { DEFAULT_PREFS } from '@shared/types'
 import {
@@ -18,6 +27,7 @@ import { useUi } from '@renderer/store/ui'
 import { toast } from '@renderer/store/toasts'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { playDoneSound } from '@renderer/hooks/useDoneNotifications'
 
 const ACCENT_PRESETS = [
   { label: 'Blue', value: '#4c8dff' },
@@ -66,7 +76,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
     'copyOnSelect', 'pasteOnRightClick'
   ],
   behavior: [
-    'confirmClose', 'defaultShellCwd', 'autoSaveSeconds', 'maxRestorePanes',
+    'defaultShellCwd', 'autoSaveSeconds', 'maxRestorePanes',
     'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore'
   ],
   notifications: [
@@ -356,34 +366,86 @@ function IntegrationCard({
   )
 }
 
-/** A labelled settings row (label column + control column). */
-function Row({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }): JSX.Element {
+/** Pill toggle switch (snaps instantly — no transitions, per project style). */
+function Switch({
+  checked,
+  onChange,
+  disabled
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  disabled?: boolean
+}): JSX.Element {
   return (
-    <div className="settings-row">
-      <label className="settings-label">{label}</label>
-      <div className="settings-control">
-        {children}
-        {hint && <span className="hint">{hint}</span>}
-      </div>
-    </div>
+    <input
+      className="settings-switch"
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+    />
   )
 }
 
-/** A single toggle row (label left, checkbox right) used inside toggle lists. */
-function Toggle({
-  label,
+/**
+ * The shared settings card used by every page: an icon badge + title +
+ * optional description, with a control on the right (selects/inputs/switch) or
+ * stacked full-width below the text for wide controls (textareas, button rows).
+ * Pass `as="label"` for toggle cards so the whole card is clickable.
+ */
+function SettingCard({
+  icon,
+  title,
+  desc,
+  control,
+  as = 'div',
+  stacked = false
+}: {
+  icon?: ReactNode
+  title: ReactNode
+  desc?: ReactNode
+  control: ReactNode
+  as?: 'label' | 'div'
+  stacked?: boolean
+}): JSX.Element {
+  const Tag = (as === 'label' ? 'label' : 'div') as 'label'
+  return (
+    <Tag className={clsx('setting-card', as === 'label' && 'as-label', stacked && 'stacked')}>
+      {icon && <span className="setting-card-icon">{icon}</span>}
+      <span className="setting-card-main">
+        <span className="setting-card-text">
+          <span className="setting-card-title">{title}</span>
+          {desc && <span className="setting-card-desc">{desc}</span>}
+        </span>
+        {stacked && <span className="setting-card-control stacked">{control}</span>}
+      </span>
+      {!stacked && <span className="setting-card-control">{control}</span>}
+    </Tag>
+  )
+}
+
+/** Toggle card: a SettingCard whose control is the pill Switch. */
+function ToggleCard({
+  icon,
+  title,
+  desc,
   checked,
   onChange
 }: {
-  label: string
+  icon?: ReactNode
+  title: ReactNode
+  desc?: ReactNode
   checked: boolean
   onChange: (v: boolean) => void
 }): JSX.Element {
   return (
-    <label className="settings-toggle">
-      <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    </label>
+    <SettingCard
+      as="label"
+      icon={icon}
+      title={title}
+      desc={desc}
+      control={<Switch checked={checked} onChange={onChange} />}
+    />
   )
 }
 
@@ -560,7 +622,7 @@ export default function SettingsModal(): JSX.Element | null {
     appearance: ['Theme', 'Terminal font', 'Font size', 'Accent Color'],
     behavior: [
       'Default shell folder', 'Auto-save interval', 'Max restored panes',
-      'Confirm before closing a running pane', 'Focus new pane on create',
+      'Focus new pane on create',
       'Reopen last workspace on launch', 'Clear workspace on exit'
     ],
     notifications: [
@@ -593,23 +655,17 @@ export default function SettingsModal(): JSX.Element | null {
     !q || title.toLowerCase().includes(q) || (labels[id] ?? []).some((l) => l.toLowerCase().includes(q))
   const visibleSections = SECTIONS.filter((s) => sectionVisible(s.id, s.title))
 
+  // Pages, not one long scroll: clicking a nav item switches to that page,
+  // clears any search filter, and resets the scroll to the top.
   const goTo = (id: string): void => {
     setActive(id)
-    const root = contentRef.current
-    const el = sectionEls.current[id]
-    if (root && el) root.scrollTop = el.offsetTop
+    setQuery('')
+    if (contentRef.current) contentRef.current.scrollTop = 0
   }
-  const onScroll = (): void => {
-    const root = contentRef.current
-    if (!root) return
-    const y = root.scrollTop + 24
-    let current = visibleSections[0]?.id
-    for (const s of visibleSections) {
-      const el = sectionEls.current[s.id]
-      if (el && el.offsetTop <= y) current = s.id
-    }
-    if (current && current !== active) setActive(current)
-  }
+  // When searching we temporarily show every matching section stacked so a
+  // setting can be found across pages; otherwise only the active page renders.
+  const showSection = (id: string, title: string): boolean =>
+    q ? sectionVisible(id, title) : active === id
   const sectionRef = (id: string) => (el: HTMLElement | null): void => {
     sectionEls.current[id] = el
   }
@@ -663,212 +719,257 @@ export default function SettingsModal(): JSX.Element | null {
             </nav>
           </aside>
 
-          <div className="settings-content" ref={contentRef} onScroll={onScroll}>
+          <div className="settings-content" ref={contentRef}>
             {visibleSections.length === 0 && (
               <p className="settings-empty">No settings match “{query}”.</p>
             )}
 
             {/* Providers */}
-            {sectionVisible('providers', t('settings.providers')) && (
+            {showSection('providers', t('settings.providers')) && (
               <section className="settings-section" ref={sectionRef('providers')}>
                 <Head id="providers" title={t('settings.providers')} />
+                <p className="settings-block-hint notif-intro">
+                  Bring your own API keys. They’re encrypted on disk via the OS keychain and never leave this machine.
+                </p>
                 {KEY_PROVIDERS.map((p) => {
                   const meta = settings.providers[p]
                   if (!match(PROVIDER_LABELS[p])) return null
                   return (
-                    <div className="settings-row" key={p}>
-                      <label className="settings-label">{PROVIDER_LABELS[p]}</label>
-                      <div className="settings-control">
-                        <input
-                          className="input"
-                          type="password"
-                          placeholder={meta.keySet ? `•••• ${meta.keyPreview ?? ''}` : t('settings.apiKey')}
-                          value={keyInputs[p] ?? ''}
-                          onChange={(e) => setKeyInputs((s) => ({ ...s, [p]: e.target.value }))}
-                        />
-                        <div className="settings-actions">
-                          <KeyStatus set={meta.keySet} />
-                          <button className="btn primary" onClick={() => saveKey(p)} disabled={!keyInputs[p]}>
-                            {t('settings.save')}
-                          </button>
-                          <button className="btn danger" onClick={() => clearKey(p)} disabled={!meta.keySet}>
-                            {t('settings.clear')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <SettingCard
+                      key={p}
+                      stacked
+                      icon={<KeyRound size={16} />}
+                      title={PROVIDER_LABELS[p]}
+                      desc={meta.keySet ? 'A key is saved for this provider.' : 'No key set yet.'}
+                      control={
+                        <>
+                          <input
+                            className="input"
+                            type="password"
+                            placeholder={meta.keySet ? `•••• ${meta.keyPreview ?? ''}` : t('settings.apiKey')}
+                            value={keyInputs[p] ?? ''}
+                            onChange={(e) => setKeyInputs((s) => ({ ...s, [p]: e.target.value }))}
+                          />
+                          <div className="settings-actions">
+                            <KeyStatus set={meta.keySet} />
+                            <button className="btn primary" onClick={() => saveKey(p)} disabled={!keyInputs[p]}>
+                              {t('settings.save')}
+                            </button>
+                            <button className="btn danger" onClick={() => clearKey(p)} disabled={!meta.keySet}>
+                              {t('settings.clear')}
+                            </button>
+                          </div>
+                        </>
+                      }
+                    />
                   )
                 })}
                 {match(PROVIDER_LABELS.ollama) && (
-                  <Row label={PROVIDER_LABELS.ollama}>
-                    <input
-                      className={clsx('input', ollamaUrlError && 'input-error')}
-                      value={ollamaUrl}
-                      placeholder={t('settings.baseUrl')}
-                      onChange={(e) => { setOllamaUrl(e.target.value); setOllamaUrlError('') }}
-                      onBlur={() => {
-                        if (!ollamaUrl) { patch({ ollamaBaseUrl: ollamaUrl }); return }
-                        try {
-                          const u = new URL(ollamaUrl)
-                          if (!u.protocol.startsWith('http')) throw new Error()
-                          setOllamaUrlError('')
-                          patch({ ollamaBaseUrl: ollamaUrl })
-                        } catch {
-                          setOllamaUrlError('Must be a valid http:// or https:// URL')
-                        }
-                      }}
-                    />
-                    {ollamaUrlError && <span className="hint fail">{ollamaUrlError}</span>}
-                  </Row>
+                  <SettingCard
+                    stacked
+                    icon={<Server size={16} />}
+                    title={PROVIDER_LABELS.ollama}
+                    desc="Run models locally — set your Ollama server URL."
+                    control={
+                      <>
+                        <input
+                          className={clsx('input', ollamaUrlError && 'input-error')}
+                          value={ollamaUrl}
+                          placeholder={t('settings.baseUrl')}
+                          onChange={(e) => { setOllamaUrl(e.target.value); setOllamaUrlError('') }}
+                          onBlur={() => {
+                            if (!ollamaUrl) { patch({ ollamaBaseUrl: ollamaUrl }); return }
+                            try {
+                              const u = new URL(ollamaUrl)
+                              if (!u.protocol.startsWith('http')) throw new Error()
+                              setOllamaUrlError('')
+                              patch({ ollamaBaseUrl: ollamaUrl })
+                            } catch {
+                              setOllamaUrlError('Must be a valid http:// or https:// URL')
+                            }
+                          }}
+                        />
+                        {ollamaUrlError && <span className="hint fail">{ollamaUrlError}</span>}
+                      </>
+                    }
+                  />
                 )}
               </section>
             )}
 
             {/* Defaults */}
-            {sectionVisible('defaults', t('settings.defaults')) && (
+            {showSection('defaults', t('settings.defaults')) && (
               <section className="settings-section" ref={sectionRef('defaults')}>
                 <Head id="defaults" title={t('settings.defaults')} />
                 {match(t('settings.defaultProvider')) && (
-                  <Row label={t('settings.defaultProvider')}>
-                    <select
-                      className="select"
-                      value={settings.defaultProvider}
-                      onChange={(e) => patch({ defaultProvider: e.target.value as ProviderId, defaultModel: '' })}
-                    >
-                      {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
-                        <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
-                      ))}
-                    </select>
-                  </Row>
+                  <SettingCard
+                    icon={<Server size={16} />}
+                    title={t('settings.defaultProvider')}
+                    desc="Provider used for new AI panes."
+                    control={
+                      <select
+                        className="select"
+                        value={settings.defaultProvider}
+                        onChange={(e) => patch({ defaultProvider: e.target.value as ProviderId, defaultModel: '' })}
+                      >
+                        {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
+                          <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+                        ))}
+                      </select>
+                    }
+                  />
                 )}
                 {match(t('settings.defaultModel')) && (
-                  <Row label={t('settings.defaultModel')} hint="Defaults to the latest model; updates as new ones ship.">
-                    <select
-                      className="select"
-                      value={settings.defaultModel}
-                      onChange={(e) => patch({ defaultModel: e.target.value })}
-                    >
-                      {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
-                        <option value={settings.defaultModel}>{settings.defaultModel}</option>
-                      )}
-                      {defaultModels.map((m, i) => (
-                        <option key={m} value={m}>{m}{i === 0 ? ' — latest' : ''}</option>
-                      ))}
-                    </select>
-                  </Row>
+                  <SettingCard
+                    icon={<Cpu size={16} />}
+                    title={t('settings.defaultModel')}
+                    desc="Defaults to the latest model; updates as new ones ship."
+                    control={
+                      <select
+                        className="select"
+                        value={settings.defaultModel}
+                        onChange={(e) => patch({ defaultModel: e.target.value })}
+                      >
+                        {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
+                          <option value={settings.defaultModel}>{settings.defaultModel}</option>
+                        )}
+                        {defaultModels.map((m, i) => (
+                          <option key={m} value={m}>{m}{i === 0 ? ' — latest' : ''}</option>
+                        ))}
+                      </select>
+                    }
+                  />
                 )}
                 {match('Default agent') && (
-                  <Row label="Default agent" hint="New AI panes launch this CLI by default.">
-                    <select className="select" value={settings.defaultAgent} onChange={(e) => patch({ defaultAgent: e.target.value })}>
-                      {AGENTS.map((a) => {
-                        const unavailable = availableAgents.size > 0 && !availableAgents.has(a)
-                        return <option key={a} value={a} disabled={unavailable}>{AGENT_LABELS[a]}</option>
-                      })}
-                    </select>
-                  </Row>
+                  <SettingCard
+                    icon={<Bot size={16} />}
+                    title="Default agent"
+                    desc="New AI panes launch this CLI by default."
+                    control={
+                      <select className="select" value={settings.defaultAgent} onChange={(e) => patch({ defaultAgent: e.target.value })}>
+                        {AGENTS.map((a) => {
+                          const unavailable = availableAgents.size > 0 && !availableAgents.has(a)
+                          return <option key={a} value={a} disabled={unavailable}>{AGENT_LABELS[a]}</option>
+                        })}
+                      </select>
+                    }
+                  />
                 )}
                 {match('Default terminal') && (
-                  <Row label="Default terminal" hint="New shell panes launch this by default.">
-                    <select
-                      className="select"
-                      value={currentShellId}
-                      onChange={(e) => {
-                        if (e.target.value === 'default') { void patch({ defaultShell: '', defaultShellArgs: [] }); return }
-                        const spec = shells.find((s) => s.id === e.target.value)
-                        if (spec) void patch({ defaultShell: spec.file, defaultShellArgs: spec.args ?? [] })
-                      }}
-                    >
-                      <option value="default">OS default</option>
-                      {shells.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                    </select>
-                  </Row>
+                  <SettingCard
+                    icon={<SquareTerminal size={16} />}
+                    title="Default terminal"
+                    desc="New shell panes launch this by default."
+                    control={
+                      <select
+                        className="select"
+                        value={currentShellId}
+                        onChange={(e) => {
+                          if (e.target.value === 'default') { void patch({ defaultShell: '', defaultShellArgs: [] }); return }
+                          const spec = shells.find((s) => s.id === e.target.value)
+                          if (spec) void patch({ defaultShell: spec.file, defaultShellArgs: spec.args ?? [] })
+                        }}
+                      >
+                        <option value="default">OS default</option>
+                        {shells.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                      </select>
+                    }
+                  />
                 )}
               </section>
             )}
 
             {/* Terminal */}
-            {sectionVisible('terminal', 'Terminal') && (
+            {showSection('terminal', 'Terminal') && (
               <section className="settings-section" ref={sectionRef('terminal')}>
                 <Head id="terminal" title="Terminal" />
                 {match('Cursor style') && (
-                  <Row label="Cursor style">
+                  <SettingCard icon={<TextCursor size={16} />} title="Cursor style" control={
                     <select className="select" value={prefs.cursorStyle} onChange={(e) => setPref({ cursorStyle: e.target.value as AppPrefs['cursorStyle'] })}>
                       <option value="block">Block</option>
                       <option value="bar">Bar</option>
                       <option value="underline">Underline</option>
                     </select>
-                  </Row>
+                  } />
                 )}
                 {match('Line height') && (
-                  <Row label="Line height" hint="1.0 = default">
-                    <input className="input" type="number" min={0.8} max={2.5} step={0.05} value={prefs.lineHeight}
+                  <SettingCard icon={<Rows3 size={16} />} title="Line height" desc="1.0 = default" control={
+                    <input className="input num" type="number" min={0.8} max={2.5} step={0.05} value={prefs.lineHeight}
                       onChange={(e) => setPref({ lineHeight: Number(e.target.value) || 1 })} />
-                  </Row>
+                  } />
                 )}
                 {match('Letter spacing') && (
-                  <Row label="Letter spacing" hint="px">
-                    <input className="input" type="number" min={-2} max={8} step={0.5} value={prefs.letterSpacing}
+                  <SettingCard icon={<MoveHorizontal size={16} />} title="Letter spacing" desc="Pixels between characters." control={
+                    <input className="input num" type="number" min={-2} max={8} step={0.5} value={prefs.letterSpacing}
                       onChange={(e) => setPref({ letterSpacing: Number(e.target.value) || 0 })} />
-                  </Row>
+                  } />
                 )}
                 {match('Scrollback') && (
-                  <Row label="Scrollback" hint="lines kept in the scroll buffer">
-                    <input className="input" type="number" min={100} max={200000} step={500} value={prefs.scrollback}
+                  <SettingCard icon={<ScrollText size={16} />} title="Scrollback" desc="Lines kept in the scroll buffer." control={
+                    <input className="input num" type="number" min={100} max={200000} step={500} value={prefs.scrollback}
                       onChange={(e) => setPref({ scrollback: Math.max(100, Number(e.target.value) || 5000) })} />
-                  </Row>
+                  } />
                 )}
                 {match('Terminal padding') && (
-                  <Row label="Terminal padding" hint="px around terminal contents">
-                    <input className="input" type="number" min={0} max={40} step={1} value={prefs.terminalPadding}
+                  <SettingCard icon={<SquareDashed size={16} />} title="Terminal padding" desc="Pixels around terminal contents." control={
+                    <input className="input num" type="number" min={0} max={40} step={1} value={prefs.terminalPadding}
                       onChange={(e) => setPref({ terminalPadding: Math.max(0, Number(e.target.value) || 0) })} />
-                  </Row>
+                  } />
                 )}
                 {match('Scroll sensitivity') && (
-                  <Row label="Scroll sensitivity" hint="mouse-wheel speed multiplier">
-                    <input className="input" type="number" min={1} max={10} step={1} value={prefs.scrollSensitivity}
+                  <SettingCard icon={<MoveVertical size={16} />} title="Scroll sensitivity" desc="Mouse-wheel speed multiplier." control={
+                    <input className="input num" type="number" min={1} max={10} step={1} value={prefs.scrollSensitivity}
                       onChange={(e) => setPref({ scrollSensitivity: Math.max(1, Number(e.target.value) || 1) })} />
-                  </Row>
+                  } />
                 )}
-                <div className="settings-toggle-list">
-                  {match('Cursor blink') && <Toggle label="Cursor blink" checked={prefs.cursorBlink} onChange={(v) => setPref({ cursorBlink: v })} />}
-                  {match('Terminal bell sound') && <Toggle label="Terminal bell sound" checked={prefs.terminalBell} onChange={(v) => setPref({ terminalBell: v })} />}
-                  {match('Copy on select') && <Toggle label="Copy on select" checked={prefs.copyOnSelect} onChange={(v) => setPref({ copyOnSelect: v })} />}
-                  {match('Paste on right-click') && <Toggle label="Paste on right-click" checked={prefs.pasteOnRightClick} onChange={(v) => setPref({ pasteOnRightClick: v })} />}
-                  {match('Show pane title bars') && <Toggle label="Show pane title bars" checked={prefs.showPaneHeaders} onChange={(v) => setPref({ showPaneHeaders: v })} />}
-                </div>
+                {match('Cursor blink') && (
+                  <ToggleCard icon={<TextCursor size={16} />} title="Cursor blink" desc="Blink the terminal cursor." checked={prefs.cursorBlink} onChange={(v) => setPref({ cursorBlink: v })} />
+                )}
+                {match('Terminal bell sound') && (
+                  <ToggleCard icon={<Bell size={16} />} title="Terminal bell sound" desc="Play the system bell on the BEL character." checked={prefs.terminalBell} onChange={(v) => setPref({ terminalBell: v })} />
+                )}
+                {match('Copy on select') && (
+                  <ToggleCard icon={<Copy size={16} />} title="Copy on select" desc="Selecting text copies it to the clipboard." checked={prefs.copyOnSelect} onChange={(v) => setPref({ copyOnSelect: v })} />
+                )}
+                {match('Paste on right-click') && (
+                  <ToggleCard icon={<ClipboardPaste size={16} />} title="Paste on right-click" desc="Right-click pastes the clipboard." checked={prefs.pasteOnRightClick} onChange={(v) => setPref({ pasteOnRightClick: v })} />
+                )}
+                {match('Show pane title bars') && (
+                  <ToggleCard icon={<PanelTop size={16} />} title="Show pane title bars" desc="Display the header bar on each pane." checked={prefs.showPaneHeaders} onChange={(v) => setPref({ showPaneHeaders: v })} />
+                )}
               </section>
             )}
 
             {/* Appearance */}
-            {sectionVisible('appearance', t('settings.appearance')) && (
+            {showSection('appearance', t('settings.appearance')) && (
               <section className="settings-section" ref={sectionRef('appearance')}>
                 <Head id="appearance" title={t('settings.appearance')} />
                 {match('Theme') && (
-                  <Row label="Theme" hint="Terminals stay dark; “System” follows your OS.">
+                  <SettingCard icon={<Palette size={16} />} title="Theme" desc="Terminals stay dark; “System” follows your OS." control={
                     <select className="select" value={prefs.appTheme} onChange={(e) => setPref({ appTheme: e.target.value })}>
                       {THEME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                  </Row>
+                  } />
                 )}
                 {match('Terminal font') && (
-                  <Row label="Terminal font" hint="Font family for all terminals.">
+                  <SettingCard icon={<Type size={16} />} title="Terminal font" desc="Font family for all terminals." control={
                     <select className="select" value={prefs.fontFamily} onChange={(e) => setPref({ fontFamily: e.target.value })}>
                       {!FONT_OPTIONS.some((f) => f.value === prefs.fontFamily) && prefs.fontFamily && (
                         <option value={prefs.fontFamily}>{prefs.fontFamily} (custom)</option>
                       )}
                       {FONT_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
-                  </Row>
+                  } />
                 )}
                 {match('Font size') && (
-                  <Row label="Font size">
+                  <SettingCard icon={<CaseSensitive size={16} />} title="Font size" desc="Terminal text size." control={
                     <select className="select" value={prefs.fontSize || 13} onChange={(e) => setPref({ fontSize: Number(e.target.value) })}>
                       {[10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => <option key={n} value={n}>{n}px</option>)}
                     </select>
-                  </Row>
+                  } />
                 )}
                 {match('Accent Color') && (
-                  <Row label="Accent Color" hint="Changes the UI accent color globally.">
+                  <SettingCard stacked icon={<Droplet size={16} />} title="Accent color" desc="Changes the UI accent color globally." control={
                     <div className="color-picker-row">
                       {ACCENT_PRESETS.map((p) => (
                         <button key={p.value} className={clsx('color-swatch', settings.accentColor === p.value && 'active')}
@@ -883,126 +984,220 @@ export default function SettingsModal(): JSX.Element | null {
                         </span>
                       </label>
                     </div>
-                  </Row>
+                  } />
                 )}
               </section>
             )}
 
             {/* Behavior */}
-            {sectionVisible('behavior', 'Behavior') && (
+            {showSection('behavior', 'Behavior') && (
               <section className="settings-section" ref={sectionRef('behavior')}>
                 <Head id="behavior" title="Behavior" />
                 {match('Default shell folder') && (
-                  <Row label="Default shell folder" hint="New shell panes open here (empty = home).">
+                  <SettingCard stacked icon={<FolderOpen size={16} />} title="Default shell folder" desc="New shell panes open here (empty = home)." control={
                     <input className="input mono" placeholder="e.g. F:\\projects" defaultValue={prefs.defaultShellCwd}
                       onBlur={(e) => setPref({ defaultShellCwd: e.target.value.trim() })} />
-                  </Row>
+                  } />
                 )}
                 {match('Auto-save interval') && (
-                  <Row label="Auto-save interval" hint="seconds between workspace auto-saves">
-                    <input className="input" type="number" min={1} max={120} step={1} value={prefs.autoSaveSeconds}
+                  <SettingCard icon={<Save size={16} />} title="Auto-save interval" desc="Seconds between workspace auto-saves." control={
+                    <input className="input num" type="number" min={1} max={120} step={1} value={prefs.autoSaveSeconds}
                       onChange={(e) => setPref({ autoSaveSeconds: Math.max(1, Number(e.target.value) || 1) })} />
-                  </Row>
+                  } />
                 )}
                 {match('Max restored panes') && (
-                  <Row label="Max restored panes" hint="0 = no limit">
-                    <input className="input" type="number" min={0} max={9} step={1} value={prefs.maxRestorePanes}
+                  <SettingCard icon={<Layers size={16} />} title="Max restored panes" desc="0 = no limit." control={
+                    <input className="input num" type="number" min={0} max={9} step={1} value={prefs.maxRestorePanes}
                       onChange={(e) => setPref({ maxRestorePanes: Math.max(0, Number(e.target.value) || 0) })} />
-                  </Row>
+                  } />
                 )}
-                <div className="settings-toggle-list">
-                  {match('Confirm before closing a running pane') && <Toggle label="Confirm before closing a running pane" checked={prefs.confirmClose} onChange={(v) => setPref({ confirmClose: v })} />}
-                  {match('Focus new pane on create') && <Toggle label="Focus new pane on create" checked={prefs.focusNewPane} onChange={(v) => setPref({ focusNewPane: v })} />}
-                  {match('Reopen last workspace on launch') && <Toggle label="Reopen last workspace on launch" checked={prefs.autoRestore} onChange={(v) => setPref({ autoRestore: v })} />}
-                  {match('Clear workspace on exit') && <Toggle label="Clear workspace on exit" checked={prefs.clearWorkspaceOnExit} onChange={(v) => setPref({ clearWorkspaceOnExit: v })} />}
-                </div>
+                {match('Focus new pane on create') && (
+                  <ToggleCard icon={<Focus size={16} />} title="Focus new pane on create" desc="Move focus to a pane as soon as it opens." checked={prefs.focusNewPane} onChange={(v) => setPref({ focusNewPane: v })} />
+                )}
+                {match('Reopen last workspace on launch') && (
+                  <ToggleCard icon={<History size={16} />} title="Reopen last workspace on launch" desc="Restore your panes when the app starts." checked={prefs.autoRestore} onChange={(v) => setPref({ autoRestore: v })} />
+                )}
+                {match('Clear workspace on exit') && (
+                  <ToggleCard icon={<Eraser size={16} />} title="Clear workspace on exit" desc="Start fresh next launch instead of restoring." checked={prefs.clearWorkspaceOnExit} onChange={(v) => setPref({ clearWorkspaceOnExit: v })} />
+                )}
               </section>
             )}
 
             {/* Notifications */}
-            {sectionVisible('notifications', 'Notifications') && (
+            {showSection('notifications', 'Notifications') && (
               <section className="settings-section" ref={sectionRef('notifications')}>
                 <Head id="notifications" title="Notifications" />
-                <div className="settings-toggle-list">
-                  {match('Desktop notification when an agent finishes') && <Toggle label="Desktop notification when an agent finishes" checked={prefs.notifyOnDone} onChange={(v) => setPref({ notifyOnDone: v })} />}
-                  {match('Play a sound when an agent finishes') && <Toggle label="Play a sound when an agent finishes" checked={prefs.notifySound} onChange={(v) => setPref({ notifySound: v })} />}
-                  {match('Only notify when window is unfocused') && <Toggle label="Only notify when window is unfocused" checked={prefs.notifyOnlyUnfocused} onChange={(v) => setPref({ notifyOnlyUnfocused: v })} />}
-                </div>
-                {match('Notification sound') && (
-                  <Row label="Notification sound">
-                    <select className="select" value={prefs.notifySoundName} onChange={(e) => setPref({ notifySoundName: e.target.value as AppPrefs['notifySoundName'] })}>
-                      <option value="chime">Chime</option>
-                      <option value="beep">Beep</option>
-                    </select>
-                  </Row>
+                <p className="settings-block-hint notif-intro">
+                  Get alerted when an AI agent finishes a turn and goes idle.
+                </p>
+
+                {/* Desktop + focus options as descriptive option cards */}
+                {match('Desktop notification when an agent finishes') && (
+                  <label className="notif-option">
+                    <span className="notif-option-icon"><Monitor size={16} /></span>
+                    <span className="notif-option-text">
+                      <span className="notif-option-title">Desktop notifications</span>
+                      <span className="notif-option-desc">Show a system pop-up when an agent finishes.</span>
+                    </span>
+                    <input
+                      className="notif-switch"
+                      type="checkbox"
+                      checked={prefs.notifyOnDone}
+                      onChange={(e) => setPref({ notifyOnDone: e.target.checked })}
+                    />
+                  </label>
                 )}
-                {match('Notification volume') && (
-                  <Row label="Notification volume" hint={`${prefs.notifyVolume}%`}>
-                    <input className="input" type="range" min={0} max={100} step={5} value={prefs.notifyVolume}
-                      onChange={(e) => setPref({ notifyVolume: Number(e.target.value) })} />
-                  </Row>
+                {match('Only notify when window is unfocused') && (
+                  <label className="notif-option">
+                    <span className="notif-option-icon"><EyeOff size={16} /></span>
+                    <span className="notif-option-text">
+                      <span className="notif-option-title">Only when unfocused</span>
+                      <span className="notif-option-desc">Stay silent while URterminal is the active window.</span>
+                    </span>
+                    <input
+                      className="notif-switch"
+                      type="checkbox"
+                      checked={prefs.notifyOnlyUnfocused}
+                      onChange={(e) => setPref({ notifyOnlyUnfocused: e.target.checked })}
+                    />
+                  </label>
+                )}
+
+                {/* Sound: a card whose controls nest under (and depend on) the toggle */}
+                {(match('Play a sound when an agent finishes') ||
+                  match('Notification sound') ||
+                  match('Notification volume')) && (
+                  <div className={clsx('notif-sound-card', !prefs.notifySound && 'off')}>
+                    <label className="notif-option notif-sound-head">
+                      <span className="notif-option-icon">
+                        {prefs.notifySound ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                      </span>
+                      <span className="notif-option-text">
+                        <span className="notif-option-title">Sound</span>
+                        <span className="notif-option-desc">Play a chime when an agent finishes.</span>
+                      </span>
+                      <input
+                        className="notif-switch"
+                        type="checkbox"
+                        checked={prefs.notifySound}
+                        onChange={(e) => setPref({ notifySound: e.target.checked })}
+                      />
+                    </label>
+
+                    <div className="notif-sound-controls" aria-hidden={!prefs.notifySound}>
+                      <div className="notif-control">
+                        <span className="notif-control-label">Tone</span>
+                        <div className="notif-tone">
+                          <select
+                            className="select"
+                            disabled={!prefs.notifySound}
+                            value={prefs.notifySoundName}
+                            onChange={(e) => setPref({ notifySoundName: e.target.value as AppPrefs['notifySoundName'] })}
+                          >
+                            <option value="chime">Chime</option>
+                            <option value="beep">Beep</option>
+                          </select>
+                          <button
+                            className="btn sm"
+                            disabled={!prefs.notifySound || (prefs.notifyVolume ?? 0) === 0}
+                            title="Preview sound"
+                            onClick={() => playDoneSound(prefs.notifyVolume ?? 60, prefs.notifySoundName ?? 'chime')}
+                          >
+                            <Play size={12} /> Test
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="notif-control">
+                        <span className="notif-control-label">Volume</span>
+                        <div className="notif-volume">
+                          {(prefs.notifyVolume ?? 0) === 0
+                            ? <VolumeX size={15} className="notif-volume-icon" />
+                            : (prefs.notifyVolume ?? 0) < 50
+                              ? <Volume1 size={15} className="notif-volume-icon" />
+                              : <Volume2 size={15} className="notif-volume-icon" />}
+                          <input
+                            className="notif-range"
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={5}
+                            disabled={!prefs.notifySound}
+                            value={prefs.notifyVolume}
+                            onChange={(e) => setPref({ notifyVolume: Number(e.target.value) })}
+                          />
+                          <span className="notif-volume-val">{prefs.notifyVolume}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </section>
             )}
 
             {/* Telegram */}
-            {sectionVisible('telegram', t('settings.telegram')) && (
+            {showSection('telegram', t('settings.telegram')) && (
               <section className="settings-section" ref={sectionRef('telegram')}>
                 <Head id="telegram" title={t('settings.telegram')} />
                 {match(t('settings.telegramToken')) && (
-                  <div className="settings-row">
-                    <label className="settings-label">{t('settings.telegramToken')}</label>
-                    <div className="settings-control">
-                      <input
-                        className="input"
-                        type="password"
-                        placeholder={settings.telegram.tokenSet ? `•••• ${settings.telegram.tokenPreview ?? ''}` : t('settings.telegramToken')}
-                        value={tgToken}
-                        onChange={(e) => setTgToken(e.target.value)}
-                      />
-                      <div className="settings-actions">
-                        <KeyStatus set={settings.telegram.tokenSet} />
-                        <button className="btn primary" disabled={!tgToken} onClick={() => { void patch({ telegramToken: tgToken }); setTgToken('') }}>
-                          {t('settings.save')}
-                        </button>
-                        <button className="btn danger" disabled={!settings.telegram.tokenSet} onClick={() => patch({ telegramToken: null })}>
-                          {t('settings.clear')}
-                        </button>
-                        <button className="btn" onClick={() => window.api.restartTelegram().catch(() => {})}>
-                          {t('settings.restart')}
-                        </button>
-                        <button
-                          className="btn"
-                          disabled={!settings.telegram.running}
-                          onClick={() =>
-                            void window.api.testTelegram().then((r) =>
-                              toast(r.ok ? 'Test message sent' : `Test failed: ${r.error ?? 'unknown'}`, r.ok ? 'ok' : 'error')
-                            )
-                          }
-                        >
-                          Send test
-                        </button>
-                      </div>
-                      <span className={'hint ' + (settings.telegram.running ? 'ok' : '')}>
-                        {t('settings.telegramStatus')}:{' '}
-                        {settings.telegram.running
-                          ? `${t('settings.telegramRunning')}${settings.telegram.botUsername ? ` · @${settings.telegram.botUsername}` : ''}`
-                          : t('settings.telegramStopped')}
-                      </span>
-                      {settings.telegram.error && !settings.telegram.running && (
-                        <span className="hint fail">⚠ {settings.telegram.error}</span>
-                      )}
-                    </div>
-                  </div>
+                  <SettingCard
+                    stacked
+                    icon={<Send size={16} />}
+                    title={t('settings.telegramToken')}
+                    desc="Control URterminal from Telegram — screenshots, agents, tasks."
+                    control={
+                      <>
+                        <input
+                          className="input"
+                          type="password"
+                          placeholder={settings.telegram.tokenSet ? `•••• ${settings.telegram.tokenPreview ?? ''}` : t('settings.telegramToken')}
+                          value={tgToken}
+                          onChange={(e) => setTgToken(e.target.value)}
+                        />
+                        <div className="settings-actions">
+                          <KeyStatus set={settings.telegram.tokenSet} />
+                          <button className="btn primary" disabled={!tgToken} onClick={() => { void patch({ telegramToken: tgToken }); setTgToken('') }}>
+                            {t('settings.save')}
+                          </button>
+                          <button className="btn danger" disabled={!settings.telegram.tokenSet} onClick={() => patch({ telegramToken: null })}>
+                            {t('settings.clear')}
+                          </button>
+                          <button className="btn" onClick={() => window.api.restartTelegram().catch(() => {})}>
+                            {t('settings.restart')}
+                          </button>
+                          <button
+                            className="btn"
+                            disabled={!settings.telegram.running}
+                            onClick={() =>
+                              void window.api.testTelegram().then((r) =>
+                                toast(r.ok ? 'Test message sent' : `Test failed: ${r.error ?? 'unknown'}`, r.ok ? 'ok' : 'error')
+                              )
+                            }
+                          >
+                            Send test
+                          </button>
+                        </div>
+                        <span className={'hint ' + (settings.telegram.running ? 'ok' : '')}>
+                          {t('settings.telegramStatus')}:{' '}
+                          {settings.telegram.running
+                            ? `${t('settings.telegramRunning')}${settings.telegram.botUsername ? ` · @${settings.telegram.botUsername}` : ''}`
+                            : t('settings.telegramStopped')}
+                        </span>
+                        {settings.telegram.error && !settings.telegram.running && (
+                          <span className="hint fail">⚠ {settings.telegram.error}</span>
+                        )}
+                      </>
+                    }
+                  />
                 )}
                 {match(t('settings.telegramDefaultChat')) && (
-                  <Row label={t('settings.telegramDefaultChat')}>
+                  <SettingCard stacked icon={<MessageSquare size={16} />} title={t('settings.telegramDefaultChat')} desc="Where screenshots and test messages are sent." control={
                     <input className="input" defaultValue={settings.telegram.defaultChatId ?? ''}
                       onBlur={(e) => patch({ telegramDefaultChatId: e.target.value || null })} />
-                  </Row>
+                  } />
                 )}
                 {match('Allowed chats') && (
-                  <Row label="Allowed chats" hint="Only these chat IDs may control the app (one per line). Empty = allow any chat.">
+                  <SettingCard stacked icon={<Users size={16} />} title="Allowed chats" desc="Only these chat IDs may control the app (one per line). Empty = allow any chat." control={
                     <textarea
                       className="input mono"
                       rows={3}
@@ -1013,15 +1208,15 @@ export default function SettingsModal(): JSX.Element | null {
                         patch({ prefs: { telegramChatWhitelist: ids } })
                       }}
                     />
-                  </Row>
+                  } />
                 )}
               </section>
             )}
 
             {/* Integrations — connect external to-do services */}
-            {sectionVisible('integrations', 'Integrations') && (
+            {showSection('integrations', 'Integrations') && (
               <section className="settings-section" ref={sectionRef('integrations')}>
-                <h3>Integrations</h3>
+                <Head id="integrations" title="Integrations" />
                 <span className="hint settings-block-hint">
                   Connect your favourite to-do services. Tokens are encrypted on disk
                   via the OS keychain and never leave this machine.
@@ -1083,9 +1278,9 @@ export default function SettingsModal(): JSX.Element | null {
             )}
 
             {/* Snippets */}
-            {sectionVisible('snippets', 'Snippets') && (
+            {showSection('snippets', 'Snippets') && (
               <section className="settings-section" ref={sectionRef('snippets')}>
-                <h3>Snippets</h3>
+                <Head id="snippets" title="Snippets" />
                 <span className="hint settings-block-hint">
                   Reusable prompts / commands; insert into the active pane from the command palette.
                   Use <code>{'{{name}}'}</code> for fill-in variables.
@@ -1123,37 +1318,51 @@ export default function SettingsModal(): JSX.Element | null {
             )}
 
             {/* Keyboard */}
-            {sectionVisible('keyboard', 'Keyboard') && (
+            {showSection('keyboard', 'Keyboard') && (
               <section className="settings-section" ref={sectionRef('keyboard')}>
-                <h3>Keyboard</h3>
-                <span className="hint settings-block-hint">
-                  View and remap every shortcut, with per-key reset and a restore-defaults button.
-                </span>
-                <button className="btn" onClick={() => setShowShortcuts(true)}>
-                  <Keyboard size={13} /> Open shortcuts editor
-                </button>
+                <Head id="keyboard" title="Keyboard" />
+                <SettingCard
+                  icon={<Keyboard size={16} />}
+                  title="Keyboard shortcuts"
+                  desc="View and remap every shortcut, with per-key reset and restore-defaults."
+                  control={
+                    <button className="btn" onClick={() => setShowShortcuts(true)}>
+                      <Keyboard size={13} /> Open editor
+                    </button>
+                  }
+                />
               </section>
             )}
 
             {/* About */}
-            {sectionVisible('about', 'About') && (
+            {showSection('about', 'About') && (
               <section className="settings-section" ref={sectionRef('about')}>
-                <h3>About</h3>
-                <Row label="Version">
-                  <span className="settings-static">URterminal {appVersion || '—'}</span>
-                </Row>
-                <Row label="Settings file">
-                  <div className="settings-actions">
-                    <button className="btn" onClick={exportSettings}><Download size={13} /> Export…</button>
-                    <button className="btn" onClick={() => importRef.current?.click()}><Upload size={13} /> Import…</button>
-                    <input ref={importRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={onImportFile} />
-                  </div>
-                </Row>
-                <Row label="Reset" hint="Restore all settings to defaults and clear saved sessions/workspace.">
-                  <div className="settings-actions">
-                    <button className="btn danger" onClick={resetAllData}><Trash2 size={13} /> Reset all data</button>
-                  </div>
-                </Row>
+                <Head id="about" title="About" />
+                <SettingCard
+                  icon={<Info size={16} />}
+                  title="Version"
+                  control={<span className="settings-static">URterminal {appVersion || '—'}</span>}
+                />
+                <SettingCard
+                  icon={<Save size={16} />}
+                  title="Settings file"
+                  desc="Export your settings to a file, or import them on another machine."
+                  control={
+                    <>
+                      <button className="btn" onClick={exportSettings}><Download size={13} /> Export…</button>
+                      <button className="btn" onClick={() => importRef.current?.click()}><Upload size={13} /> Import…</button>
+                      <input ref={importRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={onImportFile} />
+                    </>
+                  }
+                />
+                <SettingCard
+                  icon={<Trash2 size={16} />}
+                  title="Reset all data"
+                  desc="Restore all settings to defaults and clear saved sessions/workspace."
+                  control={
+                    <button className="btn danger" onClick={resetAllData}><Trash2 size={13} /> Reset all</button>
+                  }
+                />
               </section>
             )}
           </div>

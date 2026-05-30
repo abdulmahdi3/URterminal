@@ -503,6 +503,17 @@
   color: var(--text-dim);
   line-height: 1.5;
 }
+.launcher-hint .install-hint {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  user-select: all;
+}
 .agent-toggle-row {
   display: flex;
   flex-wrap: wrap;

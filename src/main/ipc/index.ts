@@ -31,7 +31,15 @@ export interface IpcContext {
 
 export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   const emit = (channel: string, payload: unknown): void => {
-    getWindow()?.webContents.send(channel, payload)
+    // A PTY can fire onData/onExit while the window is being torn down (closing
+    // a workspace, app quit, reload). Touching `.webContents` on a destroyed
+    // window throws "Object has been destroyed" and crashes the main process —
+    // guard every send against that race.
+    const win = getWindow()
+    if (!win || win.isDestroyed()) return
+    const wc = win.webContents
+    if (!wc || wc.isDestroyed()) return
+    wc.send(channel, payload)
   }
 
   const settings = new SettingsStore()
@@ -328,6 +336,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
 
   // ---- TickTick OAuth + Open API proxy (main-process bearer storage) ----
   const tickTick = new TickTickClient(settings)
+  // Let the Telegram bridge reach TickTick for /tasks agenda + /task quick-add.
+  telegram.setTickTick(tickTick)
   const ttHandle = async <T>(fn: () => Promise<T>): Promise<T> => {
     try {
       return await fn()
@@ -348,6 +358,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     return { ok: true }
   })
   ipcMain.handle(IPC.tickTickListProjects, () => ttHandle(() => tickTick.listProjects()))
+  ipcMain.handle(IPC.tickTickCreateProject, (_e, input) =>
+    ttHandle(() => tickTick.createProject(input))
+  )
+  ipcMain.handle(IPC.tickTickDeleteProject, (_e, projectId: string) =>
+    ttHandle(() => tickTick.deleteProject(projectId))
+  )
   ipcMain.handle(IPC.tickTickProjectData, (_e, projectId: string) =>
     ttHandle(() => tickTick.getProjectData(projectId))
   )

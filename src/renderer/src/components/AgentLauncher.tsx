@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { FolderOpen, Sparkles, ArrowRight } from 'lucide-react'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
+import { AGENTS, AGENT_LABELS, agentDescriptor } from '@shared/providers'
 import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 
 interface Props {
@@ -30,6 +30,7 @@ export default function AgentLauncher({
   }, [])
   const label = AGENT_LABELS[command as keyof typeof AGENT_LABELS] ?? command
   const missing = available.size > 0 && !available.has(command)
+  const installHint = agentDescriptor(command)?.installHint
 
   // Browsing to a folder is itself the confirmation — open the agent immediately.
   const browse = async (): Promise<void> => {
@@ -78,6 +79,12 @@ export default function AgentLauncher({
           {missing ? (
             <>
               <b>{label}</b> isn’t on your PATH — install its CLI first, or pick another agent.
+              {installHint && (
+                <>
+                  {' '}
+                  <code className="install-hint">{installHint}</code>
+                </>
+              )}
             </>
           ) : (
             <>{label} will start in this folder and ask to trust it on first run.</>

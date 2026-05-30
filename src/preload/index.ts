@@ -101,6 +101,14 @@ const api = {
   tickTickDisconnect: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.tickTickDisconnect),
   tickTickListProjects: (): Promise<TickTickProject[]> =>
     ipcRenderer.invoke(IPC.tickTickListProjects),
+  tickTickCreateProject: (input: {
+    name: string
+    color?: string
+    viewMode?: string
+    kind?: string
+  }): Promise<TickTickProject> => ipcRenderer.invoke(IPC.tickTickCreateProject, input),
+  tickTickDeleteProject: (projectId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.tickTickDeleteProject, projectId),
   tickTickProjectData: (projectId: string): Promise<TickTickProjectData> =>
     ipcRenderer.invoke(IPC.tickTickProjectData, projectId),
   tickTickCreateTask: (input: {

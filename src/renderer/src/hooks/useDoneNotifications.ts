@@ -21,8 +21,9 @@ function showDesktopNotification(title: string, body: string): void {
 /**
  * Notification sound via WebAudio (no bundled asset). `volume` is 0–100; `name`
  * selects the timbre ('chime' = two-tone sine, 'beep' = single square blip).
+ * Exported so the Settings panel can preview the chosen sound.
  */
-function playDoneSound(volume: number, name: 'chime' | 'beep'): void {
+export function playDoneSound(volume: number, name: 'chime' | 'beep'): void {
   const peak = Math.max(0, Math.min(1, volume / 100)) * 0.3
   if (peak <= 0) return
   try {

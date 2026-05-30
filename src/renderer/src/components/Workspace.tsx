@@ -333,9 +333,11 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   }
 
   const close = (): void => {
-    if (!confirmPaneClose(paneId)) return
-    window.api.linkPaneToTelegram(paneId, null)
-    removePane(paneId)
+    void (async () => {
+      if (!(await confirmPaneClose(paneId))) return
+      window.api.linkPaneToTelegram(paneId, null)
+      removePane(paneId)
+    })()
   }
 
   // Copy the agent's last answer block to the clipboard. Falls back to the

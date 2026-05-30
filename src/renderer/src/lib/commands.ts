@@ -89,10 +89,13 @@ export function getCommands(): Command[] {
       shortcut: 'Ctrl+W',
       run: () => {
         const id = ws().activePaneId
-        if (id && confirmPaneClose(id)) {
-          window.api.linkPaneToTelegram(id, null)
-          ws().removePane(id)
-        }
+        if (!id) return
+        void (async () => {
+          if (await confirmPaneClose(id)) {
+            window.api.linkPaneToTelegram(id, null)
+            ws().removePane(id)
+          }
+        })()
       }
     },
     {

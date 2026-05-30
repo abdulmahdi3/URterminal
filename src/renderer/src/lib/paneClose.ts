@@ -1,8 +1,7 @@
 import type { Pane } from '@shared/types'
-import { useSettings } from '@renderer/store/settings'
-import { isTerminalStarted } from '@renderer/lib/terminalPool'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import { useWorkspace } from '@renderer/store/workspace'
+import { confirm } from '@renderer/store/confirm'
 
 /**
  * True if the pane runs an AI agent that's mid-turn — either streaming output
@@ -15,24 +14,45 @@ export function isAgentBusy(pane: Pane | undefined): boolean {
   return status === 'working' || status === 'awaiting'
 }
 
+/**
+ * True if the pane runs a shell with a command actively producing output
+ * (tracked by usePaneActivity). An idle shell sitting at a prompt is NOT busy.
+ */
+export function isShellBusy(pane: Pane | undefined): boolean {
+  if (pane?.type !== 'shell') return false
+  return usePaneStatus.getState().status[pane.id] === 'working'
+}
+
 /** Number of panes in a set with an agent currently working. */
 export function busyAgentCount(panes: Record<string, Pane>): number {
   return Object.values(panes).filter(isAgentBusy).length
 }
 
 /**
- * Returns true if the pane may be closed. A working agent always prompts (its
- * turn would be lost). Otherwise, when "confirm before close" is on and the
- * pane's process has started, ask before closing a live process. Used by both
- * the header close button and the close command.
+ * Resolves true if the pane may be closed. We only prompt when something is
+ * actually running in the pane — a busy agent (its turn would be lost) or a
+ * shell with a command still producing output. An idle pane (nothing running)
+ * closes immediately with no confirmation.
  */
-export function confirmPaneClose(paneId: string): boolean {
+export async function confirmPaneClose(paneId: string): Promise<boolean> {
   const pane = useWorkspace.getState().panes[paneId]
-  if (isAgentBusy(pane)) {
-    return window.confirm('An agent is still working in this pane. Close it and stop the agent?')
+  const agentBusy = isAgentBusy(pane)
+  const shellBusy = isShellBusy(pane)
+  if (!agentBusy && !shellBusy) return true // nothing running → just close
+
+  if (agentBusy) {
+    return confirm({
+      title: 'Stop the running agent?',
+      message:
+        'An agent is still working in this pane. Closing it now will stop the agent and discard the current turn.',
+      confirmLabel: 'Close & stop',
+      tone: 'danger'
+    })
   }
-  const prefs = useSettings.getState().settings?.prefs
-  if (!prefs?.confirmClose) return true
-  if (!isTerminalStarted(paneId)) return true
-  return window.confirm('This pane has a running process. Close it anyway?')
+  return confirm({
+    title: 'Close running terminal?',
+    message: 'A command is still running in this terminal. Closing the pane will end it.',
+    confirmLabel: 'Close anyway',
+    tone: 'danger'
+  })
 }
