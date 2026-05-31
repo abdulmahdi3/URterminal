@@ -22,7 +22,6 @@ import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/
 import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { playDoneSound } from '@renderer/hooks/useDoneNotifications'
 import LearningPanel from './LearningPanel'
-import SshServersPanel from './SshServersPanel'
 import { LANGUAGES } from '@renderer/lib/translate'
 
 const ACCENT_PRESETS = [
@@ -78,8 +77,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
   notifications: [
     'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName'
   ],
-  appearance: ['appTheme', 'fontFamily', 'fontSize'],
-  ssh: ['sshServers', 'sshHosts']
+  appearance: ['appTheme', 'fontFamily', 'fontSize']
 }
 
 /** Small "Key set" / "Not set" status pill used by the key + token fields. */
@@ -633,7 +631,6 @@ export default function SettingsModal(): JSX.Element | null {
     ],
     telegram: [t('settings.telegramToken'), t('settings.telegramDefaultChat'), 'Allowed chats'],
     integrations: ['Integrations', 'Todoist', 'TickTick', 'Microsoft To Do', 'Google Tasks', 'Notion'],
-    ssh: ['SSH', 'SSH servers', 'Saved servers', 'Open agent on connect'],
     snippets: ['Snippets'],
     keyboard: ['Keyboard shortcuts'],
     learning: ['Learning', 'Cross-agent learning', 'Distillation', 'Review candidates', 'Brain store', 'Hermes'],
@@ -648,7 +645,6 @@ export default function SettingsModal(): JSX.Element | null {
     { id: 'notifications', title: 'Notifications' },
     { id: 'telegram', title: t('settings.telegram') },
     { id: 'integrations', title: 'Integrations' },
-    { id: 'ssh', title: 'SSH' },
     { id: 'snippets', title: 'Snippets' },
     { id: 'keyboard', title: 'Keyboard' },
     { id: 'learning', title: 'Learning' },
@@ -1310,14 +1306,6 @@ export default function SettingsModal(): JSX.Element | null {
                     )
                   })}
                 </div>
-              </section>
-            )}
-
-            {/* SSH servers */}
-            {showSection('ssh', 'SSH') && (
-              <section className="settings-section" ref={sectionRef('ssh')}>
-                <Head id="ssh" title="SSH servers" />
-                <SshServersPanel />
               </section>
             )}
 

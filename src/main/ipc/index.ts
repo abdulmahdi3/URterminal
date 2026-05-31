@@ -260,15 +260,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     const password = req.password ?? settings.getSshPassword(req.target) ?? ''
     if (req.savePassword && req.password) settings.setSshPassword(req.target, req.password)
 
-    const proc = createSshPty({
-      host,
-      port,
-      username,
-      password,
-      cols: req.cols,
-      rows: req.rows,
-      startupCommand: req.startupCommand
-    })
+    const proc = createSshPty({ host, port, username, password, cols: req.cols, rows: req.rows })
     return pty.adopt(proc, req.paneId, `ssh ${req.target}`)
   })
 

@@ -11,7 +11,6 @@ import { getShellSpecs } from '@renderer/lib/shells'
 import { getAgents } from '@renderer/lib/agents'
 import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
-import { connectSsh } from '@renderer/lib/ssh'
 import { translateSelection } from '@renderer/lib/translate'
 import { injectText } from '@renderer/lib/inject'
 import { toast } from '@renderer/store/toasts'
@@ -390,17 +389,6 @@ export function getCommands(): Command[] {
       group: 'Shells',
       run: () =>
         ws().addPane('shell', undefined, { shell: sh.file, shellArgs: sh.args, label: sh.label })
-    })
-  }
-
-  // a "connect" command for each saved SSH server
-  const sshServers = useSettings.getState().settings?.prefs.sshServers ?? []
-  for (const srv of sshServers) {
-    cmds.push({
-      id: `ssh.server.${srv.id}`,
-      title: `SSH: Connect to ${srv.label}`,
-      group: 'SSH',
-      run: () => connectSsh(srv.target, '', false, { agentOnConnect: srv.agentOnConnect })
     })
   }
 

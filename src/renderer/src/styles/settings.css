@@ -458,41 +458,6 @@ textarea.input.mono {
   background: var(--bg-elev-3);
   color: var(--text);
 }
-
-/* ---- SSH server manager (settings → SSH) ---- */
-.ssh-mgr {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.ssh-mgr-connect {
-  margin-left: auto;
-}
-.ssh-mgr-target {
-  display: block;
-  margin-top: 6px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.ssh-agent-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 7px;
-  border-radius: var(--r-pill);
-  font-size: 10px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-soft);
-}
-.ssh-mgr-form .snippet-add-row {
-  display: flex;
-  gap: 8px;
-}
-.ssh-mgr-form .snippet-add-row > * {
-  flex: 1;
-}
 /* status pill sits left; Save/Clear/… group aligns to the right edge */
 .settings-status {
   display: inline-flex;
