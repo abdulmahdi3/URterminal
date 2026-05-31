@@ -588,7 +588,7 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
             className="icon-btn"
             title={
               shellSsh
-                ? `Open agent inside this SSH session\n${shellSsh.target}`
+                ? `Open an agent to manage this server over SSH\n${shellSsh.target}`
                 : `Open agent in this folder${shellCwd ? `\n${shellCwd}` : ' (home)'}`
             }
             onClick={() => openAgentHere(paneId)}

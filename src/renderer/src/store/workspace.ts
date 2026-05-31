@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import type { MosaicDirection, MosaicNode } from 'react-mosaic-component'
 import type { Pane, PaneType, ProviderId } from '@shared/types'
-import { DEFAULT_AGENT, agentLaunch, agentDescriptor } from '@shared/providers'
+import { DEFAULT_AGENT } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
-import { disposeTerminal } from '@renderer/lib/terminalPool'
+import { disposeTerminal, isTerminalStarted } from '@renderer/lib/terminalPool'
 import { toast } from '@renderer/store/toasts'
 import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
 
@@ -409,18 +409,54 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const pane = s0.panes[paneId]
     if (!pane || pane.type !== 'shell') return
     const command = s0.defaultAgent || DEFAULT_AGENT
-    // SSH pane: launch the agent INSIDE the remote session (type e.g. `claude`
-    // into the live ssh shell) instead of opening a separate local agent pane.
+    // SSH pane: open a LOCAL agent pane that operates the remote server over SSH
+    // via the urssh exec bridge (nothing installed on the server). The agent runs
+    // `urssh "<cmd>"` against one reused authenticated connection.
     if (pane.shell?.ssh) {
-      const ptyId = pane.shell.ptyId
-      if (!ptyId) {
-        toast('SSH session is still connecting…', 'info')
-        return
-      }
-      const launch = agentLaunch(agentDescriptor(command), command)
-      const line = [launch.command, ...launch.args].join(' ')
-      window.api.writePty(ptyId, `${line}\r`)
-      set({ activePaneId: paneId })
+      const target = pane.shell.ssh.target
+      const np = makePane('ai', paneDefaults(s0))
+      np.agent = { command, cwd: getHome() }
+      np.title = `${command} → ${target}`
+      set((s) => {
+        const layout = s.layout === null ? np.id : splitLeaf(s.layout, paneId, np.id, 'column')
+        return {
+          panes: { ...s.panes, [np.id]: np },
+          layout,
+          activePaneId: np.id,
+          entering: { ...s.entering, [np.id]: true }
+        }
+      })
+      scheduleEnterClear(set, np.id)
+
+      void window.api
+        .sshOpenAgent(target)
+        .then((res) => {
+          if (!res.ok || !res.instruction) {
+            toast(`Agent over SSH failed: ${res.error ?? 'unknown error'}`, 'error')
+            return
+          }
+          const ESC = String.fromCharCode(27)
+          const instruction = res.instruction
+          const submit = (): boolean => {
+            const pty = get().panes[np.id]?.agent?.ptyId
+            if (!pty) return false
+            window.api.writePty(pty, `${ESC}[200~${instruction}${ESC}[201~`)
+            window.setTimeout(() => window.api.writePty(pty, '\r'), 150)
+            return true
+          }
+          // Wait for the agent to boot (first output), then give its input box a
+          // moment to render before pasting + sending the instruction.
+          let tries = 0
+          const waitBoot = (): void => {
+            if (isTerminalStarted(np.id)) {
+              window.setTimeout(submit, 1800)
+              return
+            }
+            if (tries++ < 100) window.setTimeout(waitBoot, 200)
+          }
+          window.setTimeout(waitBoot, 400)
+        })
+        .catch((e: Error) => toast(`Agent over SSH failed: ${e.message}`, 'error'))
       return
     }
     // The shell's launch cwd (live `cd`s aren't tracked); fall back to home.

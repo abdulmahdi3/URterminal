@@ -6,6 +6,7 @@ import type {
   SettingsPatch,
   PtySpawnRequest,
   SshSpawnRequest,
+  SshAgentResult,
   PtyDataEvent,
   PtyExitEvent,
   PtyTaskInfo,
@@ -53,6 +54,8 @@ const api = {
     ipcRenderer.invoke(IPC.ptySpawn, req),
   spawnSsh: (req: SshSpawnRequest): Promise<{ ptyId: string; shell: string }> =>
     ipcRenderer.invoke(IPC.sshSpawn, req),
+  sshOpenAgent: (target: string): Promise<SshAgentResult> =>
+    ipcRenderer.invoke(IPC.sshOpenAgent, target),
   writePty: (ptyId: string, data: string): void => ipcRenderer.send(IPC.ptyWrite, { ptyId, data }),
   resizePty: (ptyId: string, cols: number, rows: number): void =>
     ipcRenderer.send(IPC.ptyResize, { ptyId, cols, rows }),

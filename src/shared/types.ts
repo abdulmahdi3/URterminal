@@ -406,6 +406,17 @@ export interface PtySpawnRequest {
   commandArgs?: string[]
 }
 
+/** Result of setting up "agent over SSH" for a target. */
+export interface SshAgentResult {
+  ok: boolean
+  /** absolute path to the `urssh` helper the agent should call (when ok) */
+  helperPath?: string
+  /** starter message to inject into the agent pane (when ok) */
+  instruction?: string
+  /** failure reason (when !ok) */
+  error?: string
+}
+
 /** Open an SSH session that streams through the same pty:data/pty:exit channels. */
 export interface SshSpawnRequest {
   paneId: string
@@ -652,6 +663,9 @@ export const IPC = {
 
   // selection translation (Google gtx endpoint, main-side to avoid CORS)
   translateText: 'translate:text',
+
+  // "agent over SSH" — set up the urssh exec bridge for a local agent
+  sshOpenAgent: 'ssh:open-agent',
 
   // telegram
   telegramStatus: 'telegram:status',

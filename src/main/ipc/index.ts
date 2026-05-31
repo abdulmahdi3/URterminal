@@ -8,11 +8,13 @@ import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
   SshSpawnRequest,
+  SshAgentResult,
   SettingsPatch,
   FileSaveRequest,
   FileSaveResult
 } from '@shared/types'
-import { createSshPty } from '../ssh/sshPty'
+import { createSshPty, parseSshTarget } from '../ssh/sshPty'
+import { SshAgentBridge } from '../ssh/agentBridge'
 import { PtyManager } from '../pty/manager'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
@@ -242,27 +244,39 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // ---- ssh (connects via ssh2, then streams through the pty channels) ----
   ipcMain.handle(IPC.sshSpawn, (_e, req: SshSpawnRequest) => {
     // Parse "user@host[:port]" → username / host / port.
-    const trimmed = req.target.trim()
-    const at = trimmed.indexOf('@')
-    let username = at >= 0 ? trimmed.slice(0, at) : ''
-    let rest = at >= 0 ? trimmed.slice(at + 1) : trimmed
-    let port = 22
-    const colon = rest.lastIndexOf(':')
-    if (colon >= 0) {
-      const p = parseInt(rest.slice(colon + 1), 10)
-      if (!Number.isNaN(p)) {
-        rest = rest.slice(0, colon)
-        port = p
-      }
-    }
-    const host = rest
-    if (!username) username = userInfo().username
+    const parsed = parseSshTarget(req.target)
+    const host = parsed.host
+    const port = parsed.port
+    const username = parsed.username || userInfo().username
     // Use the freshly-typed password, else a previously saved one.
     const password = req.password ?? settings.getSshPassword(req.target) ?? ''
     if (req.savePassword && req.password) settings.setSshPassword(req.target, req.password)
 
     const proc = createSshPty({ host, port, username, password, cols: req.cols, rows: req.rows })
     return pty.adopt(proc, req.paneId, `ssh ${req.target}`)
+  })
+
+  // "Agent over SSH": stand up the urssh exec bridge so a LOCAL agent can run
+  // commands on the remote server (reusing one authenticated connection) without
+  // installing anything on the server. Requires a saved password for the target.
+  const agentBridge = new SshAgentBridge()
+  ipcMain.handle(IPC.sshOpenAgent, async (_e, target: string): Promise<SshAgentResult> => {
+    try {
+      const p = parseSshTarget(target)
+      const username = p.username || userInfo().username
+      const password = settings.getSshPassword(target) ?? ''
+      if (!password) {
+        return {
+          ok: false,
+          error:
+            'No saved SSH password for this server. Reconnect with "Save credentials" so the agent can reuse the connection.'
+        }
+      }
+      const res = await agentBridge.open({ target, host: p.host, port: p.port, username, password })
+      return { ok: true, helperPath: res.helperPath, instruction: res.instruction }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
   })
 
   // ---- shells ----

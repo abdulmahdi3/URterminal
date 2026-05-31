@@ -23,6 +23,24 @@ export interface SshConnectOpts {
   rows: number
 }
 
+/** Parse "user@host[:port]" into its parts (username may be empty → caller defaults it). */
+export function parseSshTarget(target: string): { username: string; host: string; port: number } {
+  const trimmed = target.trim()
+  const at = trimmed.indexOf('@')
+  const username = at >= 0 ? trimmed.slice(0, at) : ''
+  let rest = at >= 0 ? trimmed.slice(at + 1) : trimmed
+  let port = 22
+  const colon = rest.lastIndexOf(':')
+  if (colon >= 0) {
+    const p = parseInt(rest.slice(colon + 1), 10)
+    if (!Number.isNaN(p)) {
+      rest = rest.slice(0, colon)
+      port = p
+    }
+  }
+  return { username, host: rest, port }
+}
+
 /**
  * Establish an SSH connection (ssh2) and expose it as a PtyLike. Output is
  * streamed via onData; auth/connection failures are surfaced as red text and
