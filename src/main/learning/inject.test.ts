@@ -4,12 +4,14 @@ import {
   renderLearnedBlock,
   upsertManagedBlock,
   ensureGitignoreEntry,
-  injectForPane,
   MANAGED_START,
-  MANAGED_END,
-  type InjectIO
+  MANAGED_END
 } from './inject'
 import type { MemoryEntry, SkillEntry } from './markdown'
+
+// Pure-function tests only. injectForPane reads the real brain (Electron-backed
+// path), so it is exercised in inject.integration.test.ts where Electron is
+// mocked to a temp dir.
 
 function mem(slug: string, body: string, conf = 0.8): MemoryEntry {
   return {
@@ -38,7 +40,7 @@ describe('targetFor', () => {
     expect(targetFor('copilot')).toBe('.github/copilot-instructions.md')
     expect(targetFor('gh-copilot')).toBe('.github/copilot-instructions.md')
   })
-  it('NEVER defaults copilot/unknown to AGENTS.md incorrectly; unknown -> AGENTS.md', () => {
+  it('defaults codex/unknown to AGENTS.md (copilot is never mis-defaulted)', () => {
     expect(targetFor('codex')).toBe('AGENTS.md')
     expect(targetFor('some-new-agent')).toBe('AGENTS.md')
   })
@@ -116,46 +118,4 @@ describe('ensureGitignoreEntry', () => {
     const twice = ensureGitignoreEntry(once, 'AGENTS.md')
     expect(twice).toBe(once)
   })
-})
-
-// ---- injectForPane with a fake IO ----
-
-function fakeIO(initial: Record<string, string> = {}, tracked = new Set<string>()): InjectIO & { files: Record<string, string> } {
-  const files = { ...initial }
-  return {
-    files,
-    read: (p) => (p in files ? files[p] : null),
-    write: (p, c) => {
-      files[p] = c
-    },
-    ensureDir: () => {},
-    isTracked: (_cwd, rel) => tracked.has(rel)
-  }
-}
-
-const memList = [mem('a', 'always use tabs')]
-
-describe('injectForPane', () => {
-  it('writes the brain into an untracked context file + gitignores it', () => {
-    const io = fakeIO()
-    // give the brain something to inject by stubbing readMemories via a tracked file? -
-    // injectForPane reads the real brain; here we test the no-memory path instead.
-    const res = injectForPane({ cwd: '/abs/proj', agentId: 'claude', projectHash: 'nope-empty' }, io)
-    expect(res.status).toBe('skipped-empty')
-  })
-
-  it('skips a git-tracked target untouched', () => {
-    const io = fakeIO({}, new Set(['.claude/CLAUDE.md']))
-    const res = injectForPane({ cwd: '/abs/proj', agentId: 'claude', projectHash: 'whatever' }, io)
-    expect(res.status).toBe('skipped-tracked')
-    expect(Object.keys(io.files)).toHaveLength(0)
-  })
-
-  it('returns no-cwd for a relative/empty cwd', () => {
-    expect(injectForPane({ cwd: '', agentId: 'claude', projectHash: 'x' }, fakeIO()).status).toBe('no-cwd')
-    expect(injectForPane({ cwd: 'rel/path', agentId: 'claude', projectHash: 'x' }, fakeIO()).status).toBe('no-cwd')
-  })
-
-  // keep memList referenced for readers of this file
-  void memList
 })
