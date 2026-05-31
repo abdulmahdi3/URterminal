@@ -323,6 +323,34 @@
 .pane-body.active {
   box-shadow: inset 0 0 0 1px var(--accent-soft);
 }
+
+/* "Agent finished" cue: a soft accent glow pulses on an unfocused pane whose
+   turn just completed, so you can tell at a glance which agent is done. It
+   stops the moment you focus the pane (the .pane-done class is removed). This is
+   the one intentional animation in the app — an at-a-glance status signal. */
+.pane-body.pane-done {
+  animation: pane-done-glow 1.6s ease-in-out infinite;
+}
+@keyframes pane-done-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px var(--accent-soft);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px var(--accent),
+      inset 0 0 22px 2px var(--accent-glow);
+  }
+}
+/* Respect a reduced-motion preference: show a steady accent ring, no pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .pane-body.pane-done {
+    animation: none;
+    box-shadow:
+      inset 0 0 0 2px var(--accent),
+      inset 0 0 18px 2px var(--accent-glow);
+  }
+}
 .pane-placeholder {
   display: grid;
   place-items: center;

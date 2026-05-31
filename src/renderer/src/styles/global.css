@@ -411,6 +411,11 @@ select {
   z-index: 1000;
   max-width: 340px;
 }
+.sel-translate-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .sel-translate-btn {
   display: inline-flex;
   align-items: center;

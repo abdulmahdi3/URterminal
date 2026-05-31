@@ -3,14 +3,16 @@ import clsx from 'clsx'
 import {
   Plus, Search, NotebookPen, ListTodo, X, Check, FileText, RefreshCw, ListChecks,
   ChevronRight, ChevronDown, Calendar, Flag, Tag as TagIcon, Trash2, Save,
-  Sun, CalendarDays, AlarmClock, Inbox, Clock, Bell, Repeat
+  Sun, CalendarDays, AlarmClock, Inbox, Clock, Bell, Repeat, CheckSquare, RotateCcw
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import { useSettings } from '@renderer/store/settings'
 import { toast } from '@renderer/store/toasts'
-import type { Pane, TodoItem, TickTickProject, TickTickTask } from '@shared/types'
+import type {
+  Pane, TodoItem, TickTickProject, TickTickTask, GoogleTask, GoogleTaskList
+} from '@shared/types'
 
 const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -912,6 +914,379 @@ function TickTickEditor({
   )
 }
 
+// ===========================================================================
+// Google Tasks
+//
+// Google's model is far simpler than TickTick's: lists hold tasks, and a task
+// has only a title, free-text notes, a date-only due, and a done flag. We reuse
+// the TickTick row/edit CSS (tt-*) so both integrations feel identical, and the
+// shared smart views (Today / Next 7 / Overdue / All) span every list. Google's
+// `due` is an RFC-3339 string whose leading date ttDateToInput already parses,
+// so dueClass/dueLabel work on it unchanged.
+// ===========================================================================
+
+/** "yyyy-mm-dd" → Google's date-only RFC-3339 stamp (midnight UTC). */
+function inputToGDue(s: string): string | undefined {
+  return s ? `${s}T00:00:00.000Z` : undefined
+}
+
+/** Parse a Google quick-add: pull out today/tomorrow/+Nd, keep the rest as title. */
+function parseGoogleQuickAdd(raw: string): { title: string; due?: string } {
+  let text = ` ${raw} `
+  const today = localToday()
+  let due: string | undefined
+  if (/\btomorrow\b/i.test(text)) {
+    due = addDaysStr(today, 1)
+    text = text.replace(/\btomorrow\b/i, ' ')
+  } else if (/\btoday\b/i.test(text)) {
+    due = today
+    text = text.replace(/\btoday\b/i, ' ')
+  }
+  const nd = text.match(/\s\+(\d+)d\b/i)
+  if (nd) {
+    due = addDaysStr(today, parseInt(nd[1], 10))
+    text = text.replace(nd[0], ' ')
+  }
+  return { title: text.replace(/\s+/g, ' ').trim(), due: due ? inputToGDue(due) : undefined }
+}
+
+/** Sort by due ascending (undated last), then title — used by every Google view. */
+function sortGoogle(tasks: GoogleTask[]): GoogleTask[] {
+  return [...tasks].sort((a, b) => {
+    const da = ttDateToInput(a.due)
+    const db = ttDateToInput(b.due)
+    if (da !== db) {
+      if (!da) return 1
+      if (!db) return -1
+      return da < db ? -1 : 1
+    }
+    return (a.title ?? '').localeCompare(b.title ?? '')
+  })
+}
+
+/** Filter all open Google tasks down to one smart view, sorted for display. */
+function filterGoogleSmart(tasks: GoogleTask[], view: SmartView): GoogleTask[] {
+  const open = tasks.filter((t) => t.status !== 'completed')
+  if (view === 'all') return sortGoogle(open)
+  const today = localToday()
+  if (view === 'overdue') {
+    return sortGoogle(open.filter((t) => {
+      const d = ttDateToInput(t.due)
+      return !!d && d < today
+    }))
+  }
+  if (view === 'today') {
+    return sortGoogle(open.filter((t) => ttDateToInput(t.due) === today))
+  }
+  const end = addDaysStr(today, 7)
+  return sortGoogle(open.filter((t) => {
+    const d = ttDateToInput(t.due)
+    return !!d && d >= today && d <= end
+  }))
+}
+
+/** True if a Google task matches a lower-cased query (title or notes). */
+function googleMatchesQuery(t: GoogleTask, q: string): boolean {
+  return !!(t.title?.toLowerCase().includes(q) || t.notes?.toLowerCase().includes(q))
+}
+
+/** Patch shape for editing a Google task (null clears notes/due). */
+type GtPatch = { title?: string; notes?: string | null; due?: string | null }
+
+/** Inline editor for one Google task — title, free-text notes, and a due date. */
+function GtTaskEditor({
+  task,
+  onSave,
+  onDelete,
+  onClose
+}: {
+  task: GoogleTask
+  onSave: (patch: GtPatch) => Promise<void>
+  onDelete: () => Promise<void>
+  onClose: () => void
+}): JSX.Element {
+  const [title, setTitle] = useState(task.title ?? '')
+  const [notes, setNotes] = useState(task.notes ?? '')
+  const [due, setDue] = useState(ttDateToInput(task.due))
+  const [busy, setBusy] = useState(false)
+
+  const save = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      await onSave({
+        title: title.trim() || '(untitled)',
+        notes: notes.trim() ? notes : null,
+        due: due ? inputToGDue(due) : null
+      })
+      onClose()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="tt-task-edit">
+      <input
+        className="tt-edit-title"
+        placeholder="Task title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <textarea
+        className="tt-edit-content"
+        placeholder="Notes"
+        rows={3}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+      />
+      <div className="tt-sched">
+        <div className="tt-edit-row">
+          <label className="tt-edit-field">
+            <Calendar size={11} /> Due date
+            <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          </label>
+          {due && (
+            <button className="btn sm" onClick={() => setDue('')} disabled={busy}>
+              Clear date
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="tt-edit-actions">
+        <button className="btn primary sm" onClick={() => void save()} disabled={busy}>
+          <Save size={12} /> Save
+        </button>
+        <button className="btn sm" onClick={onClose} disabled={busy}>
+          Cancel
+        </button>
+        <span className="tt-edit-spacer" />
+        <button className="btn danger sm" onClick={() => void onDelete()} disabled={busy}>
+          <Trash2 size={12} /> Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** One Google task row — check/reopen, expand-to-edit, title, notes + due meta. */
+function GtTaskRow({
+  task,
+  isOpen,
+  onToggleExpand,
+  onComplete,
+  onReopen,
+  onUpdate,
+  onDelete,
+  listLabel
+}: {
+  task: GoogleTask
+  isOpen: boolean
+  onToggleExpand: () => void
+  onComplete: () => Promise<void>
+  onReopen: () => Promise<void>
+  onUpdate: (patch: GtPatch) => Promise<void>
+  onDelete: () => Promise<void>
+  listLabel?: string
+}): JSX.Element {
+  const isDone = task.status === 'completed'
+  return (
+    <div className={clsx('tt-task', isDone && 'done', !isDone && dueClass(task.due) === 'overdue' && 'pri-high')}>
+      <div className="tt-task-row">
+        <button
+          className={clsx('notes-todo-check', 'tt-check', isDone && 'checked')}
+          title={isDone ? 'Mark not done' : 'Mark complete'}
+          onClick={() => void (isDone ? onReopen() : onComplete())}
+        >
+          {isDone ? <Check size={12} /> : null}
+        </button>
+        <button
+          className="tt-task-expand"
+          title={isOpen ? 'Collapse' : 'Expand to edit'}
+          onClick={onToggleExpand}
+        >
+          {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+        <span className="tt-task-title">{task.title}</span>
+        <div className="tt-task-meta-group">
+          {listLabel && (
+            <span className="tt-task-project" title={listLabel}>
+              <span className="tt-project-dot" style={{ background: '#1a73e8' }} />
+              {listLabel}
+            </span>
+          )}
+          {task.notes && (
+            <span className="tt-task-meta" title={task.notes}>
+              <FileText size={11} /> note
+            </span>
+          )}
+          {task.due && (
+            <span
+              className={clsx('tt-due', dueClass(task.due))}
+              title={`Due ${ttDateToInput(task.due)}`}
+            >
+              <Calendar size={11} /> {dueLabel(task.due)}
+            </span>
+          )}
+        </div>
+        <button className="icon-btn notes-todo-del tt-task-del" title="Delete" onClick={() => void onDelete()}>
+          <X size={12} />
+        </button>
+      </div>
+      {isOpen && (
+        <GtTaskEditor task={task} onSave={onUpdate} onDelete={onDelete} onClose={onToggleExpand} />
+      )}
+    </div>
+  )
+}
+
+/** Handlers a Google view needs, all list-scoped per row (tasks carry no list id). */
+interface GtHandlers {
+  onUpdate: (listId: string, taskId: string, patch: GtPatch) => Promise<void>
+  onComplete: (listId: string, taskId: string) => Promise<void>
+  onReopen: (listId: string, taskId: string) => Promise<void>
+  onDelete: (listId: string, taskId: string) => Promise<void>
+}
+
+/** Render a flat task set, each row carrying its own list id + label. */
+function GtTaskList({
+  title,
+  icon: Icon,
+  rows,
+  emptyText,
+  handlers
+}: {
+  title: string
+  icon: typeof Sun
+  rows: Array<{ task: GoogleTask; listId: string; listLabel: string }>
+  emptyText: string
+  handlers: GtHandlers
+}): JSX.Element {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  return (
+    <>
+      <div className="notes-editor-head">
+        <div className="notes-editor-title">
+          <Icon size={14} />
+          <span className="notes-editor-pane">{title}</span>
+          <span className="notes-editor-ws">Google Tasks</span>
+        </div>
+      </div>
+      <div className="notes-todos-section ticktick">
+        <div className="notes-todos-head">
+          <ListTodo size={13} />
+          <span>{title} · {rows.length}</span>
+        </div>
+        {rows.length === 0 && <div className="notes-todos-empty">{emptyText}</div>}
+        {rows.map(({ task, listId, listLabel }) => (
+          <GtTaskRow
+            key={`${listId}:${task.id}`}
+            task={task}
+            isOpen={expanded === task.id}
+            onToggleExpand={() => setExpanded(expanded === task.id ? null : task.id)}
+            onComplete={() => handlers.onComplete(listId, task.id)}
+            onReopen={() => handlers.onReopen(listId, task.id)}
+            onUpdate={(patch) => handlers.onUpdate(listId, task.id, patch)}
+            onDelete={() => handlers.onDelete(listId, task.id)}
+            listLabel={listLabel}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** Per-list editor: quick-add bar, open tasks, and a collapsible completed group. */
+function GtListEditor({
+  list,
+  tasks,
+  draft,
+  setDraft,
+  onAdd,
+  handlers
+}: {
+  list: GoogleTaskList
+  tasks: GoogleTask[]
+  draft: string
+  setDraft: (s: string) => void
+  onAdd: (parsed: { title: string; due?: string }) => Promise<void>
+  handlers: GtHandlers
+}): JSX.Element {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const open = sortGoogle(tasks.filter((t) => t.status !== 'completed'))
+  const completed = tasks.filter((t) => t.status === 'completed')
+
+  const submit = (): void => {
+    const parsed = parseGoogleQuickAdd(draft)
+    if (!parsed.title) return
+    void onAdd(parsed)
+    setDraft('')
+  }
+  const renderRow = (t: GoogleTask): JSX.Element => (
+    <GtTaskRow
+      key={t.id}
+      task={t}
+      isOpen={expanded === t.id}
+      onToggleExpand={() => setExpanded(expanded === t.id ? null : t.id)}
+      onComplete={() => handlers.onComplete(list.id, t.id)}
+      onReopen={() => handlers.onReopen(list.id, t.id)}
+      onUpdate={(patch) => handlers.onUpdate(list.id, t.id, patch)}
+      onDelete={() => handlers.onDelete(list.id, t.id)}
+    />
+  )
+
+  return (
+    <>
+      <div className="notes-editor-head">
+        <div className="notes-editor-title">
+          <CheckSquare size={14} style={{ color: '#1a73e8' }} />
+          <span className="notes-editor-pane">{list.title}</span>
+          <span className="notes-editor-ws">Google Tasks</span>
+        </div>
+      </div>
+
+      <div className="tt-quickadd">
+        <Plus size={14} className="tt-quickadd-icon" />
+        <input
+          className="tt-quickadd-input"
+          placeholder={`Add to ${list.title}…  e.g.  Pay rent tomorrow`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit()
+          }}
+        />
+        <button className="btn sm primary" disabled={!draft.trim()} onClick={submit}>
+          Add
+        </button>
+      </div>
+
+      <div className="notes-todos-section ticktick">
+        <div className="notes-todos-head">
+          <ListTodo size={13} />
+          <span>Tasks · {open.length} open</span>
+        </div>
+        {open.length === 0 && completed.length === 0 && (
+          <div className="notes-todos-empty">No tasks yet — add one above.</div>
+        )}
+        {open.map((t) => renderRow(t))}
+        {completed.length > 0 && (
+          <div className="notes-todos-completed">
+            <button
+              className="notes-todos-completed-head as-button"
+              onClick={() => setShowCompleted((v) => !v)}
+            >
+              {showCompleted ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              Completed · {completed.length}
+            </button>
+            {showCompleted && completed.map((t) => renderRow(t))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 interface PaneEntry {
   workspaceId: string
   workspaceName: string
@@ -939,12 +1314,18 @@ export default function NotesModal(): JSX.Element {
   const tickTickConnected = useSettings(
     (s) => s.settings?.integrations?.ticktick?.connected ?? false
   )
+  const googleTasksConnected = useSettings(
+    (s) => s.settings?.integrations?.googleTasks?.connected ?? false
+  )
 
   type Selection =
     | { kind: 'pane'; wsId: string; paneId: string }
     | { kind: 'ticktick'; projectId: string }
     | { kind: 'tt-smart'; view: SmartView }
     | { kind: 'tt-search' }
+    | { kind: 'google'; listId: string }
+    | { kind: 'g-smart'; view: SmartView }
+    | { kind: 'g-search' }
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Selection | null>(null)
   const [todoDraft, setTodoDraft] = useState('')
@@ -955,6 +1336,8 @@ export default function NotesModal(): JSX.Element {
   const [notesTab, setNotesTab] = useState<NotesTab>('notes')
   const isTtSelection = (s: Selection | null): boolean =>
     s?.kind === 'ticktick' || s?.kind === 'tt-smart' || s?.kind === 'tt-search'
+  const isGSelection = (s: Selection | null): boolean =>
+    s?.kind === 'google' || s?.kind === 'g-smart' || s?.kind === 'g-search'
 
   // ---- TickTick state (loaded lazily once the user is connected) ----
   const [ttProjects, setTtProjects] = useState<TickTickProject[]>([])
@@ -1000,6 +1383,45 @@ export default function NotesModal(): JSX.Element {
     }, 60_000)
     return () => window.clearInterval(handle)
   }, [show, tickTickConnected])
+
+  // ---- Google Tasks state (loaded lazily once the user is connected) ----
+  const [gtLists, setGtLists] = useState<GoogleTaskList[]>([])
+  const [gtTasksByList, setGtTasksByList] = useState<Record<string, GoogleTask[]>>({})
+  const [gtLoading, setGtLoading] = useState(false)
+  const [gtTaskDraft, setGtTaskDraft] = useState('')
+
+  const refreshGoogleTasks = async (): Promise<void> => {
+    if (!googleTasksConnected) return
+    setGtLoading(true)
+    try {
+      const lists = await window.api.googleTasksListLists()
+      setGtLists(lists)
+      const byId: Record<string, GoogleTask[]> = {}
+      for (const l of lists) {
+        try {
+          // showCompleted=true so the per-list "Completed" group can render.
+          byId[l.id] = await window.api.googleTasksListTasks(l.id, true)
+        } catch {
+          byId[l.id] = []
+        }
+      }
+      setGtTasksByList(byId)
+    } catch (e) {
+      toast(`Google Tasks load failed: ${(e as Error).message}`, 'error')
+    } finally {
+      setGtLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (show && googleTasksConnected) void refreshGoogleTasks()
+  }, [show, googleTasksConnected])
+  useEffect(() => {
+    if (!show || !googleTasksConnected) return
+    const handle = window.setInterval(() => {
+      void refreshGoogleTasks()
+    }, 60_000)
+    return () => window.clearInterval(handle)
+  }, [show, googleTasksConnected])
 
   // Build the flat list of "every pane in every workspace". The active
   // workspace's panes live in useWorkspace; the rest are in the saved
@@ -1086,6 +1508,46 @@ export default function NotesModal(): JSX.Element {
     return sortTasks(allTtTasks.filter((t) => taskMatchesQuery(t, q)))
   }, [query, allTtTasks])
 
+  // ---- Google Tasks derived data ----
+  const gSel = useMemo(() => {
+    if (selected?.kind !== 'google') return null
+    return gtLists.find((l) => l.id === selected.listId) ?? null
+  }, [selected, gtLists])
+  const gSmart = selected?.kind === 'g-smart' ? selected.view : null
+  const gSearch = selected?.kind === 'g-search'
+
+  const gtListsById = useMemo(
+    () => Object.fromEntries(gtLists.map((l) => [l.id, l])) as Record<string, GoogleTaskList>,
+    [gtLists]
+  )
+  // Every task tagged with the list it came from (tasks themselves carry no id).
+  const allGtTasks = useMemo(
+    () =>
+      Object.entries(gtTasksByList).flatMap(([listId, tasks]) =>
+        tasks.map((task) => ({ task, listId, listLabel: gtListsById[listId]?.title ?? 'Tasks' }))
+      ),
+    [gtTasksByList, gtListsById]
+  )
+  const gSmartCounts = useMemo(() => {
+    const flat = allGtTasks.map((r) => r.task)
+    const c: Record<SmartView, number> = { today: 0, next7: 0, overdue: 0, all: 0 }
+    for (const v of SMART_VIEWS) c[v.id] = filterGoogleSmart(flat, v.id).length
+    return c
+  }, [allGtTasks])
+  const gSmartRows = useMemo(() => {
+    if (!gSmart) return []
+    const byId = new Map(allGtTasks.map((r) => [r.task.id, r]))
+    // filterGoogleSmart returns tasks already sorted; map each back to its row.
+    return filterGoogleSmart(allGtTasks.map((r) => r.task), gSmart).map((t) => byId.get(t.id)!).filter(Boolean)
+  }, [gSmart, allGtTasks])
+  const gSearchRows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    const matched = sortGoogle(allGtTasks.map((r) => r.task).filter((t) => googleMatchesQuery(t, q)))
+    const byId = new Map(allGtTasks.map((r) => [r.task.id, r]))
+    return matched.map((t) => byId.get(t.id)!).filter(Boolean)
+  }, [query, allGtTasks])
+
   // Auto-select the first pane on first open (Notes tab) so it's never blank.
   if (show && notesTab === 'notes' && !sel && entries.length > 0) {
     const first = entries[0]
@@ -1094,11 +1556,13 @@ export default function NotesModal(): JSX.Element {
 
   // Switch source tabs, seeding a sensible default selection for the new tab.
   const switchTab = (tab: NotesTab): void => {
-    if (tab === 'google' || tab === notesTab) return
+    if (tab === notesTab) return
     setNotesTab(tab)
     setQuery('')
     if (tab === 'ticktick') {
       if (!isTtSelection(selected)) setSelected({ kind: 'tt-smart', view: 'today' })
+    } else if (tab === 'google') {
+      if (!isGSelection(selected)) setSelected({ kind: 'g-smart', view: 'today' })
     } else if (entries.length > 0) {
       if (selected?.kind !== 'pane') {
         const first = entries[0]
@@ -1210,6 +1674,71 @@ export default function NotesModal(): JSX.Element {
     }
   }
 
+  // ---- List-scoped Google Tasks mutations (optimistic local updates) ----
+  const gtPatchLocal = (listId: string, taskId: string, patch: Partial<GoogleTask>): void => {
+    setGtTasksByList((m) => ({
+      ...m,
+      [listId]: (m[listId] ?? []).map((t) => (t.id === taskId ? { ...t, ...patch } : t))
+    }))
+  }
+  const gtAdd = async (listId: string, parsed: { title: string; due?: string }): Promise<void> => {
+    try {
+      const t = await window.api.googleTasksCreateTask(listId, parsed)
+      setGtTasksByList((m) => ({ ...m, [listId]: [t, ...(m[listId] ?? [])] }))
+      toast('Task added', 'ok')
+    } catch (e) {
+      toast(`Create failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const gtUpdate = async (
+    listId: string,
+    taskId: string,
+    patch: { title?: string; notes?: string | null; due?: string | null }
+  ): Promise<void> => {
+    try {
+      const updated = await window.api.googleTasksUpdateTask(listId, taskId, patch)
+      gtPatchLocal(listId, taskId, updated)
+      toast('Task updated', 'ok')
+    } catch (e) {
+      toast(`Update failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const gtComplete = async (listId: string, taskId: string): Promise<void> => {
+    gtPatchLocal(listId, taskId, { status: 'completed' })
+    try {
+      await window.api.googleTasksCompleteTask(listId, taskId)
+    } catch (e) {
+      gtPatchLocal(listId, taskId, { status: 'needsAction' })
+      toast(`Complete failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const gtReopen = async (listId: string, taskId: string): Promise<void> => {
+    gtPatchLocal(listId, taskId, { status: 'needsAction' })
+    try {
+      await window.api.googleTasksUpdateTask(listId, taskId, { status: 'needsAction' })
+    } catch (e) {
+      gtPatchLocal(listId, taskId, { status: 'completed' })
+      toast(`Reopen failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const gtDelete = async (listId: string, taskId: string): Promise<void> => {
+    try {
+      await window.api.googleTasksDeleteTask(listId, taskId)
+      setGtTasksByList((m) => ({
+        ...m,
+        [listId]: (m[listId] ?? []).filter((t) => t.id !== taskId)
+      }))
+    } catch (e) {
+      toast(`Delete failed: ${(e as Error).message}`, 'error')
+    }
+  }
+  const gtHandlers: GtHandlers = {
+    onUpdate: gtUpdate,
+    onComplete: gtComplete,
+    onReopen: gtReopen,
+    onDelete: gtDelete
+  }
+
   const totalTodos = (p: Pane): { open: number; total: number } => {
     const todos = p.todos ?? []
     return { open: todos.filter((t) => !t.done).length, total: todos.length }
@@ -1274,12 +1803,13 @@ export default function NotesModal(): JSX.Element {
           </button>
           <button
             role="tab"
-            className="notes-tab disabled"
-            disabled
-            title="Google Tasks — coming soon"
+            className={clsx('notes-tab', notesTab === 'google' && 'active')}
+            onClick={() => switchTab('google')}
           >
-            <ListChecks size={13} /> Google Tasks
-            <span className="notes-tab-soon">soon</span>
+            <CheckSquare size={13} /> Google Tasks
+            {googleTasksConnected && gSmartCounts.today > 0 && (
+              <span className="notes-tab-badge">{gSmartCounts.today}</span>
+            )}
           </button>
         </div>
 
@@ -1291,7 +1821,11 @@ export default function NotesModal(): JSX.Element {
                 <input
                   className="notes-search-input"
                   placeholder={
-                    notesTab === 'ticktick' ? 'Search TickTick tasks…' : 'Search notes & to-dos…'
+                    notesTab === 'ticktick'
+                      ? 'Search TickTick tasks…'
+                      : notesTab === 'google'
+                        ? 'Search Google Tasks…'
+                        : 'Search notes & to-dos…'
                   }
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -1300,7 +1834,9 @@ export default function NotesModal(): JSX.Element {
               <div className="notes-summary">
                 {notesTab === 'ticktick'
                   ? `${ttProjects.length} list${ttProjects.length === 1 ? '' : 's'} · ${allTtTasks.filter((t) => (t.status ?? 0) === 0).length} open`
-                  : `${entries.length} pane${entries.length === 1 ? '' : 's'} · ${entries.reduce((n, e) => n + (e.pane.todos?.length ?? 0), 0)} to-dos`}
+                  : notesTab === 'google'
+                    ? `${gtLists.length} list${gtLists.length === 1 ? '' : 's'} · ${allGtTasks.filter((r) => r.task.status !== 'completed').length} open`
+                    : `${entries.length} pane${entries.length === 1 ? '' : 's'} · ${entries.reduce((n, e) => n + (e.pane.todos?.length ?? 0), 0)} to-dos`}
               </div>
             </div>
 
@@ -1316,6 +1852,11 @@ export default function NotesModal(): JSX.Element {
               {notesTab === 'ticktick' && !tickTickConnected && (
                 <div className="notes-empty-list">
                   TickTick isn’t connected. Connect it in Settings → Integrations.
+                </div>
+              )}
+              {notesTab === 'google' && !googleTasksConnected && (
+                <div className="notes-empty-list">
+                  Google Tasks isn’t connected. Connect it in Settings → Integrations.
                 </div>
               )}
               {notesTab === 'ticktick' && tickTickConnected && (
@@ -1430,6 +1971,86 @@ export default function NotesModal(): JSX.Element {
                   )}
                 </div>
               )}
+              {notesTab === 'google' && googleTasksConnected && (
+                <div className="notes-group">
+                  <div className="notes-group-head notes-group-tt">
+                    <span>Google Tasks</span>
+                    <button
+                      className="notes-group-refresh"
+                      title="Refresh Google Tasks"
+                      disabled={gtLoading}
+                      onClick={() => void refreshGoogleTasks()}
+                    >
+                      <RefreshCw size={11} />
+                    </button>
+                  </div>
+                  {query.trim() && (
+                    <button
+                      className={clsx('notes-smart-view', gSearch && 'active')}
+                      onClick={() => setSelected({ kind: 'g-search' })}
+                    >
+                      <Search size={12} className="notes-smart-icon" />
+                      <span className="notes-smart-label">Search results</span>
+                      {gSearchRows.length > 0 && (
+                        <span className="notes-list-badge">{gSearchRows.length}</span>
+                      )}
+                    </button>
+                  )}
+                  <div className="notes-smart-views">
+                    {SMART_VIEWS.map((v) => {
+                      const Icon = v.icon
+                      const count = gSmartCounts[v.id]
+                      const isSel = gSmart === v.id
+                      return (
+                        <button
+                          key={v.id}
+                          className={clsx('notes-smart-view', isSel && 'active')}
+                          onClick={() => setSelected({ kind: 'g-smart', view: v.id })}
+                        >
+                          <Icon size={12} className="notes-smart-icon" />
+                          <span className="notes-smart-label">{v.label}</span>
+                          {count > 0 && (
+                            <span
+                              className={clsx('notes-list-badge', v.id === 'overdue' && 'danger')}
+                              title={`${count} task${count === 1 ? '' : 's'}`}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {gtLists.length === 0 && !gtLoading && (
+                    <div className="notes-empty-list">No lists.</div>
+                  )}
+                  {gtLists.map((l) => {
+                    const tasks = gtTasksByList[l.id] ?? []
+                    const open = tasks.filter((t) => t.status !== 'completed').length
+                    const isSel = gSel?.id === l.id
+                    return (
+                      <button
+                        key={l.id}
+                        className={clsx('notes-list-item', isSel && 'active')}
+                        onClick={() => setSelected({ kind: 'google', listId: l.id })}
+                      >
+                        <div className="notes-list-title-row">
+                          <CheckSquare size={11} className="notes-list-icon" style={{ color: '#1a73e8' }} />
+                          <span className="notes-list-title">{l.title}</span>
+                          {open > 0 && (
+                            <span className="notes-list-badge" title={`${open} open`}>
+                              {open}
+                            </span>
+                          )}
+                        </div>
+                        <div className="notes-list-snippet">
+                          {tasks.length === 0 ? '— no tasks —' : `${tasks.length} task${tasks.length === 1 ? '' : 's'}`}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               {notesTab === 'notes' && grouped.map(([wsId, group]) => (
                 <div className="notes-group" key={wsId}>
                   <div className="notes-group-head">{group.name}{wsId === activeId && <span className="notes-group-active"> · current</span>}</div>
@@ -1520,6 +2141,45 @@ export default function NotesModal(): JSX.Element {
                     </div>
                   )}
                 </>
+              )
+            ) : notesTab === 'google' ? (
+              !googleTasksConnected ? (
+                <div className="notes-empty-state">
+                  <CheckSquare size={32} strokeWidth={1.2} />
+                  <div>Connect Google Tasks in Settings → Integrations to see your tasks here.</div>
+                </div>
+              ) : gSearch ? (
+                <GtTaskList
+                  title={query.trim() ? `Search · "${query.trim()}"` : 'Search'}
+                  icon={Search}
+                  rows={gSearchRows}
+                  emptyText={
+                    query.trim() ? 'No tasks match your search.' : 'Type in the search box above.'
+                  }
+                  handlers={gtHandlers}
+                />
+              ) : gSmart ? (
+                <GtTaskList
+                  title={SMART_VIEWS.find((v) => v.id === gSmart)!.label}
+                  icon={SMART_VIEWS.find((v) => v.id === gSmart)!.icon}
+                  rows={gSmartRows}
+                  emptyText={gSmart === 'overdue' ? 'Nothing overdue 🎉' : 'No tasks here.'}
+                  handlers={gtHandlers}
+                />
+              ) : gSel ? (
+                <GtListEditor
+                  list={gSel}
+                  tasks={gtTasksByList[gSel.id] ?? []}
+                  draft={gtTaskDraft}
+                  setDraft={setGtTaskDraft}
+                  onAdd={(parsed) => gtAdd(gSel.id, parsed)}
+                  handlers={gtHandlers}
+                />
+              ) : (
+                <div className="notes-empty-state">
+                  <CheckSquare size={32} strokeWidth={1.2} />
+                  <div>Pick a list or smart view on the left.</div>
+                </div>
               )
             ) : !sel ? (
               <div className="notes-empty-state">

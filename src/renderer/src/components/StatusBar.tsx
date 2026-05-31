@@ -10,8 +10,6 @@ import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
 import LearningStatus from './LearningStatus'
 
-const VERSION = 'v0.2.0'
-
 function formatChars(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
@@ -75,6 +73,12 @@ export default function StatusBar(): JSX.Element {
       15000
     )
     return () => window.clearInterval(id)
+  }, [])
+
+  // Real app version (from package.json via the main process), not a hardcoded string.
+  const [version, setVersion] = useState('')
+  useEffect(() => {
+    void window.api.getAppInfo().then((i) => setVersion(i.version)).catch(() => {})
   }, [])
 
   const [layoutOpen, setLayoutOpen] = useState(false)
@@ -156,7 +160,7 @@ export default function StatusBar(): JSX.Element {
       <span className="sb-item">
         <Clock size={12} /> {clock}
       </span>
-      <span className="sb-item dim">{VERSION}</span>
+      <span className="sb-item dim">{version ? `v${version}` : ''}</span>
     </footer>
   )
 }

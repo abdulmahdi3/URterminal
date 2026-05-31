@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, X, Network, NotebookPen } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
@@ -171,7 +171,8 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
 
 export default function TitleBar(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
-  const paneCount = useWorkspace((s) => Object.keys(s.panes).length)
+  const panes = useWorkspace((s) => s.panes)
+  const paneCount = Object.keys(panes).length
   const atMax = paneCount >= 9
   const list = useWorkspaces((s) => s.list)
   const activeId = useWorkspaces((s) => s.activeId)
@@ -198,8 +199,21 @@ export default function TitleBar(): JSX.Element {
     })
     void refreshWslDistros().then(() => setShells(getShellSpecs()))
   }, [])
-  // Show every agent; uninstalled ones render greyed so they're still discoverable.
-  const agentList = agents
+  // Agent CLIs currently running in a pane (active workspace + background
+  // snapshots) — these stay visible even if their CLI isn't detected on PATH.
+  const activeAgentIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const p of Object.values(panes)) if (p.agent?.command) ids.add(p.agent.command)
+    for (const w of list)
+      for (const p of Object.values(w.panes ?? {})) if (p.agent?.command) ids.add(p.agent.command)
+    return ids
+  }, [panes, list])
+  // Only show agents that are installed or currently in use. Until detection
+  // finishes (available is empty) show all, so the bar never starts out blank.
+  const agentList =
+    available.size === 0
+      ? agents
+      : agents.filter((a) => available.has(a.id) || activeAgentIds.has(a.id))
 
   let visibleList = list.slice(0, MAX_TABS)
   let overflowList = list.slice(MAX_TABS)

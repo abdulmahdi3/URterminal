@@ -31,6 +31,7 @@ import { usePaneRegistry } from './hooks/usePaneRegistry'
 import { useBroadcast } from './hooks/useBroadcast'
 import { usePaneActivity } from './hooks/usePaneActivity'
 import { useDoneNotifications } from './hooks/useDoneNotifications'
+import { useDoneGlow } from './hooks/useDoneGlow'
 import { useWorkspaceBadges } from './hooks/useWorkspaceBadges'
 import { useActivityLog } from './hooks/useActivityLog'
 import { refreshWslDistros } from './lib/shells'
@@ -49,6 +50,7 @@ export default function App(): JSX.Element {
   useBroadcast()
   usePaneActivity()
   useDoneNotifications()
+  useDoneGlow()
   useWorkspaceBadges()
   useActivityLog()
 
