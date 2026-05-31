@@ -1,7 +1,6 @@
 import { app } from 'electron'
-import { createHash } from 'crypto'
 import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync } from 'fs'
-import { join, resolve } from 'path'
+import { join } from 'path'
 
 /**
  * On-disk home + config for the learning layer. Everything lives under
@@ -110,13 +109,6 @@ export function learningRoot(): string {
   return root()
 }
 
-/** Stable per-project id used to group transcripts (and later memory/skills). */
-export function projectHash(cwd: string): string {
-  const base = cwd || process.cwd()
-  const norm = process.platform === 'win32' ? resolve(base).toLowerCase() : resolve(base)
-  return createHash('sha1').update(norm).digest('hex').slice(0, 12)
-}
-
 function dayStamp(ts: number): string {
   const d = new Date(ts)
   const p = (n: number): string => String(n).padStart(2, '0')
@@ -136,6 +128,13 @@ export interface TurnRecord {
   turnIndex: number
   user: { text: string; ts: number } | null
   agent: { text: string; durationMs: number; exitMarker: string }
+  /**
+   * How `agent.text` was captured. 'ansi-scrape' (the only value today) means it
+   * was assembled from the raw terminal stream with control codes stripped. A
+   * later slice can launch agents in a structured/headless mode and record
+   * 'stream-json' for higher-fidelity input to distillation.
+   */
+  channel: 'ansi-scrape' | 'stream-json'
   scrubbed: boolean
   truncated: boolean
 }

@@ -66,6 +66,13 @@ export interface AgentDescriptor {
   resumeArgs?: string[]
   /** Shown when the agent is selected but not found on PATH. */
   installHint?: string
+  /**
+   * Capabilities the learning layer can exploit. `streamJson` means the CLI can
+   * emit a structured/headless transcript (e.g. Claude Code's
+   * `--output-format stream-json`), which a later slice can capture verbatim
+   * instead of scraping the ANSI screen.
+   */
+  supports?: { streamJson?: boolean }
   /** Where this descriptor came from. Built-ins are always listed; the others
    *  are discovered at runtime (main process) and merged in. */
   source?: 'builtin' | 'manifest' | 'gh-extension'

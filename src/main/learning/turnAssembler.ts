@@ -1,19 +1,24 @@
 import { randomUUID } from 'crypto'
 import { stripAnsi } from './ansi'
 import { scrub } from './scrub'
-import { appendTurn, projectHash, type LearningConfig, type TurnRecord } from './store'
+import { projectHash } from './paths'
+import type { LearningConfig, TurnRecord } from './store'
 
 /**
- * Assembles raw PTY output for ONE pane into discrete "turns" and writes each as
- * a scrubbed JSONL record. A turn = the user's submitted prompt paired with the
- * agent output that followed it. A turn flushes when any of these fires:
+ * Assembles raw PTY output for ONE pane into discrete "turns" and emits each as
+ * a scrubbed record. A turn = the user's submitted prompt paired with the agent
+ * output that followed it. A turn flushes when any of these fires:
  *   1. the next user prompt arrives (closes the previous turn);
  *   2. the agent goes quiet for `turnIdleMs` (an idle gap closes an agent turn);
  *   3. the pane/session ends.
  *
- * Raw chunks are NEVER persisted — only the assembled, ANSI-stripped, scrubbed
- * turn. The output buffer is bounded by `maxTurnBytes` (oldest bytes dropped,
- * the turn flagged `truncated`) so a runaway agent can't grow it without bound.
+ * Raw chunks are NEVER kept — only the assembled, ANSI-stripped, scrubbed turn.
+ * The output buffer is bounded by `maxTurnBytes` (oldest bytes dropped, the turn
+ * flagged `truncated`) so a runaway agent can't grow it without bound.
+ *
+ * The completed record is handed to an injected `emit` callback rather than
+ * written directly, so this whole class is pure and unit-testable without
+ * Electron — the caller wires `emit` to the on-disk store.
  */
 export class TurnAssembler {
   private buf = ''
@@ -31,7 +36,8 @@ export class TurnAssembler {
     private readonly sessionId: string,
     private readonly agentId: string,
     private readonly cwd: string,
-    private readonly cfg: () => LearningConfig
+    private readonly cfg: () => LearningConfig,
+    private readonly emit: (rec: TurnRecord) => void
   ) {
     this.hash = projectHash(cwd)
   }
@@ -89,7 +95,7 @@ export class TurnAssembler {
     const hadUser = this.userText
     const userTs = this.userTs
 
-    // Reset for the next turn before the (guarded) write so an error can't wedge
+    // Reset for the next turn before the (guarded) emit so an error can't wedge
     // the assembler into re-emitting the same turn.
     this.buf = ''
     this.truncated = false
@@ -111,9 +117,10 @@ export class TurnAssembler {
       turnIndex: this.turnIndex++,
       user: hadUser != null ? { text: userClean ?? '', ts: userTs } : null,
       agent: { text: agentText, durationMs: Math.max(0, Date.now() - startTs), exitMarker: reason },
+      channel: 'ansi-scrape',
       scrubbed: true,
       truncated
     }
-    appendTurn(rec)
+    this.emit(rec)
   }
 }

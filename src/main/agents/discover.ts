@@ -53,6 +53,10 @@ function loadManifest(): AgentDescriptor[] {
             detect: Array.isArray(e.detect) ? e.detect.map(String) : undefined,
             resumeArgs: Array.isArray(e.resumeArgs) ? e.resumeArgs.map(String) : undefined,
             installHint: typeof e.installHint === 'string' ? e.installHint : undefined,
+            supports:
+              e.supports && typeof e.supports === 'object'
+                ? { streamJson: !!e.supports.streamJson }
+                : undefined,
             source: 'manifest'
           })
         }
