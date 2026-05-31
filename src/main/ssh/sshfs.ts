@@ -124,14 +124,32 @@ export class SshfsManager {
 
   private async doMount(opts: SshfsMountOpts): Promise<{ drive: string; mountPath: string }> {
     if (!sshfsInstalled()) throw new Error('SSHFS-Win is not installed')
+    // Try up to 3 free drive letters: a single letter can be wedged by a prior
+    // failed/half mount, so don't fail outright — route around it.
+    const tried = new Set<string>()
+    let lastErr: Error | undefined
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const used = (l: string): boolean =>
+        tried.has(l) ||
+        existsSync(driveRoot(l)) ||
+        this.reserved.has(l) ||
+        [...this.mounts.values()].some((m) => m.drive === l)
+      const drive = pickFreeDrive(used)
+      if (!drive) break
+      tried.add(drive)
+      try {
+        return await this.tryMountOnDrive(opts, drive)
+      } catch (e) {
+        lastErr = e as Error
+      }
+    }
+    throw lastErr ?? new Error('No free drive letter available to mount the remote folder')
+  }
 
-    // Exclude OS-used letters, our own live mounts, and in-flight reservations.
-    const used = (l: string): boolean =>
-      existsSync(driveRoot(l)) ||
-      this.reserved.has(l) ||
-      [...this.mounts.values()].some((m) => m.drive === l)
-    const drive = pickFreeDrive(used)
-    if (!drive) throw new Error('No free drive letter available to mount the remote folder')
+  private async tryMountOnDrive(
+    opts: SshfsMountOpts,
+    drive: string
+  ): Promise<{ drive: string; mountPath: string }> {
     this.reserved.add(drive)
     const mountPath = driveRoot(drive)
 

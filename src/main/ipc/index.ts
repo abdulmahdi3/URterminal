@@ -325,12 +325,19 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
         }
       }
 
-      // Without a mount, open in a dedicated empty scratch dir (NOT the user's
-      // home — that would dump personal files and isn't the server) so it's clear
-      // the agent works the server via urssh only.
-      const cwd = mountPath ?? sshScratchDir(target)
+      // Run the agent from a local working dir holding a CLAUDE.md with the
+      // instructions — Claude Code reads it automatically on startup, so delivery
+      // is reliable (no fragile auto-typing). The mounted folder (when present)
+      // is referenced from there; without a mount this stays an empty scratch dir
+      // (NOT the user's home, which would dump personal files).
+      const workDir = sshScratchDir(target)
       const instruction = buildAgentInstruction(target, helperPath, mountPath)
-      return { ok: true, cwd, instruction, mounted: !!mountPath, drive, needsSshfs, mountError }
+      try {
+        writeFileSync(join(workDir, 'CLAUDE.md'), instruction, 'utf8')
+      } catch {
+        /* non-fatal */
+      }
+      return { ok: true, cwd: workDir, instruction, mounted: !!mountPath, drive, needsSshfs, mountError }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }

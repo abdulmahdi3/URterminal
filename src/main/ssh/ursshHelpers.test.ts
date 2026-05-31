@@ -22,20 +22,22 @@ describe('buildUrsshSh', () => {
 })
 
 describe('buildAgentInstruction', () => {
-  it('quotes the helper path and tells the agent how to run remote commands (no mount)', () => {
+  it('tells the agent to run server commands through the helper, not local bash/ssh (no mount)', () => {
     const ins = buildAgentInstruction('me@host', 'C:\\tmp\\urssh-x\\urssh.cmd')
     expect(ins).toContain('me@host')
     expect(ins).toContain('"C:\\tmp\\urssh-x\\urssh.cmd" "uname -a"')
     expect(ins).toContain('ONE double-quoted argument')
     expect(ins.toLowerCase()).toContain('nothing is installed on the server')
+    // explicitly steers off the failure mode we saw (local bash / plain ssh)
+    expect(ins.toLowerCase()).toContain('not on the server')
     expect(ins).not.toContain('mounted locally')
   })
 
-  it('describes the mounted folder + urssh split when a mount path is given', () => {
+  it('points the agent at the mounted folder for files when a mount path is given', () => {
     const ins = buildAgentInstruction('me@host', 'C:\\tmp\\urssh-x\\urssh.cmd', 'Z:\\')
-    expect(ins).toContain('mounted locally at Z:\\')
-    expect(ins).toContain('EDIT files here directly')
+    expect(ins).toContain('mounted locally at')
+    expect(ins).toContain('Z:\\')
+    expect(ins).toContain('cd Z:\\')
     expect(ins).toContain('"C:\\tmp\\urssh-x\\urssh.cmd" "<command>"')
-    expect(ins.toLowerCase()).toContain('runs on')
   })
 })

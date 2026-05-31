@@ -27,45 +27,52 @@ export function buildUrsshSh(opts: { port: number; token: string; target: string
 }
 
 /**
- * The instruction injected into the agent so it knows how to drive the server.
- * When `mountPath` is given, the server's files are mounted locally there (SFTP),
- * so the agent edits files like a normal local folder and only uses the helper to
- * RUN commands on the server. Without a mount it's the helper for everything.
+ * Instructions the agent must follow to operate the server. Written to a
+ * CLAUDE.md in the agent's working dir (Claude Code reads it automatically), so
+ * delivery doesn't depend on fragile auto-typing. When `mountPath` is given the
+ * server's files are mounted locally there for editing; otherwise everything
+ * goes through the helper.
  */
 export function buildAgentInstruction(target: string, helperPath: string, mountPath?: string): string {
   const q = `"${helperPath}"`
-  if (mountPath) {
-    return [
-      `You are operating the remote server ${target}. Nothing is installed on the server.`,
-      ``,
-      `FILES: the server's files are mounted locally at ${mountPath} — you are in that folder now.`,
-      `Read, navigate (cd into subfolders), create and EDIT files here directly with your normal`,
-      `file tools; every change is written straight to the server over SFTP. Treat it as a normal`,
-      `local project folder.`,
-      ``,
-      `RUNNING COMMANDS ON THE SERVER (build, test, git, services): a plain shell command runs on`,
-      `THIS local machine, NOT the server. To run something ON the server, call this helper and`,
-      `pass the entire command as ONE double-quoted argument:`,
-      `  ${q} "<command>"`,
-      `Examples:`,
-      `  ${q} "uname -a"`,
-      `  ${q} "cd <dir> && make"`,
-      `  ${q} "systemctl status nginx | cat"`,
-      ``,
-      `Begin by exploring the mounted files and the server (OS, hostname, disk), then help me.`
-    ].join('\n')
-  }
-  return [
-    `You are now operating the remote server ${target} over SSH, from this LOCAL shell.`,
-    `Nothing is installed on the server. To run ANY command on it, call this helper and pass the`,
-    `entire command as ONE double-quoted argument:`,
-    `  ${q} "<command>"`,
+  const lines = [
+    `# Operating the remote server ${target}`,
+    ``,
+    `You are running on a LOCAL Windows machine and are connected to the remote server`,
+    `**${target}**. Nothing is installed on the server.`,
+    ``,
+    `## Running commands ON the server`,
+    `Your normal Bash/shell tool runs on THIS Windows machine, NOT on the server, and plain`,
+    `\`ssh\`/\`scp\` will fail (no interactive password). To run ANY command on the server, call this`,
+    `helper, passing the entire command as ONE double-quoted argument:`,
+    ``,
+    `    ${q} "<command>"`,
+    ``,
     `Examples:`,
-    `  ${q} "uname -a"`,
-    `  ${q} "ls -la /var/log"`,
-    `  ${q} "ps aux | grep nginx"`,
-    `The helper reuses one authenticated SSH connection, so there is no password prompt. Use it for`,
-    `every server action. Begin by exploring the server (OS, hostname, current directory, disk),`,
-    `then help me manage it.`
-  ].join('\n')
+    `- \`${q} "uname -a"\``,
+    `- \`${q} "df -h && free -h"\``,
+    `- \`${q} "systemctl status nginx | cat"\``,
+    ``,
+    `The helper reuses one already-authenticated SSH connection (no password prompt). **Always use`,
+    `it for server commands** — do not use your normal Bash tool or \`ssh\` for the server.`,
+    ``
+  ]
+  if (mountPath) {
+    lines.push(
+      `## Editing the server's files`,
+      `The server's files are mounted locally at \`${mountPath}\`. \`cd ${mountPath}\` and read,`,
+      `navigate and EDIT them there with your normal file tools — every change is written straight`,
+      `to the server over SFTP.`,
+      ``
+    )
+  } else {
+    lines.push(
+      `## Files`,
+      `The server's filesystem is not mounted, so use the helper for file operations too`,
+      `(e.g. \`${q} "cat /etc/os-release"\`, \`${q} "ls -la /var/www"\`).`,
+      ``
+    )
+  }
+  lines.push(`Start by exploring the server with the helper (OS, hostname, disk, services).`)
+  return lines.join('\n')
 }

@@ -3,7 +3,7 @@ import type { MosaicDirection, MosaicNode } from 'react-mosaic-component'
 import type { Pane, PaneType, ProviderId } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
-import { disposeTerminal, isTerminalStarted } from '@renderer/lib/terminalPool'
+import { disposeTerminal } from '@renderer/lib/terminalPool'
 import { homeDir } from '@renderer/lib/osInfo'
 import { toast } from '@renderer/store/toasts'
 import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
@@ -437,7 +437,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       void window.api
         .sshOpenAgent(target)
         .then((res) => {
-          if (!res.ok || !res.instruction) {
+          if (!res.ok || !res.cwd) {
             toast(`Agent over SSH failed: ${res.error ?? 'unknown error'}`, 'error')
             return
           }
@@ -463,32 +463,13 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
           })
           scheduleEnterClear(set, np.id)
 
+          // The agent's instructions are delivered via a CLAUDE.md in its working
+          // dir (read automatically on startup) — no fragile auto-typing needed.
           if (res.mounted) toast(`Mounted ${target} at ${res.drive}: — editing files there`, 'ok')
           else if (res.needsSshfs)
             toast('Install SSHFS-Win to edit remote files directly (run "SSH: Install remote-folder mount"). Running commands works now.', 'info')
           else if (res.mountError)
             toast(`Couldn't mount the remote folder: ${res.mountError}. Running commands still works.`, 'error')
-
-          const ESC = String.fromCharCode(27)
-          const instruction = res.instruction
-          const submit = (): boolean => {
-            const pty = get().panes[np.id]?.agent?.ptyId
-            if (!pty) return false
-            window.api.writePty(pty, `${ESC}[200~${instruction}${ESC}[201~`)
-            window.setTimeout(() => window.api.writePty(pty, '\r'), 150)
-            return true
-          }
-          // Wait for the agent to boot (first output), then give its input box a
-          // moment to render before pasting + sending the instruction.
-          let tries = 0
-          const waitBoot = (): void => {
-            if (isTerminalStarted(np.id)) {
-              window.setTimeout(submit, 1800)
-              return
-            }
-            if (tries++ < 100) window.setTimeout(waitBoot, 200)
-          }
-          window.setTimeout(waitBoot, 400)
         })
         .catch((e: Error) => toast(`Agent over SSH failed: ${e.message}`, 'error'))
         .finally(() => sshAgentOpening.delete(target))
