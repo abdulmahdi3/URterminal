@@ -177,6 +177,10 @@ const api = {
     ipcRenderer.invoke(IPC.googleTasksDeleteTask, { listId, taskId }),
   googleTasksAgenda: (): Promise<string> => ipcRenderer.invoke(IPC.googleTasksAgenda),
 
+  // ---- selection translation ----
+  translateText: (text: string, targetLang: string): Promise<{ text: string; sourceLang?: string }> =>
+    ipcRenderer.invoke(IPC.translateText, { text, targetLang }),
+
   // ---- self-update (electron-updater backed by GitHub releases) ----
   onUpdateAvailable: (cb: (s: UpdaterStatus) => void): (() => void) =>
     on<UpdaterStatus>(IPC.updaterAvailable, cb),

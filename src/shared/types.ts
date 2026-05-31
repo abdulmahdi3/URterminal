@@ -650,6 +650,9 @@ export const IPC = {
   googleTasksDeleteTask: 'gtasks:delete-task',
   googleTasksAgenda: 'gtasks:agenda',
 
+  // selection translation (Google gtx endpoint, main-side to avoid CORS)
+  translateText: 'translate:text',
+
   // telegram
   telegramStatus: 'telegram:status',
   telegramRestart: 'telegram:restart',

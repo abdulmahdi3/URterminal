@@ -11,7 +11,6 @@ import { getShellSpecs } from '@renderer/lib/shells'
 import { getAgents } from '@renderer/lib/agents'
 import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
-import { translateSelection } from '@renderer/lib/translate'
 import { injectText } from '@renderer/lib/inject'
 import { toast } from '@renderer/store/toasts'
 
@@ -139,12 +138,6 @@ export function getCommands(): Command[] {
       group: 'Panes',
       shortcut: 'Ctrl+F',
       run: () => ui().setSearchOpen(true)
-    },
-    {
-      id: 'pane.translateSelection',
-      title: 'Translate selection → send to agents',
-      group: 'Panes',
-      run: () => translateSelection()
     },
     {
       id: 'pane.zoom',

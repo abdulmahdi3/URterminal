@@ -18,6 +18,7 @@ import UpdateToast from './components/UpdateToast'
 import SearchBar from './components/SearchBar'
 import Toaster from './components/Toaster'
 import CopiedFlash from './components/CopiedFlash'
+import SelectionTranslate from './components/SelectionTranslate'
 import { useSettings } from './store/settings'
 import { useUi } from './store/ui'
 import { startMetricsLoop } from './store/metrics'
@@ -110,6 +111,7 @@ export default function App(): JSX.Element {
       <Toaster />
       <CopiedFlash />
       <UpdateToast />
+      <SelectionTranslate />
     </div>
   )
 }

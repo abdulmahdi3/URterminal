@@ -405,6 +405,71 @@ select {
   color: var(--accent);
 }
 
+/* ---- selection translate (Google-translate-style floating action) ---- */
+.sel-translate {
+  position: fixed;
+  z-index: 1000;
+  max-width: 340px;
+}
+.sel-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent-strong);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+}
+.sel-translate-btn:hover {
+  background: var(--accent);
+}
+.sel-translate-pop {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 200px;
+  max-width: 340px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+}
+.sel-translate-pop.error {
+  color: var(--danger);
+}
+.sel-translate-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.sel-translate-langs {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.sel-translate-text {
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  max-height: 240px;
+  overflow: auto;
+  /* auto-detect per-line direction so an Arabic/RTL result renders correctly */
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 /* keyboard hint chip */
 kbd {
   font-family: var(--mono);

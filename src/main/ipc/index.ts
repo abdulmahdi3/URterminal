@@ -26,6 +26,7 @@ import { TelegramBridge } from '../telegram/bridge'
 import { computeClaudeUsage } from '../usage/claudeUsage'
 import { TickTickClient, TickTickError } from '../integrations/ticktick'
 import { GoogleTasksClient } from '../integrations/googleTasks'
+import { translateText } from '../translate'
 
 export interface IpcContext {
   getWindow: () => BrowserWindow | null
@@ -483,6 +484,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     gtHandle(() => googleTasks.deleteTask(ids.listId, ids.taskId))
   )
   ipcMain.handle(IPC.googleTasksAgenda, () => gtHandle(() => googleTasks.agendaText()))
+
+  // ---- selection translation (Google gtx endpoint) ----
+  ipcMain.handle(IPC.translateText, (_e, args: { text: string; targetLang: string }) =>
+    translateText(args.text, args.targetLang)
+  )
 
   // ---- standalone notes (app-wide, separate from per-pane notes) ----
   const notesFile = (): string => join(app.getPath('userData'), 'notes.json')
