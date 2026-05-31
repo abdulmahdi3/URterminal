@@ -8,6 +8,7 @@ import { capturePane } from '@renderer/lib/terminalPool'
 import { getLeaves } from '@renderer/lib/mosaicTree'
 import { buildAutoLayout } from '@renderer/lib/layoutPresets'
 import { toast } from '@renderer/store/toasts'
+import { isSecondaryWindow } from '@renderer/lib/windowMode'
 
 const KEY = 'urterminal.workspace.v1'
 
@@ -64,6 +65,8 @@ export function usePersistence(): void {
   // mirrored to localStorage by the settings store so it's readable here before
   // the async settings load resolves (absent = on, preserving prior behavior).
   useEffect(() => {
+    // Secondary windows always start empty — never restore the shared session.
+    if (isSecondaryWindow) return
     if (localStorage.getItem('urterminal.autoRestore') === '0') return
     // Prefer the on-disk full snapshot (includes chat content); fall back to the
     // legacy localStorage config blob from older versions (layout only).
@@ -98,6 +101,9 @@ export function usePersistence(): void {
   // Persist (debounced) whenever panes/layout change, and flush synchronously
   // when the window is closing so the latest layout + chat content is never lost.
   useEffect(() => {
+    // Secondary windows must not write the shared last-session snapshot, or they
+    // would overwrite the primary window's persisted workspace on close.
+    if (isSecondaryWindow) return
     let handle = 0
     const save = (): void => {
       void window.api.writeLastSession(snapshot())

@@ -5,8 +5,7 @@ import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import type { WorkspaceEntry } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import SessionsMenu from './SessionsMenu'
@@ -187,14 +186,18 @@ export default function TitleBar(): JSX.Element {
   const toggleNotes = useUi((s) => s.toggleNotes)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
+  const [agents, setAgents] = useState(getAgents())
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
   useEffect(() => {
-    void refreshAgentAvailability().then((s) => setAvailable(new Set(s)))
+    void refreshAgentAvailability().then((s) => {
+      setAgents([...getAgents()])
+      setAvailable(new Set(s))
+    })
     void refreshWslDistros().then(() => setShells(getShellSpecs()))
   }, [])
-  // Show only installed agents in the menu; fall back to all before detection runs.
-  const agentList = available.size ? AGENTS.filter((a) => available.has(a)) : [...AGENTS]
+  // Show every agent; uninstalled ones render greyed so they're still discoverable.
+  const agentList = agents
 
   let visibleList = list.slice(0, MAX_TABS)
   let overflowList = list.slice(MAX_TABS)
@@ -253,17 +256,26 @@ export default function TitleBar(): JSX.Element {
         <div className="titlebar-sep" />
 
         {/* Installed agents — one icon each, opens a new pane of that agent */}
-        {agentList.map((a) => (
-          <button
-            key={a}
-            className="icon-btn agent-icon-btn"
-            title={atMax ? 'Max 9 panes reached' : `New ${AGENT_LABELS[a]} pane`}
-            disabled={atMax}
-            onClick={() => addPane('ai', undefined, { agentCommand: a, label: AGENT_LABELS[a] })}
-          >
-            <AgentLogo command={a} size={15} />
-          </button>
-        ))}
+        {agentList.map((a) => {
+          const unavailable = available.size > 0 && !available.has(a.id)
+          return (
+            <button
+              key={a.id}
+              className={clsx('icon-btn agent-icon-btn', unavailable && 'unavailable')}
+              title={
+                atMax
+                  ? 'Max 9 panes reached'
+                  : unavailable
+                    ? `${a.label} — not installed (opens setup)`
+                    : `New ${a.label} pane`
+              }
+              disabled={atMax}
+              onClick={() => addPane('ai', undefined, { agentCommand: a.id, label: a.label })}
+            >
+              <AgentLogo command={a.id} size={15} />
+            </button>
+          )
+        })}
 
         <div className="titlebar-sep" />
 

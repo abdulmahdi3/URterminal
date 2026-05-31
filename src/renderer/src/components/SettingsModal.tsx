@@ -13,20 +13,13 @@ import {
 } from 'lucide-react'
 import type { ProviderId, AppPrefs, SettingsPatch, IntegrationId, IntegrationStatus } from '@shared/types'
 import { DEFAULT_PREFS } from '@shared/types'
-import {
-  PROVIDER_LABELS,
-  DEFAULT_MODELS,
-  AGENTS,
-  AGENT_LABELS,
-  latestModel,
-  DEFAULT_AGENT
-} from '@shared/providers'
+import { PROVIDER_LABELS, DEFAULT_MODELS, latestModel, DEFAULT_AGENT } from '@shared/providers'
 import { uid } from '@renderer/lib/snippets'
 import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
 import { toast } from '@renderer/store/toasts'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { playDoneSound } from '@renderer/hooks/useDoneNotifications'
 
 const ACCENT_PRESETS = [
@@ -463,6 +456,7 @@ export default function SettingsModal(): JSX.Element | null {
   const [tgToken, setTgToken] = useState('')
   const [defaultModels, setDefaultModels] = useState<string[]>([])
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
+  const [agents, setAgents] = useState(getAgents())
   const [availableAgents, setAvailableAgents] = useState<Set<string>>(getAvailableAgents())
   const [snipName, setSnipName] = useState('')
   const [snipKind, setSnipKind] = useState<'prompt' | 'shell'>('prompt')
@@ -479,7 +473,10 @@ export default function SettingsModal(): JSX.Element | null {
   // WSL distros + agent availability are detected asynchronously.
   useEffect(() => {
     void refreshWslDistros().then(() => setShells(getShellSpecs()))
-    void refreshAgentAvailability().then((s) => setAvailableAgents(new Set(s)))
+    void refreshAgentAvailability().then((s) => {
+      setAgents([...getAgents()])
+      setAvailableAgents(new Set(s))
+    })
     void window.api.getAppInfo().then((i) => setAppVersion(i.version)).catch(() => {})
   }, [])
 
@@ -847,9 +844,9 @@ export default function SettingsModal(): JSX.Element | null {
                     desc="New AI panes launch this CLI by default."
                     control={
                       <select className="select" value={settings.defaultAgent} onChange={(e) => patch({ defaultAgent: e.target.value })}>
-                        {AGENTS.map((a) => {
-                          const unavailable = availableAgents.size > 0 && !availableAgents.has(a)
-                          return <option key={a} value={a} disabled={unavailable}>{AGENT_LABELS[a]}</option>
+                        {agents.map((a) => {
+                          const unavailable = availableAgents.size > 0 && !availableAgents.has(a.id)
+                          return <option key={a.id} value={a.id} disabled={unavailable}>{a.label}</option>
                         })}
                       </select>
                     }

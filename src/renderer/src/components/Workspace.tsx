@@ -30,8 +30,7 @@ import { useSessions } from '@renderer/store/sessions'
 import { toast } from '@renderer/store/toasts'
 import { getFullText, getScreenText } from '@renderer/lib/terminalPool'
 import { answerBlocks } from '@renderer/hooks/useChainForwarding'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import PaneView from './PaneView'
 import { AgentLogo, ShellLogo } from './brandIcons'
@@ -698,16 +697,20 @@ export default function Workspace(): JSX.Element {
   const restore = useSessions((s) => s.restore)
 
   // Device-installed agents + shells/WSL distros, detected asynchronously.
+  const [agents, setAgents] = useState(getAgents())
   const [availAgents, setAvailAgents] = useState<Set<string>>(getAvailableAgents())
   const [shellSpecs, setShellSpecs] = useState<ShellSpec[]>(getShellSpecs())
   useEffect(() => {
-    void refreshAgentAvailability().then((s) => setAvailAgents(new Set(s)))
+    void refreshAgentAvailability().then((s) => {
+      setAgents([...getAgents()])
+      setAvailAgents(new Set(s))
+    })
     void refreshWslDistros().then(() => setShellSpecs(getShellSpecs()))
   }, [])
 
   if (layout === null) {
     const recentSessions = sessions.slice(0, 4)
-    const agentList = availAgents.size ? AGENTS.filter((a) => availAgents.has(a)) : [...AGENTS]
+    const agentList = agents // show all; uninstalled render greyed for discoverability
     return (
       <div className="workspace-empty">
         <div className="empty-hero">
@@ -736,17 +739,20 @@ export default function Workspace(): JSX.Element {
           <div className="empty-disc-group">
             <div className="empty-disc-title">Agents on this device</div>
             <div className="empty-chips">
-              {agentList.map((a) => (
-                <button
-                  key={a}
-                  className="empty-chip"
-                  title={`New ${AGENT_LABELS[a]} pane`}
-                  onClick={() => addPane('ai', undefined, { agentCommand: a, label: AGENT_LABELS[a] })}
-                >
-                  <AgentLogo command={a} size={15} />
-                  {AGENT_LABELS[a]}
-                </button>
-              ))}
+              {agentList.map((a) => {
+                const unavailable = availAgents.size > 0 && !availAgents.has(a.id)
+                return (
+                  <button
+                    key={a.id}
+                    className={clsx('empty-chip', unavailable && 'unavailable')}
+                    title={unavailable ? `${a.label} — not installed (opens setup)` : `New ${a.label} pane`}
+                    onClick={() => addPane('ai', undefined, { agentCommand: a.id, label: a.label })}
+                  >
+                    <AgentLogo command={a.id} size={15} />
+                    {a.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

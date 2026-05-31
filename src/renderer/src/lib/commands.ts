@@ -1,6 +1,6 @@
 import type { Pane } from '@shared/types'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
+import { useWorkspaces } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
 import { useBroadcastStore } from '@renderer/store/broadcast'
 import { useSettings } from '@renderer/store/settings'
@@ -8,6 +8,7 @@ import { useActivity, activityToMarkdown } from '@renderer/store/activity'
 import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
+import { getAgents } from '@renderer/lib/agents'
 import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { toast } from '@renderer/store/toasts'
@@ -29,6 +30,15 @@ const ui = (): ReturnType<typeof useUi.getState> => useUi.getState()
 function activePane(): Pane | null {
   const s = ws()
   return (s.activePaneId && s.panes[s.activePaneId]) || null
+}
+
+/** Switch to the workspace `offset` tabs away from the active one (wraps around). */
+function switchWorkspaceBy(offset: number): void {
+  const { list, activeId, switchTo } = useWorkspaces.getState()
+  if (list.length < 2) return
+  const idx = list.findIndex((w) => w.id === activeId)
+  if (idx < 0) return
+  switchTo(list[(idx + offset + list.length) % list.length].id)
 }
 
 /** Run `command` in the active AI pane, or spin up a new one. */
@@ -215,7 +225,30 @@ export function getCommands(): Command[] {
       }
     },
 
+    // ---- workspaces ----
+    {
+      id: 'workspace.next',
+      title: 'Next workspace',
+      group: 'Workspaces',
+      shortcut: 'Ctrl+Tab',
+      run: () => switchWorkspaceBy(1)
+    },
+    {
+      id: 'workspace.prev',
+      title: 'Previous workspace',
+      group: 'Workspaces',
+      shortcut: 'Ctrl+Shift+Tab',
+      run: () => switchWorkspaceBy(-1)
+    },
+
     // ---- app ----
+    {
+      id: 'app.newWindow',
+      title: 'New window',
+      group: 'App',
+      shortcut: 'Ctrl+Shift+N',
+      run: () => window.api.openNewWindow()
+    },
     {
       id: 'app.settings',
       title: 'Open settings',
@@ -268,20 +301,19 @@ export function getCommands(): Command[] {
     }
   ]
 
-  // a "new pane" + "switch active pane" command for each agent CLI
-  for (const a of AGENTS) {
-    const label = AGENT_LABELS[a]
+  // a "new pane" + "switch active pane" command for each discovered agent CLI
+  for (const { id, label } of getAgents()) {
     cmds.push({
-      id: `agent.new.${a}`,
+      id: `agent.new.${id}`,
       title: `New ${label} agent pane`,
       group: 'Agent',
-      run: () => ws().addPane('ai', undefined, { agentCommand: a, label })
+      run: () => ws().addPane('ai', undefined, { agentCommand: id, label })
     })
     cmds.push({
-      id: `agent.run.${a}`,
+      id: `agent.run.${id}`,
       title: `Switch active pane → ${label}`,
       group: 'Agent',
-      run: () => runAgent(a)
+      run: () => runAgent(id)
     })
   }
 

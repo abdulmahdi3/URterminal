@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { FolderOpen, Sparkles, ArrowRight } from 'lucide-react'
-import { AGENTS, AGENT_LABELS, agentDescriptor } from '@shared/providers'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import {
+  getAgents,
+  getAgentDescriptor,
+  getAgentLabel,
+  getAvailableAgents,
+  refreshAgentAvailability
+} from '@renderer/lib/agents'
 
 interface Props {
   command: string
@@ -24,13 +29,17 @@ export default function AgentLauncher({
   onSelectAgent
 }: Props): JSX.Element {
   const [path, setPath] = useState(defaultCwd)
+  const [agents, setAgents] = useState(getAgents())
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
   useEffect(() => {
-    void refreshAgentAvailability().then((s) => setAvailable(new Set(s)))
+    void refreshAgentAvailability().then((s) => {
+      setAgents([...getAgents()])
+      setAvailable(new Set(s))
+    })
   }, [])
-  const label = AGENT_LABELS[command as keyof typeof AGENT_LABELS] ?? command
+  const label = getAgentLabel(command)
   const missing = available.size > 0 && !available.has(command)
-  const installHint = agentDescriptor(command)?.installHint
+  const installHint = getAgentDescriptor(command)?.installHint
 
   // Browsing to a folder is itself the confirmation — open the agent immediately.
   const browse = async (): Promise<void> => {
@@ -57,20 +66,20 @@ export default function AgentLauncher({
           </span>
         </div>
         <div className="agent-toggle-row">
-          {AGENTS.map((a) => {
-            const unavailable = available.size > 0 && !available.has(a)
+          {agents.map((a) => {
+            const unavailable = available.size > 0 && !available.has(a.id)
             return (
               <button
-                key={a}
+                key={a.id}
                 type="button"
-                className={clsx('agent-toggle', command === a && 'active', unavailable && 'unavailable')}
-                title={unavailable ? `${AGENT_LABELS[a]} — not installed` : `Use ${AGENT_LABELS[a]}`}
+                className={clsx('agent-toggle', command === a.id && 'active', unavailable && 'unavailable')}
+                title={unavailable ? `${a.label} — not installed` : `Use ${a.label}`}
                 aria-disabled={unavailable}
                 onClick={() => {
-                  if (!unavailable) onSelectAgent(a)
+                  if (!unavailable) onSelectAgent(a.id)
                 }}
               >
-                {AGENT_LABELS[a]}
+                {a.label}
               </button>
             )
           })}

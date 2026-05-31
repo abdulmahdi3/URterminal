@@ -37,10 +37,25 @@ export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434'
 // ---------------------------------------------------------------------------
 
 export interface AgentDescriptor {
-  /** Bare command spawned on PATH — also the stable id used everywhere. */
+  /** Stable id used everywhere (pane identity, settings, icons). For a plain
+   *  single-binary agent this is also the command spawned on PATH. */
   id: string
   /** Friendly name shown in the launcher, palette and pane title. */
   label: string
+  /**
+   * Program actually spawned on PATH. Defaults to `id`. Set this when the agent
+   * is invoked through a host binary — e.g. the `gh copilot` extension spawns
+   * `gh` with `launchArgs: ['copilot']` while keeping the id `gh-copilot`.
+   */
+  bin?: string
+  /** Args prepended at launch (before any resume args), e.g. ['copilot']. */
+  launchArgs?: string[]
+  /**
+   * Presence probe used to decide if the agent is installed. Defaults to [bin|id].
+   * The first element is the base program checked on PATH; extra elements
+   * document the full invocation for multi-word agents (e.g. ['gh','copilot']).
+   */
+  detect?: string[]
   /**
    * Args that make the CLI resume its most recent conversation in the same cwd.
    * When a pane is restored from a saved session, an agent with `resumeArgs` is
@@ -51,6 +66,26 @@ export interface AgentDescriptor {
   resumeArgs?: string[]
   /** Shown when the agent is selected but not found on PATH. */
   installHint?: string
+  /** Where this descriptor came from. Built-ins are always listed; the others
+   *  are discovered at runtime (main process) and merged in. */
+  source?: 'builtin' | 'manifest' | 'gh-extension'
+}
+
+/** Result of runtime agent discovery (built-ins + user manifest + gh extensions). */
+export interface AgentDiscovery {
+  /** The merged descriptor list, in display order. */
+  agents: AgentDescriptor[]
+  /** Ids of the agents whose CLI is actually installed on PATH. */
+  available: string[]
+}
+
+/** The program + full arg list to spawn for an agent (resume args appended by the caller). */
+export function agentLaunch(
+  d: AgentDescriptor | undefined,
+  id: string
+): { command: string; args: string[] } {
+  if (!d) return { command: id, args: [] }
+  return { command: d.bin ?? d.id, args: [...(d.launchArgs ?? [])] }
 }
 
 export const AGENT_REGISTRY: AgentDescriptor[] = [

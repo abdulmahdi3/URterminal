@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import type { MosaicNode } from 'react-mosaic-component'
 import type { Pane } from '@shared/types'
-import { resumeArgsFor } from '@shared/providers'
 import { useWorkspace } from './workspace'
+import { getAgentDescriptor } from '@renderer/lib/agents'
 import { capturePane, seedRestore, disposeTerminal } from '@renderer/lib/terminalPool'
+import { isSecondaryWindow } from '@renderer/lib/windowMode'
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
 
@@ -111,7 +112,8 @@ export function applyRestore(
 
   const remapped = remapIds(sanitize(panes), layout, transcripts)
   for (const [id, pane] of Object.entries(remapped.panes)) {
-    const resumeArgs = pane.type === 'ai' ? resumeArgsFor(pane.agent?.command) : undefined
+    const resumeArgs =
+      pane.type === 'ai' ? getAgentDescriptor(pane.agent?.command)?.resumeArgs : undefined
     if (resumeArgs?.length) {
       // Agent can resume its own session → relaunch with the resume flag; it
       // reprints its history, so we don't replay the transcript (avoids dupes).
@@ -192,6 +194,15 @@ export const useSessions = create<SessionsState>((set, get) => ({
 async function bootstrapSessions(): Promise<void> {
   const raw = await window.api.readSessions()
   let list: SavedSession[] = Array.isArray(raw) ? (raw as SavedSession[]) : []
+
+  // Secondary windows only display the saved-session list — they must not
+  // archive the last run or rewrite sessions.json (the primary window owns
+  // that, and a concurrent write would race / duplicate auto entries).
+  if (isSecondaryWindow) {
+    list.sort((a, b) => b.savedAt - a.savedAt)
+    useSessions.setState({ sessions: list })
+    return
+  }
 
   // Archive the last run's snapshot as an auto entry (dedupe by its savedAt).
   const last = await window.api.readLastSession()

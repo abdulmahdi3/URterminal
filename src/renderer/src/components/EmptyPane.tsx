@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
+import clsx from 'clsx'
 import { Clock, RotateCcw } from 'lucide-react'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useSessions } from '@renderer/store/sessions'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { AgentLogo, ShellLogo } from './brandIcons'
 
 export default function EmptyPane({ paneId }: { paneId: string }): JSX.Element {
@@ -16,14 +16,18 @@ export default function EmptyPane({ paneId }: { paneId: string }): JSX.Element {
   const lastSession = sessions[0]
 
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
+  const [agents, setAgents] = useState(getAgents())
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
   useEffect(() => {
     void refreshWslDistros().then(() => setShells(getShellSpecs()))
-    void refreshAgentAvailability().then((s) => setAvailable(new Set(s)))
+    void refreshAgentAvailability().then((s) => {
+      setAgents([...getAgents()])
+      setAvailable(new Set(s))
+    })
   }, [])
 
-  // Installed agents (fall back to all before detection finishes).
-  const agentList = available.size ? AGENTS.filter((a) => available.has(a)) : [...AGENTS]
+  // Show every agent; uninstalled ones render greyed so they're still discoverable.
+  const agentList = agents
 
   return (
     <div className="empty-pane">
@@ -33,16 +37,20 @@ export default function EmptyPane({ paneId }: { paneId: string }): JSX.Element {
         <section className="empty-group">
           <div className="empty-group-title">Agents</div>
           <div className="empty-grid">
-            {agentList.map((a) => (
-              <button
-                key={a}
-                className="empty-card"
-                onClick={() => setPaneType(paneId, 'ai', { agentCommand: a, label: AGENT_LABELS[a] })}
-              >
-                <AgentLogo command={a} size={20} />
-                <span className="empty-card-label">{AGENT_LABELS[a]}</span>
-              </button>
-            ))}
+            {agentList.map((a) => {
+              const unavailable = available.size > 0 && !available.has(a.id)
+              return (
+                <button
+                  key={a.id}
+                  className={clsx('empty-card', unavailable && 'unavailable')}
+                  title={unavailable ? `${a.label} — not installed (opens setup)` : a.label}
+                  onClick={() => setPaneType(paneId, 'ai', { agentCommand: a.id, label: a.label })}
+                >
+                  <AgentLogo command={a.id} size={20} />
+                  <span className="empty-card-label">{a.label}</span>
+                </button>
+              )
+            })}
           </div>
         </section>
 

@@ -16,6 +16,7 @@ import { createSshPty } from '../ssh/sshPty'
 import { PtyManager } from '../pty/manager'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
+import { discoverAgents } from '../agents/discover'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
@@ -30,16 +31,28 @@ export interface IpcContext {
 }
 
 export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
-  const emit = (channel: string, payload: unknown): void => {
-    // A PTY can fire onData/onExit while the window is being torn down (closing
-    // a workspace, app quit, reload). Touching `.webContents` on a destroyed
-    // window throws "Object has been destroyed" and crashes the main process —
-    // guard every send against that race.
-    const win = getWindow()
+  // Send to a single window guarding against the teardown race: a PTY can fire
+  // onData/onExit while a window is being destroyed (closing a workspace, app
+  // quit, reload), and touching `.webContents` on a destroyed window throws
+  // "Object has been destroyed" and crashes the main process.
+  const sendTo = (win: BrowserWindow | null, channel: string, payload: unknown): void => {
     if (!win || win.isDestroyed()) return
     const wc = win.webContents
     if (!wc || wc.isDestroyed()) return
     wc.send(channel, payload)
+  }
+
+  // Broadcast to every open window. PTY data is keyed by paneId and each
+  // renderer ignores panes it doesn't own, so fanning out to all windows is
+  // safe and is what lets a second window's terminals receive their output.
+  const emit = (channel: string, payload: unknown): void => {
+    for (const win of BrowserWindow.getAllWindows()) sendTo(win, channel, payload)
+  }
+
+  // Target a single window (the focused one). Used for actions that must NOT be
+  // duplicated across windows — e.g. Telegram's "create a pane" command.
+  const emitFocused = (channel: string, payload: unknown): void => {
+    sendTo(getWindow(), channel, payload)
   }
 
   const settings = new SettingsStore()
@@ -53,7 +66,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       emit(IPC.settingsChanged, settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername))
       emit(IPC.telegramStatusChanged, telegram.getStatus())
     },
-    (createPane) => emit(IPC.telegramCreatePane, createPane)
+    (createPane) => emitFocused(IPC.telegramCreatePane, createPane)
   )
 
   // PTY data goes to the renderer only. Telegram forwarding for terminal panes
@@ -136,20 +149,24 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.claudeUsage, () => computeClaudeUsage())
 
   // ---- window controls (frameless window) ----
-  ipcMain.on(IPC.windowMinimize, () => getWindow()?.minimize())
-  ipcMain.on(IPC.windowMaximizeToggle, () => {
-    const win = getWindow()
+  // Target the window the request came FROM (via e.sender), not a global one —
+  // otherwise clicking close/minimize in one window would act on another.
+  const senderWindow = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): BrowserWindow | null =>
+    BrowserWindow.fromWebContents(e.sender)
+  ipcMain.on(IPC.windowMinimize, (e) => senderWindow(e)?.minimize())
+  ipcMain.on(IPC.windowMaximizeToggle, (e) => {
+    const win = senderWindow(e)
     if (!win) return
     if (win.isMaximized()) win.unmaximize()
     else win.maximize()
   })
-  ipcMain.on(IPC.windowClose, () => getWindow()?.close())
-  ipcMain.handle(IPC.windowIsMaximized, () => getWindow()?.isMaximized() ?? false)
+  ipcMain.on(IPC.windowClose, (e) => senderWindow(e)?.close())
+  ipcMain.handle(IPC.windowIsMaximized, (e) => senderWindow(e)?.isMaximized() ?? false)
   // Recolor the native caption-button overlay so min/max/close match the theme.
   ipcMain.on(
     IPC.windowSetOverlay,
-    (_e, { color, symbolColor }: { color: string; symbolColor: string }) => {
-      const win = getWindow()
+    (e, { color, symbolColor }: { color: string; symbolColor: string }) => {
+      const win = senderWindow(e)
       if (!win || process.platform !== 'win32') return
       try {
         win.setTitleBarOverlay({ color, symbolColor, height: 40 })
@@ -160,8 +177,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   )
 
   // ---- directory picker (choose folder to open an agent in) ----
-  ipcMain.handle(IPC.dialogOpenDir, async (_e, defaultPath?: string): Promise<string | null> => {
-    const win = getWindow()
+  ipcMain.handle(IPC.dialogOpenDir, async (e, defaultPath?: string): Promise<string | null> => {
+    const win = senderWindow(e)
     const res = await dialog.showOpenDialog(win ?? undefined!, {
       title: 'Choose a folder to open the agent in',
       defaultPath: defaultPath || undefined,
@@ -177,8 +194,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
 
   // ---- file save (transcript export, etc.) ----
-  ipcMain.handle(IPC.fileSave, async (_e, req: FileSaveRequest): Promise<FileSaveResult> => {
-    const win = getWindow()
+  ipcMain.handle(IPC.fileSave, async (e, req: FileSaveRequest): Promise<FileSaveResult> => {
+    const win = senderWindow(e)
     try {
       const res = await dialog.showSaveDialog(win ?? undefined!, {
         defaultPath: req.defaultName,
@@ -238,6 +255,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // ---- shells ----
   ipcMain.handle(IPC.shellListWsl, () => listWslDistros())
   ipcMain.handle(IPC.commandsCheck, (_e, names: string[]) => filterAvailable(names))
+  ipcMain.handle(IPC.agentsDiscover, () => discoverAgents())
 
   // ---- clipboard (right-click paste of text + images) ----
   // Reading via the main-process clipboard module avoids renderer permission

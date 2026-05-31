@@ -555,6 +555,8 @@ export const IPC = {
   shellListWsl: 'shell:list-wsl',
   // which: report which of the given commands are installed on PATH
   commandsCheck: 'shell:check-commands',
+  // agents: discover the merged agent list (built-ins + manifest + gh extensions)
+  agentsDiscover: 'agents:discover',
 
   // clipboard (right-click paste of text + images)
   clipboardRead: 'clipboard:read',
@@ -623,6 +625,7 @@ export const IPC = {
   windowIsMaximized: 'window:is-maximized',
   windowMaximizedChanged: 'window:maximized-changed', // main -> renderer (event)
   windowSetOverlay: 'window:set-overlay', // recolor the native caption-button overlay (theme)
+  windowOpenNew: 'window:open-new', // open a fresh, independent window (current desktop)
 
   // file save dialog
   fileSave: 'file:save',

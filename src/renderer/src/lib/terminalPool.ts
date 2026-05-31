@@ -3,6 +3,8 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import type { CursorStyle } from '@shared/types'
+import { agentLaunch } from '@shared/providers'
+import { getAgentDescriptor } from './agents'
 import { noteOutputChars } from './outputMetrics'
 import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
@@ -335,6 +337,14 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   term.open(container)
   fit.fit()
 
+  // Let the global hotkey layer own Ctrl+Tab / Ctrl+Shift+Tab (switch workspace).
+  // Returning false stops xterm from translating them into a stray Tab/ESC[Z
+  // sent to the shell; the event still bubbles to the window keydown handler.
+  term.attachCustomKeyEventHandler((ev) => {
+    if (ev.type === 'keydown' && (ev.ctrlKey || ev.metaKey) && ev.code === 'Tab') return false
+    return true
+  })
+
   // Consume any restore seed for this pane (set when a session is restored).
   // Replay the saved chat content into the buffer first, then a divider, so the
   // freshly spawned process / resumed agent prints below the restored history.
@@ -442,6 +452,12 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   const creds = pendingSshCreds.get(paneId) ?? {}
   pendingSshCreds.delete(paneId)
+  // Translate the agent id into the real program + args. Most agents spawn their
+  // own id directly, but host-extension agents (e.g. `gh-copilot`) spawn `gh`
+  // with launch args `['copilot']`. Resume args are appended after launch args.
+  const launch = opts.command
+    ? agentLaunch(getAgentDescriptor(opts.command), opts.command)
+    : undefined
   const spawn = opts.ssh
     ? window.api.spawnSsh({
         paneId,
@@ -455,9 +471,9 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
         paneId,
         cols: term.cols,
         rows: term.rows,
-        command: opts.command,
-        // resume the agent (e.g. `claude --continue`) when restoring a session
-        commandArgs: opts.command ? seed?.resumeArgs : undefined,
+        command: launch?.command,
+        // launch args + resume args (e.g. `claude --continue`) when restoring a session
+        commandArgs: launch ? [...launch.args, ...(seed?.resumeArgs ?? [])] : undefined,
         shell: opts.shell,
         shellArgs: opts.shellArgs,
         cwd: opts.cwd,

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/types'
+import type { AgentDiscovery } from '@shared/providers'
 import type {
   SettingsPublic,
   SettingsPatch,
@@ -63,6 +64,7 @@ const api = {
     ipcRenderer.invoke(IPC.shellListWsl),
   checkCommands: (names: string[]): Promise<string[]> =>
     ipcRenderer.invoke(IPC.commandsCheck, names),
+  discoverAgents: (): Promise<AgentDiscovery> => ipcRenderer.invoke(IPC.agentsDiscover),
 
   // ---- clipboard (right-click paste) ----
   readClipboard: (): Promise<ClipboardContent> => ipcRenderer.invoke(IPC.clipboardRead),
@@ -177,6 +179,8 @@ const api = {
     on<boolean>(IPC.windowMaximizedChanged, cb),
   setWindowOverlay: (color: string, symbolColor: string): void =>
     ipcRenderer.send(IPC.windowSetOverlay, { color, symbolColor }),
+  /** Open a new, independent URterminal window on the current desktop. */
+  openNewWindow: (): void => ipcRenderer.send(IPC.windowOpenNew),
 
   // ---- file save ----
   saveFile: (req: FileSaveRequest): Promise<FileSaveResult> =>
