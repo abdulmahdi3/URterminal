@@ -2,7 +2,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { SerializeAddon } from '@xterm/addon-serialize'
-import type { CursorStyle } from '@shared/types'
+import type { CursorStyle, PtyDataEvent, PtyExitEvent } from '@shared/types'
 import { agentLaunch } from '@shared/providers'
 import { getAgentDescriptor } from './agents'
 import { noteOutputChars } from './outputMetrics'
@@ -28,7 +28,7 @@ const termCfg = {
   cursorBlink: true,
   lineHeight: 1.0,
   letterSpacing: 0,
-  scrollback: 5000,
+  scrollback: 3000,
   scrollSensitivity: 1,
   copyOnSelect: true,
   pasteOnRightClick: true,
@@ -324,6 +324,21 @@ export function getFullText(paneId: string): string {
  */
 const pool = new Map<string, Entry>()
 
+// A SINGLE shared subscription to the pty data/exit streams, routing each event
+// to the one terminal that owns the pane via a Map lookup. Previously every pane
+// registered its own IPC listener and re-checked `paneId` on every chunk, so one
+// output event was handed to all N panes' closures (O(N) per chunk). One listener
+// + O(1) dispatch cuts that per-event work and the per-pane listener retention.
+const dataRoutes = new Map<string, (e: PtyDataEvent) => void>()
+const exitRoutes = new Map<string, (e: PtyExitEvent) => void>()
+let routesInstalled = false
+function ensurePtyRoutes(): void {
+  if (routesInstalled) return
+  routesInstalled = true
+  window.api.onPtyData((e) => dataRoutes.get(e.paneId)?.(e))
+  window.api.onPtyExit((e) => exitRoutes.get(e.paneId)?.(e))
+}
+
 function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts): Entry {
   const term = new Terminal({
     fontFamily: currentFontFamily,
@@ -418,25 +433,27 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
       .catch(() => {})
   }
   term.element?.addEventListener('contextmenu', onContextMenu)
-  const offData = window.api.onPtyData((e) => {
-    if (e.paneId === paneId) {
-      if (!entry.started) {
-        entry.bytes += e.data.length
-        if (entry.bytes >= START_BYTES) {
-          entry.started = true
-          entry.onStarted?.()
-        }
+  // Route this pane's pty stream through the shared dispatcher (the lookup key
+  // already guarantees the event is ours, so no per-chunk paneId check needed).
+  ensurePtyRoutes()
+  dataRoutes.set(paneId, (e) => {
+    if (!entry.started) {
+      entry.bytes += e.data.length
+      if (entry.bytes >= START_BYTES) {
+        entry.started = true
+        entry.onStarted?.()
       }
-      term.write(e.data)
-      noteOutputChars(e.data.length)
-      useTokens.getState().note(e.data.length, paneId)
     }
+    term.write(e.data)
+    noteOutputChars(e.data.length)
+    useTokens.getState().note(e.data.length, paneId)
   })
-  const offExit = window.api.onPtyExit((e) => {
-    if (e.paneId !== paneId) return
+  exitRoutes.set(paneId, (e) => {
     if (entry.onExit) entry.onExit(e.exitCode)
     else term.write(`\r\n\x1b[90m[process exited: ${e.exitCode}]\x1b[0m\r\n`)
   })
+  const offData = (): void => void dataRoutes.delete(paneId)
+  const offExit = (): void => void exitRoutes.delete(paneId)
 
   entry.dispose = (): void => {
     try {

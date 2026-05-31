@@ -218,7 +218,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   cursorBlink: true,
   lineHeight: 1.0,
   letterSpacing: 0,
-  scrollback: 5000,
+  scrollback: 3000,
   terminalPadding: 8,
   showPaneHeaders: true,
   scrollSensitivity: 1,
