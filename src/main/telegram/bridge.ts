@@ -54,6 +54,9 @@ function parseTaskText(raw: string): {
 
 const FLUSH_MS = 1200
 const TG_MAX = 3800
+// How many times to auto-reconnect after a 409 "conflict" before giving up and
+// asking the user to close the other instance. Backoff caps at 30s per attempt.
+const MAX_CONFLICT_RETRIES = 6
 
 const ANSI_RE = new RegExp(
   '[\\u001B\\u009B][[\\]()#;?]*' +
@@ -106,6 +109,9 @@ export class TelegramBridge {
   private links = new Map<string, string>()
   private outBuf = new Map<string, string>()
   private flushTimer: NodeJS.Timeout | null = null
+  /** pending 409 auto-reconnect, and how many we've done since the last clean start */
+  private retryTimer: NodeJS.Timeout | null = null
+  private retryCount = 0
   private working = new Map<string, number>()
   private paneRegistry: PaneInfo[] = []
   /** chatId → current interaction mode */
@@ -130,6 +136,18 @@ export class TelegramBridge {
   setTickTick(client: TickTickClient): void { this.tickTick = client }
 
   async start(): Promise<TelegramStatus> {
+    // An externally-initiated start (boot, token change, user "reconnect")
+    // gets a fresh reconnect budget.
+    this.retryCount = 0
+    return this.startPolling()
+  }
+
+  /**
+   * Open the long-polling loop. Shared by start() and the internal 409
+   * auto-reconnect — the latter must NOT reset retryCount between attempts,
+   * so it calls this directly instead of start().
+   */
+  private async startPolling(): Promise<TelegramStatus> {
     // Always tear down any previous instance first so only ONE long-polling
     // loop ever runs (prevents the 409 "terminated by other getUpdates" case
     // on restart / hot-reload).
@@ -186,6 +204,7 @@ export class TelegramBridge {
         .start({
           drop_pending_updates: true,
           onStart: (info) => {
+            this.retryCount = 0
             this.status = { running: true, botUsername: info.username }
             this.emitStatus(this.status)
             console.log('[TelegramBridge] long-polling started')
@@ -193,7 +212,38 @@ export class TelegramBridge {
         })
         .catch((err) => {
           this.bot = null
-          this.status = { running: false, error: String((err as Error)?.message ?? err) }
+          const code = (err as { error_code?: number })?.error_code
+          const msg = String((err as Error)?.message ?? err)
+          // 409 = something else is long-polling this same bot token (a second
+          // copy of URterminal, or a leftover `npm run dev`). grammy rethrows it,
+          // killing the loop — but it's usually transient (the other poller is
+          // shutting down, or a restart raced its own previous poll), so we
+          // reconnect with backoff instead of dying. 401 is a bad token: fatal.
+          const isConflict =
+            code === 409 || /\b409\b|terminated by other getUpdates|Conflict/i.test(msg)
+          if (isConflict && this.retryCount < MAX_CONFLICT_RETRIES) {
+            this.retryCount++
+            const waitMs = Math.min(30_000, 2_000 * 2 ** (this.retryCount - 1))
+            this.status = {
+              running: false,
+              botUsername: bot.botInfo.username,
+              error: `Another instance is connected to this bot — reconnecting (${this.retryCount}/${MAX_CONFLICT_RETRIES})…`
+            }
+            this.emitStatus(this.status)
+            console.warn(`[TelegramBridge] 409 conflict; retrying in ${waitMs}ms (attempt ${this.retryCount})`)
+            if (this.retryTimer) clearTimeout(this.retryTimer)
+            this.retryTimer = setTimeout(() => {
+              this.retryTimer = null
+              void this.startPolling()
+            }, waitMs)
+            return
+          }
+          this.status = {
+            running: false,
+            error: isConflict
+              ? 'Another instance is already connected to this bot. Close other copies of URterminal (and any running dev build), then reconnect.'
+              : msg
+          }
           this.emitStatus(this.status)
           console.error('[TelegramBridge] polling loop stopped with error:', err)
         })
@@ -234,6 +284,9 @@ export class TelegramBridge {
   }
 
   async stop(): Promise<void> {
+    // Cancel any pending 409 auto-reconnect so a deliberate stop stays stopped.
+    // retryCount is left alone — start() resets it; startPolling() preserves it.
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
     if (this.bot) {
       console.log('[TelegramBridge] stopping previous bot instance')
       try { await this.bot.stop() } catch { /* ignore */ }

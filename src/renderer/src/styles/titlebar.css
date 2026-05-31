@@ -121,25 +121,17 @@
   white-space: nowrap;
   max-width: 150px;
 }
-/* count of finished agents/terminals in a background workspace */
-.ws-tab-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  margin-left: 2px;
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  font-family: var(--mono);
-  flex-shrink: 0;
+/* "Something finished here" indicator on a background workspace tab: a static
+   accent-tinted background (no count, no motion — per the no-animations rule).
+   Cleared the moment the workspace is switched to (badge reset to 0). */
+.ws-tab.has-notif:not(.active) {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent);
 }
-.ws-more-badge {
-  margin-left: 4px;
+.ws-tab.has-notif:not(.active):hover {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .ws-tab.active .ws-tab-name {
   cursor: text;
@@ -297,6 +289,22 @@
   color: var(--accent);
   border-color: rgba(76, 141, 255, 0.3);
   background: var(--accent-soft);
+}
+/* "···" overflow button when a hidden workspace finished something — solid
+   accent border distinguishes it from the softer has-active tint above. */
+.ws-more-btn.has-notif {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+/* workspace row inside the overflow dropdown that finished something */
+.hover-dd-item.has-notif {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.hover-dd-item.has-notif:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .ws-overflow-menu {

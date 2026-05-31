@@ -96,7 +96,7 @@ export function agentLaunch(
 }
 
 export const AGENT_REGISTRY: AgentDescriptor[] = [
-  { id: 'claude', label: 'Claude', resumeArgs: ['--continue'] },
+  { id: 'claude', label: 'Claude', resumeArgs: ['--continue'], supports: { streamJson: true } },
   { id: 'codex', label: 'ChatGPT (Codex)' },
   { id: 'gemini', label: 'Gemini' },
   { id: 'aider', label: 'Aider' },

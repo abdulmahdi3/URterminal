@@ -74,7 +74,10 @@ const api = {
     getConfig: (): Promise<Record<string, unknown>> => ipcRenderer.invoke(IPC.learningGetConfig),
     setConfig: (patch: Record<string, unknown>): Promise<Record<string, unknown>> =>
       ipcRenderer.invoke(IPC.learningSetConfig, patch),
-    openStore: (): Promise<void> => ipcRenderer.invoke(IPC.learningOpenStore)
+    openStore: (): Promise<void> => ipcRenderer.invoke(IPC.learningOpenStore),
+    listCandidates: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListCandidates),
+    onCandidates: (cb: (c: unknown[]) => void): (() => void) =>
+      on<unknown[]>(IPC.learningCandidates, cb)
   },
 
   // ---- clipboard (right-click paste) ----

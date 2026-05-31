@@ -1,5 +1,7 @@
 import { TurnAssembler } from './turnAssembler'
-import { appendTurn, getLearningConfig, type LearningConfig } from './store'
+import { CandidateGate } from './candidates'
+import { appendTurn, getLearningConfig, type LearningConfig, type TurnRecord } from './store'
+import type { Candidate } from './heuristics'
 
 // Drop a turn marker that's an exact duplicate of the previous one for the same
 // pane within this window — defends against a mirrored renderer double-delivering
@@ -7,8 +9,9 @@ import { appendTurn, getLearningConfig, type LearningConfig } from './store'
 const COALESCE_MS = 250
 
 /**
- * The tap that PtyManager calls. Keeps one TurnAssembler per pane and routes raw
- * output plus clean user-turn markers into it.
+ * The tap that PtyManager calls. Keeps one TurnAssembler per pane, routes raw
+ * output plus clean user-turn markers into it, then feeds each completed turn to
+ * both the on-disk transcript store and the zero-token candidate gate.
  *
  * Entirely no-op unless the learning layer is enabled AND capture is on, so the
  * hot path (every PTY byte, every keystroke turn) stays cheap when the feature
@@ -30,6 +33,14 @@ export class CaptureService implements CaptureSink {
   private assemblers = new Map<string, TurnAssembler>()
   // Last submitted prompt per pane, for coalescing duplicate markers.
   private lastTurn = new Map<string, { text: string; ts: number }>()
+  // Lazily constructed (reads state.json) — only once a turn actually completes.
+  private gate: CandidateGate | null = null
+
+  /**
+   * @param onCandidates Called with any NEW gate candidates a completed turn
+   *   produced, so the IPC layer can broadcast them to the review UI.
+   */
+  constructor(private readonly onCandidates?: (c: Candidate[]) => void) {}
 
   private cfg(): LearningConfig {
     return getLearningConfig()
@@ -40,6 +51,18 @@ export class CaptureService implements CaptureSink {
     return c.enabled && c.capture
   }
 
+  /** Persist + gate one completed turn. Wired as the TurnAssembler emit sink. */
+  private handleTurn(rec: TurnRecord): void {
+    appendTurn(rec)
+    try {
+      if (!this.gate) this.gate = new CandidateGate()
+      const fresh = this.gate.ingest(rec)
+      if (fresh.length) this.onCandidates?.(fresh)
+    } catch {
+      /* gating must never break capture */
+    }
+  }
+
   onSessionStart({ ptyId, paneId, agentId, cwd }: { ptyId: string; paneId: string; agentId: string; cwd: string }): void {
     if (!this.active()) return
     // v1: capture only AI-agent panes. Shells/SSH spawn with no agent command,
@@ -48,7 +71,7 @@ export class CaptureService implements CaptureSink {
     this.assemblers.get(paneId)?.end()
     this.assemblers.set(
       paneId,
-      new TurnAssembler(paneId, ptyId, agentId, cwd, () => this.cfg(), appendTurn)
+      new TurnAssembler(paneId, ptyId, agentId, cwd, () => this.cfg(), (rec) => this.handleTurn(rec))
     )
   }
 
@@ -73,5 +96,15 @@ export class CaptureService implements CaptureSink {
     if (!a) return
     a.end()
     this.assemblers.delete(paneId)
+  }
+
+  /** Current review queue (for the renderer's learning panel). */
+  listCandidates(): Candidate[] {
+    try {
+      if (!this.gate) this.gate = new CandidateGate()
+      return this.gate.pending()
+    } catch {
+      return []
+    }
   }
 }

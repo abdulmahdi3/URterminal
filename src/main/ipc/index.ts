@@ -80,9 +80,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
 
   // Learning layer: tee every agent's output + clean user turns into a local,
-  // scrubbed transcript store. Lives wholly in main so it sees each pty exactly
-  // once (multi-window-safe), and is a no-op unless the user opts in (default off).
-  const capture = new CaptureService()
+  // scrubbed transcript store, then run the zero-token gate. Lives wholly in main
+  // so it sees each pty exactly once (multi-window-safe), and is a no-op unless
+  // the user opts in (default off). New gate candidates broadcast to all windows.
+  const capture = new CaptureService((candidates) => emit(IPC.learningCandidates, candidates))
   pty.setCaptureSink(capture)
 
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
@@ -276,6 +277,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.learningOpenStore, async () => {
     await shell.openPath(learningRoot())
   })
+  ipcMain.handle(IPC.learningListCandidates, () => capture.listCandidates())
 
   // ---- clipboard (right-click paste of text + images) ----
   // Reading via the main-process clipboard module avoids renderer permission

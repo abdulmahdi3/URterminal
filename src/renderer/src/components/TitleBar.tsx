@@ -99,7 +99,14 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
 
   return (
     <div
-      className={clsx('ws-tab', active && 'active', canDrop && 'drop-ok', dropOver && 'drop-over')}
+      className={clsx(
+        'ws-tab',
+        active && 'active',
+        !active && badge > 0 && 'has-notif',
+        canDrop && 'drop-ok',
+        dropOver && 'drop-over'
+      )}
+      title={!active && badge > 0 ? `Something finished here (${badge})` : undefined}
       onClick={() => !active && switchTo(ws.id)}
       onAuxClick={(e) => {
         if (e.button === 1) { e.preventDefault(); remove(ws.id) }
@@ -146,11 +153,6 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
           >
             {ws.name}
           </span>
-          {!active && badge > 0 && (
-            <span className="ws-tab-badge" title={`${badge} finished here`}>
-              {badge > 99 ? '99+' : badge}
-            </span>
-          )}
           {canClose && (
             <button
               className="ws-tab-close"
@@ -331,15 +333,14 @@ export default function TitleBar(): JSX.Element {
             align="center"
             trigger={
               <button
-                className={clsx('ws-more-btn', activeInOverflow && 'has-active')}
+                className={clsx(
+                  'ws-more-btn',
+                  activeInOverflow && 'has-active',
+                  overflowBadgeTotal > 0 && 'has-notif'
+                )}
                 title={`${overflowList.length} more workspace${overflowList.length !== 1 ? 's' : ''}`}
               >
                 ···
-                {overflowBadgeTotal > 0 && (
-                  <span className="ws-tab-badge ws-more-badge">
-                    {overflowBadgeTotal > 99 ? '99+' : overflowBadgeTotal}
-                  </span>
-                )}
               </button>
             }
           >
@@ -350,6 +351,7 @@ export default function TitleBar(): JSX.Element {
                   className={clsx(
                     'hover-dd-item',
                     w.id === activeId && 'active',
+                    w.id !== activeId && (badges[w.id] ?? 0) > 0 && 'has-notif',
                     draggingPaneIds && w.id !== activeId && 'drop-ok'
                   )}
                   onClick={() => switchTo(w.id)}
@@ -373,11 +375,6 @@ export default function TitleBar(): JSX.Element {
                   }}
                 >
                   <span className="hover-dd-item-name">{w.name}</span>
-                  {w.id !== activeId && (badges[w.id] ?? 0) > 0 && (
-                    <span className="ws-tab-badge">
-                      {(badges[w.id] ?? 0) > 99 ? '99+' : badges[w.id]}
-                    </span>
-                  )}
                   {canCloseWorkspace && (
                     <button
                       className="hover-dd-item-close"

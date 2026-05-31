@@ -563,6 +563,8 @@ export const IPC = {
   learningGetConfig: 'learning:get-config',
   learningSetConfig: 'learning:set-config',
   learningOpenStore: 'learning:open-store', // reveal the local learning dir in the OS
+  learningListCandidates: 'learning:list-candidates', // renderer -> main: pending review queue
+  learningCandidates: 'learning:candidates', // main -> renderer (event): new gate candidates
 
   // clipboard (right-click paste of text + images)
   clipboardRead: 'clipboard:read',
