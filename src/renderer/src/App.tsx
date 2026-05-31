@@ -35,6 +35,7 @@ import { useWorkspaceBadges } from './hooks/useWorkspaceBadges'
 import { useActivityLog } from './hooks/useActivityLog'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
+import { primeOsInfo } from './lib/osInfo'
 
 export default function App(): JSX.Element {
   const load = useSettings((s) => s.load)
@@ -73,6 +74,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void load()
+    void primeOsInfo() // cache the real home dir from main (renderer env is unreliable)
     void refreshWslDistros() // populate the shell launcher with installed WSL distros
     void refreshAgentAvailability() // flag which agent CLIs are actually installed
     const stopMetrics = startMetricsLoop()

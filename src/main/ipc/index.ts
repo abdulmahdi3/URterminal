@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow, dialog, clipboard, app, shell } from 'electron'
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
 import { writeFileSync, mkdirSync } from 'fs'
-import { tmpdir, userInfo } from 'os'
+import { tmpdir, userInfo, homedir } from 'os'
 import { join } from 'path'
 import type { ClipboardContent, SessionData, LastSessionPayload, NoteDoc } from '@shared/types'
 import { IPC } from '@shared/types'
@@ -11,7 +11,8 @@ import type {
   SshAgentResult,
   SettingsPatch,
   FileSaveRequest,
-  FileSaveResult
+  FileSaveResult,
+  GoogleTask
 } from '@shared/types'
 import { createSshPty, parseSshTarget } from '../ssh/sshPty'
 import { SshAgentBridge } from '../ssh/agentBridge'
@@ -101,7 +102,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     )
 
   // ---- app info ----
-  ipcMain.handle(IPC.appInfo, () => ({ version: app.getVersion() }))
+  ipcMain.handle(IPC.appInfo, () => ({ version: app.getVersion(), homeDir: homedir() }))
 
   // ---- settings ----
   ipcMain.handle(IPC.settingsGet, () => publicSettings())
@@ -492,6 +493,28 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
           title: args.title,
           notes: args.notes,
           due: args.due
+        })
+      )
+  )
+  ipcMain.handle(
+    IPC.googleTasksUpdateTask,
+    (
+      _e,
+      args: {
+        listId: string
+        taskId: string
+        title?: string
+        notes?: string | null
+        due?: string | null
+        status?: GoogleTask['status']
+      }
+    ) =>
+      gtHandle(() =>
+        googleTasks.updateTask(args.listId, args.taskId, {
+          title: args.title,
+          notes: args.notes,
+          due: args.due,
+          status: args.status
         })
       )
   )

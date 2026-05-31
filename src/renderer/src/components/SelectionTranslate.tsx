@@ -85,7 +85,7 @@ export default function SelectionTranslate(): JSX.Element | null {
     >
       {w.phase === 'button' && (
         <button className="sel-translate-btn" onClick={doTranslate} title={`Translate to ${targetLangName}`}>
-          <Languages size={13} /> Translate
+          <Languages size={15} />
         </button>
       )}
       {w.phase === 'loading' && (

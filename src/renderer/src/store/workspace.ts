@@ -4,6 +4,7 @@ import type { Pane, PaneType, ProviderId } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal, isTerminalStarted } from '@renderer/lib/terminalPool'
+import { homeDir } from '@renderer/lib/osInfo'
 import { toast } from '@renderer/store/toasts'
 import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
 
@@ -415,7 +416,10 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     if (pane.shell?.ssh) {
       const target = pane.shell.ssh.target
       const np = makePane('ai', paneDefaults(s0))
-      np.agent = { command, cwd: getHome() }
+      // Open directly (no folder picker) in the user's home — AiPane only shows
+      // the picker when cwd is empty, and the renderer's process.env home is
+      // unreliable, so use the main-process value cached at startup.
+      np.agent = { command, cwd: homeDir() || getHome() || '.' }
       np.title = `${command} → ${target}`
       set((s) => {
         const layout = s.layout === null ? np.id : splitLeaf(s.layout, paneId, np.id, 'column')

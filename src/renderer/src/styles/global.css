@@ -414,10 +414,10 @@ select {
 .sel-translate-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   color: #fff;
   background: var(--accent-strong);
   border: 1px solid var(--accent);

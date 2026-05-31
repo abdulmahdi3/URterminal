@@ -40,7 +40,7 @@ function on<T>(channel: string, cb: (payload: T) => void): () => void {
 
 const api = {
   // ---- app info ----
-  getAppInfo: (): Promise<{ version: string }> => ipcRenderer.invoke(IPC.appInfo),
+  getAppInfo: (): Promise<{ version: string; homeDir: string }> => ipcRenderer.invoke(IPC.appInfo),
 
   // ---- settings ----
   getSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke(IPC.settingsGet),
@@ -177,6 +177,12 @@ const api = {
     input: { title: string; notes?: string; due?: string }
   ): Promise<GoogleTask> =>
     ipcRenderer.invoke(IPC.googleTasksCreateTask, { listId, ...input }),
+  googleTasksUpdateTask: (
+    listId: string,
+    taskId: string,
+    patch: { title?: string; notes?: string | null; due?: string | null; status?: GoogleTask['status'] }
+  ): Promise<GoogleTask> =>
+    ipcRenderer.invoke(IPC.googleTasksUpdateTask, { listId, taskId, ...patch }),
   googleTasksCompleteTask: (listId: string, taskId: string): Promise<void> =>
     ipcRenderer.invoke(IPC.googleTasksCompleteTask, { listId, taskId }),
   googleTasksDeleteTask: (listId: string, taskId: string): Promise<void> =>

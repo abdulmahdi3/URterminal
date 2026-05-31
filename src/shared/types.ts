@@ -658,6 +658,7 @@ export const IPC = {
   googleTasksListLists: 'gtasks:list-lists',
   googleTasksListTasks: 'gtasks:list-tasks',
   googleTasksCreateTask: 'gtasks:create-task',
+  googleTasksUpdateTask: 'gtasks:update-task',
   googleTasksCompleteTask: 'gtasks:complete-task',
   googleTasksDeleteTask: 'gtasks:delete-task',
   googleTasksAgenda: 'gtasks:agenda',

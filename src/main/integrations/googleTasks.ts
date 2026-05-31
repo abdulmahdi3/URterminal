@@ -133,6 +133,22 @@ export class GoogleTasksClient {
     })
   }
 
+  /**
+   * Patch a task's editable fields. `due` accepts an RFC-3339 string to set it
+   * or `null` to clear it; `status` toggles complete/needsAction (clearing it
+   * back to needsAction also drops the stored completion time on Google's side).
+   */
+  updateTask(
+    listId: string,
+    taskId: string,
+    patch: { title?: string; notes?: string | null; due?: string | null; status?: GoogleTask['status'] }
+  ): Promise<GoogleTask> {
+    return this.call<Record<string, unknown>>(
+      `/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
+      { method: 'PATCH', body: JSON.stringify(patch) }
+    ).then(normalizeGoogleTask)
+  }
+
   deleteTask(listId: string, taskId: string): Promise<void> {
     return this.call<void>(`/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`, {
       method: 'DELETE'
