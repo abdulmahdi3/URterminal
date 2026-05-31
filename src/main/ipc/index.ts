@@ -9,13 +9,17 @@ import type {
   PtySpawnRequest,
   SshSpawnRequest,
   SshAgentResult,
+  SshfsStatus,
   SettingsPatch,
   FileSaveRequest,
   FileSaveResult,
   GoogleTask
 } from '@shared/types'
+import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget } from '../ssh/sshPty'
 import { SshAgentBridge } from '../ssh/agentBridge'
+import { buildAgentInstruction } from '../ssh/ursshHelpers'
+import { SshfsManager, sshfsInstalled, SSHFS_INSTALL, SSHFS_BIN } from '../ssh/sshfs'
 import { PtyManager } from '../pty/manager'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
@@ -258,12 +262,24 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     return pty.adopt(proc, req.paneId, `ssh ${req.target}`)
   })
 
-  // "Agent over SSH": stand up the urssh exec bridge so a LOCAL agent can run
-  // commands on the remote server (reusing one authenticated connection) without
-  // installing anything on the server. Requires a saved password for the target.
+  // "Agent over SSH": let a LOCAL agent operate a remote server with nothing
+  // installed on it. Two pieces:
+  //  1. urssh exec bridge — run commands ON the server (one reused connection).
+  //  2. SSHFS mount — mount the remote folder as a local drive so the agent edits
+  //     files like a normal folder. Both reuse the saved password.
   const agentBridge = new SshAgentBridge()
+  const sshfs = new SshfsManager()
+  app.on('before-quit', () => {
+    sshfs.unmountAll()
+    agentBridge.dispose()
+  })
   ipcMain.handle(IPC.sshOpenAgent, async (_e, target: string): Promise<SshAgentResult> => {
     try {
+      // Guard against injection: the target is embedded into a generated helper
+      // script + an HTTP routing header, so only allow connection-string chars.
+      if (!/^[A-Za-z0-9@._:+\-]+$/.test(target)) {
+        return { ok: false, error: 'Invalid SSH target' }
+      }
       const p = parseSshTarget(target)
       const username = p.username || userInfo().username
       const password = settings.getSshPassword(target) ?? ''
@@ -274,11 +290,63 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
             'No saved SSH password for this server. Reconnect with "Save credentials" so the agent can reuse the connection.'
         }
       }
-      const res = await agentBridge.open({ target, host: p.host, port: p.port, username, password })
-      return { ok: true, helperPath: res.helperPath, instruction: res.instruction }
+      // 1) exec bridge (always)
+      const { helperPath } = await agentBridge.open({ target, host: p.host, port: p.port, username, password })
+
+      // 2) SSHFS mount (when enabled + installed) — non-fatal if it fails
+      let mountPath: string | undefined
+      let drive: string | undefined
+      let needsSshfs = false
+      let mountError: string | undefined
+      if (settings.getPrefs().sshAgentMount !== false) {
+        if (!sshfs.installed()) {
+          needsSshfs = true
+        } else {
+          try {
+            const m = await sshfs.mount({ target, host: p.host, port: p.port, username, password })
+            mountPath = m.mountPath
+            drive = m.drive
+          } catch (e) {
+            mountError = (e as Error).message
+          }
+        }
+      }
+
+      const cwd = mountPath ?? homedir()
+      const instruction = buildAgentInstruction(target, helperPath, mountPath)
+      return { ok: true, cwd, instruction, mounted: !!mountPath, drive, needsSshfs, mountError }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }
+  })
+  ipcMain.handle(IPC.sshfsStatus, (): SshfsStatus => {
+    const installed = sshfsInstalled()
+    return {
+      installed,
+      sshfsPath: installed ? SSHFS_BIN : undefined,
+      installCommand: SSHFS_INSTALL.installCommand,
+      url: SSHFS_INSTALL.url
+    }
+  })
+  ipcMain.handle(IPC.sshfsInstall, () => {
+    // Open a console that runs the winget installs (WinFsp first); the MSI step
+    // triggers a UAC prompt. URterminal should be restarted afterwards.
+    try {
+      spawn(
+        'cmd.exe',
+        ['/c', 'start', 'Install SSHFS-Win', 'cmd', '/k', `${SSHFS_INSTALL.installCommand} && echo. && echo Done - restart URterminal.`],
+        { windowsHide: false, detached: true, stdio: 'ignore' }
+      ).unref()
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  })
+  // Release a target's resources when its agent pane closes: unmount the SSHFS
+  // drive and close the reused exec connection.
+  ipcMain.on(IPC.sshCloseAgent, (_e, target: string) => {
+    sshfs.unmount(target)
+    agentBridge.disposeConn(target)
   })
 
   // ---- shells ----

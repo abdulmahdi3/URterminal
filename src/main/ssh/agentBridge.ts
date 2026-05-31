@@ -2,9 +2,9 @@ import { Client } from 'ssh2'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'http'
 import { randomBytes } from 'crypto'
 import { tmpdir } from 'os'
-import { mkdtempSync, writeFileSync } from 'fs'
+import { mkdtempSync, writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
-import { buildUrsshCmd, buildUrsshSh, buildAgentInstruction } from './ursshHelpers'
+import { buildUrsshCmd, buildUrsshSh } from './ursshHelpers'
 
 /**
  * "Agent over SSH" — lets a LOCAL agent (e.g. Claude) operate a remote server
@@ -27,8 +27,6 @@ export interface AgentOverSshOpts {
 export interface AgentOverSshResult {
   /** absolute path to the generated helper the agent should call */
   helperPath: string
-  /** the starter message to inject into the agent pane */
-  instruction: string
 }
 
 interface Conn {
@@ -140,8 +138,9 @@ export class SshAgentBridge {
   }
 
   /**
-   * Ensure a connection + helper exist for the target and return the helper path
-   * plus the agent instruction. Throws if the SSH connection can't be made.
+   * Ensure a connection + helper exist for the target and return the helper path.
+   * Throws if the SSH connection can't be made. (The caller composes the agent
+   * instruction so it can include SSHFS mount info when present.)
    */
   async open(opts: AgentOverSshOpts): Promise<AgentOverSshResult> {
     await this.ensureServer()
@@ -154,7 +153,19 @@ export class SshAgentBridge {
       ? buildUrsshCmd({ port: this.port, token: this.token, target: opts.target })
       : buildUrsshSh({ port: this.port, token: this.token, target: opts.target })
     writeFileSync(helperPath, content, win ? undefined : { mode: 0o755 })
-    return { helperPath, instruction: buildAgentInstruction(opts.target, helperPath) }
+    return { helperPath }
+  }
+
+  /** Close the reused connection for a single target (e.g. when its pane closes). */
+  disposeConn(target: string): void {
+    const conn = this.conns.get(target)
+    if (!conn) return
+    this.conns.delete(target)
+    try {
+      conn.client.end()
+    } catch {
+      /* ignore */
+    }
   }
 
   dispose(): void {
@@ -172,5 +183,14 @@ export class SshAgentBridge {
       /* ignore */
     }
     this.server = null
+    // Remove the temp dir holding the token-bearing urssh helper.
+    if (this.helperDir) {
+      try {
+        rmSync(this.helperDir, { recursive: true, force: true })
+      } catch {
+        /* ignore */
+      }
+      this.helperDir = null
+    }
   }
 }

@@ -24,6 +24,8 @@ export interface AgentPaneState {
   cwd?: string
   ptyId?: string
   shell?: string
+  /** when this agent was opened over SSH, the target whose mount/conn it owns */
+  sshTarget?: string
 }
 
 /** A single checkable item in a pane's to-do list. */
@@ -179,6 +181,8 @@ export interface AppPrefs {
   clearWorkspaceOnExit: boolean
   /** target language for the "Translate selection" command (sent to open agents) */
   defaultLanguage: string
+  /** mount the remote folder (SSHFS) when opening an agent over SSH, so it can edit files */
+  sshAgentMount: boolean
 
   // ---- notifications ----
   /** only fire desktop/sound notifications when the window is NOT focused */
@@ -222,6 +226,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   pasteOnRightClick: true,
   clearWorkspaceOnExit: false,
   defaultLanguage: 'English',
+  sshAgentMount: true,
 
   notifyOnlyUnfocused: false,
   notifyVolume: 60,
@@ -409,12 +414,31 @@ export interface PtySpawnRequest {
 /** Result of setting up "agent over SSH" for a target. */
 export interface SshAgentResult {
   ok: boolean
-  /** absolute path to the `urssh` helper the agent should call (when ok) */
-  helperPath?: string
+  /** local working directory for the agent pane: the SSHFS mount path, else home */
+  cwd?: string
   /** starter message to inject into the agent pane (when ok) */
   instruction?: string
+  /** true if the remote folder was mounted locally via SSHFS */
+  mounted?: boolean
+  /** drive letter of the SSHFS mount (e.g. "Z") when mounted */
+  drive?: string
+  /** true when SSHFS-Win isn't installed (agent still works via urssh; file editing needs it) */
+  needsSshfs?: boolean
+  /** non-fatal mount failure (the agent still opened via the urssh fallback) */
+  mountError?: string
   /** failure reason (when !ok) */
   error?: string
+}
+
+/** Whether the SSHFS toolchain (WinFsp + SSHFS-Win) is available, + how to get it. */
+export interface SshfsStatus {
+  installed: boolean
+  /** absolute path to sshfs.exe when found */
+  sshfsPath?: string
+  /** one-line winget command to install the toolchain */
+  installCommand: string
+  /** docs/download URL */
+  url: string
 }
 
 /** Open an SSH session that streams through the same pty:data/pty:exit channels. */
@@ -668,6 +692,11 @@ export const IPC = {
 
   // "agent over SSH" — set up the urssh exec bridge for a local agent
   sshOpenAgent: 'ssh:open-agent',
+  // release a target's resources (unmount + close exec conn) when its pane closes
+  sshCloseAgent: 'ssh:close-agent',
+  // SSHFS (mount remote folder so a local agent can edit files): status + install
+  sshfsStatus: 'sshfs:status',
+  sshfsInstall: 'sshfs:install',
 
   // telegram
   telegramStatus: 'telegram:status',

@@ -79,6 +79,23 @@ export function getCommands(): Command[] {
       run: () => ui().setShowSshPrompt(true)
     },
     {
+      id: 'ssh.installSshfs',
+      title: 'SSH: Install remote-folder mount (SSHFS-Win)',
+      group: 'Panes',
+      run: () => {
+        void window.api.sshfsStatus().then((s) => {
+          if (s.installed) {
+            toast('SSHFS-Win is already installed', 'ok')
+            return
+          }
+          void window.api.sshfsInstall().then((r) => {
+            if (r.ok) toast('Installing SSHFS-Win in a console — approve the UAC prompt, then restart URterminal.', 'info')
+            else toast(`Install failed to start: ${r.error ?? 'unknown'}`, 'error')
+          })
+        })
+      }
+    },
+    {
       id: 'pane.splitRight',
       title: 'Split active pane → right (duplicate)',
       group: 'Panes',

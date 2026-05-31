@@ -26,9 +26,35 @@ export function buildUrsshSh(opts: { port: number; token: string; target: string
   ].join('\n')
 }
 
-/** The instruction injected into the agent so it knows how to drive the server. */
-export function buildAgentInstruction(target: string, helperPath: string): string {
+/**
+ * The instruction injected into the agent so it knows how to drive the server.
+ * When `mountPath` is given, the server's files are mounted locally there (SFTP),
+ * so the agent edits files like a normal local folder and only uses the helper to
+ * RUN commands on the server. Without a mount it's the helper for everything.
+ */
+export function buildAgentInstruction(target: string, helperPath: string, mountPath?: string): string {
   const q = `"${helperPath}"`
+  if (mountPath) {
+    return [
+      `You are operating the remote server ${target}. Nothing is installed on the server.`,
+      ``,
+      `FILES: the server's files are mounted locally at ${mountPath} — you are in that folder now.`,
+      `Read, navigate (cd into subfolders), create and EDIT files here directly with your normal`,
+      `file tools; every change is written straight to the server over SFTP. Treat it as a normal`,
+      `local project folder.`,
+      ``,
+      `RUNNING COMMANDS ON THE SERVER (build, test, git, services): a plain shell command runs on`,
+      `THIS local machine, NOT the server. To run something ON the server, call this helper and`,
+      `pass the entire command as ONE double-quoted argument:`,
+      `  ${q} "<command>"`,
+      `Examples:`,
+      `  ${q} "uname -a"`,
+      `  ${q} "cd <dir> && make"`,
+      `  ${q} "systemctl status nginx | cat"`,
+      ``,
+      `Begin by exploring the mounted files and the server (OS, hostname, disk), then help me.`
+    ].join('\n')
+  }
   return [
     `You are now operating the remote server ${target} over SSH, from this LOCAL shell.`,
     `Nothing is installed on the server. To run ANY command on it, call this helper and pass the`,

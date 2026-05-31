@@ -72,7 +72,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
   ],
   behavior: [
     'defaultShellCwd', 'autoSaveSeconds', 'maxRestorePanes',
-    'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore', 'defaultLanguage'
+    'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore', 'defaultLanguage', 'sshAgentMount'
   ],
   notifications: [
     'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName'
@@ -633,7 +633,7 @@ export default function SettingsModal(): JSX.Element | null {
       'Default shell folder', 'Auto-save interval', 'Max restored panes',
       'Focus new pane on create',
       'Reopen last workspace on launch', 'Clear workspace on exit',
-      'Default language', 'Translate'
+      'Default language', 'Translate', 'Mount remote folder for SSH agents', 'SSHFS'
     ],
     notifications: [
       'Desktop notification when an agent finishes', 'Play a sound when an agent finishes',
@@ -1047,6 +1047,9 @@ export default function SettingsModal(): JSX.Element | null {
                       {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                   } />
+                )}
+                {match('Mount remote folder for SSH agents') && (
+                  <ToggleCard icon={<Server size={16} />} title="Mount remote folder for SSH agents" desc="When opening an agent on an SSH pane, mount the server's folder as a local drive (SSHFS) so it can edit files. Requires SSHFS-Win." checked={prefs.sshAgentMount !== false} onChange={(v) => setPref({ sshAgentMount: v })} />
                 )}
               </section>
             )}

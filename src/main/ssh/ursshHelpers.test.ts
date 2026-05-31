@@ -22,11 +22,20 @@ describe('buildUrsshSh', () => {
 })
 
 describe('buildAgentInstruction', () => {
-  it('quotes the helper path and tells the agent how to run remote commands', () => {
+  it('quotes the helper path and tells the agent how to run remote commands (no mount)', () => {
     const ins = buildAgentInstruction('me@host', 'C:\\tmp\\urssh-x\\urssh.cmd')
     expect(ins).toContain('me@host')
     expect(ins).toContain('"C:\\tmp\\urssh-x\\urssh.cmd" "uname -a"')
     expect(ins).toContain('ONE double-quoted argument')
     expect(ins.toLowerCase()).toContain('nothing is installed on the server')
+    expect(ins).not.toContain('mounted locally')
+  })
+
+  it('describes the mounted folder + urssh split when a mount path is given', () => {
+    const ins = buildAgentInstruction('me@host', 'C:\\tmp\\urssh-x\\urssh.cmd', 'Z:\\')
+    expect(ins).toContain('mounted locally at Z:\\')
+    expect(ins).toContain('EDIT files here directly')
+    expect(ins).toContain('"C:\\tmp\\urssh-x\\urssh.cmd" "<command>"')
+    expect(ins.toLowerCase()).toContain('runs on')
   })
 })

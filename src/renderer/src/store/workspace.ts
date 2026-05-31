@@ -25,6 +25,9 @@ function getHome(): string | undefined {
 /** how long the pane open/close pop animation runs (keep in sync with workspace.css) */
 export const PANE_ANIM_MS = 180
 
+/** SSH targets with an agent-open request in flight, to dedupe double-clicks. */
+const sshAgentOpening = new Set<string>()
+
 export interface WorkspaceState {
   panes: Record<string, Pane>
   layout: MosaicNode<string> | null
@@ -254,6 +257,12 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
             panes[pid] = { ...pane, pipeTargets: next.length ? next : undefined }
           }
         }
+        // If this was an agent-over-SSH pane and no other pane uses the same
+        // target, release its remote resources (unmount drive + close exec conn).
+        const sshTarget = closed?.agent?.sshTarget
+        if (sshTarget && !Object.values(panes).some((p) => p.agent?.sshTarget === sshTarget)) {
+          window.api.sshCloseAgent(sshTarget)
+        }
         const layout = removeLeaf(s.layout, id)
         const remaining = getLeaves(layout)
         const activePaneId =
@@ -410,28 +419,19 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const pane = s0.panes[paneId]
     if (!pane || pane.type !== 'shell') return
     const command = s0.defaultAgent || DEFAULT_AGENT
-    // SSH pane: open a LOCAL agent pane that operates the remote server over SSH
-    // via the urssh exec bridge (nothing installed on the server). The agent runs
-    // `urssh "<cmd>"` against one reused authenticated connection.
+    // SSH pane: open a LOCAL agent that operates the remote server with nothing
+    // installed on it — the remote folder is mounted as a local drive (SSHFS) so
+    // the agent edits files normally, and `urssh "<cmd>"` runs commands ON the
+    // server. The pane is created AFTER the mount so it opens in the mounted
+    // folder (cwd) rather than flashing the folder picker.
     if (pane.shell?.ssh) {
       const target = pane.shell.ssh.target
-      const np = makePane('ai', paneDefaults(s0))
-      // Open directly (no folder picker) in the user's home — AiPane only shows
-      // the picker when cwd is empty, and the renderer's process.env home is
-      // unreliable, so use the main-process value cached at startup.
-      np.agent = { command, cwd: homeDir() || getHome() || '.' }
-      np.title = `${command} → ${target}`
-      set((s) => {
-        const layout = s.layout === null ? np.id : splitLeaf(s.layout, paneId, np.id, 'column')
-        return {
-          panes: { ...s.panes, [np.id]: np },
-          layout,
-          activePaneId: np.id,
-          entering: { ...s.entering, [np.id]: true }
-        }
-      })
-      scheduleEnterClear(set, np.id)
-
+      if (sshAgentOpening.has(target)) {
+        toast(`Already opening an agent for ${target}…`, 'info')
+        return
+      }
+      sshAgentOpening.add(target)
+      toast(`Opening ${command} for ${target}…`, 'info')
       void window.api
         .sshOpenAgent(target)
         .then((res) => {
@@ -439,6 +439,34 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
             toast(`Agent over SSH failed: ${res.error ?? 'unknown error'}`, 'error')
             return
           }
+          const np = makePane('ai', paneDefaults(get()))
+          np.agent = { command, cwd: res.cwd || homeDir() || '.', sshTarget: target }
+          np.title = res.mounted ? `${command} ${res.drive}: → ${target}` : `${command} → ${target}`
+          set((s) => {
+            // The source SSH pane may have been closed during the connect/mount
+            // wait — split off it if still present, else off any existing leaf,
+            // so the new agent pane never becomes an orphan missing from layout.
+            const leaves = getLeaves(s.layout)
+            const anchor = leaves.includes(paneId) ? paneId : leaves[leaves.length - 1]
+            const layout =
+              s.layout === null || anchor === undefined
+                ? np.id
+                : splitLeaf(s.layout, anchor, np.id, 'column')
+            return {
+              panes: { ...s.panes, [np.id]: np },
+              layout,
+              activePaneId: np.id,
+              entering: { ...s.entering, [np.id]: true }
+            }
+          })
+          scheduleEnterClear(set, np.id)
+
+          if (res.mounted) toast(`Mounted ${target} at ${res.drive}: — editing files there`, 'ok')
+          else if (res.needsSshfs)
+            toast('Install SSHFS-Win to edit remote files directly (run "SSH: Install remote-folder mount"). Running commands works now.', 'info')
+          else if (res.mountError)
+            toast(`Couldn't mount the remote folder: ${res.mountError}. Running commands still works.`, 'info')
+
           const ESC = String.fromCharCode(27)
           const instruction = res.instruction
           const submit = (): boolean => {
@@ -461,6 +489,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
           window.setTimeout(waitBoot, 400)
         })
         .catch((e: Error) => toast(`Agent over SSH failed: ${e.message}`, 'error'))
+        .finally(() => sshAgentOpening.delete(target))
       return
     }
     // The shell's launch cwd (live `cd`s aren't tracked); fall back to home.
