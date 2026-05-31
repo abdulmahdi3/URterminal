@@ -8,7 +8,7 @@ import {
   TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed, GripVertical,
   Bell, Copy, ClipboardPaste, PanelTop,
   Palette, Type, CaseSensitive, Droplet,
-  FolderOpen, Save, Layers, Focus, History, Eraser,
+  FolderOpen, Save, Layers, Focus, History, Eraser, Languages,
   Send, MessageSquare, Users, Info
 } from 'lucide-react'
 import type { ProviderId, AppPrefs, SettingsPatch, IntegrationId, IntegrationStatus } from '@shared/types'
@@ -23,6 +23,7 @@ import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@render
 import { playDoneSound } from '@renderer/hooks/useDoneNotifications'
 import LearningPanel from './LearningPanel'
 import SshServersPanel from './SshServersPanel'
+import { LANGUAGES } from '@renderer/lib/translate'
 
 const ACCENT_PRESETS = [
   { label: 'Blue', value: '#4c8dff' },
@@ -72,7 +73,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
   ],
   behavior: [
     'defaultShellCwd', 'autoSaveSeconds', 'maxRestorePanes',
-    'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore'
+    'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore', 'defaultLanguage'
   ],
   notifications: [
     'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName'
@@ -623,7 +624,8 @@ export default function SettingsModal(): JSX.Element | null {
     behavior: [
       'Default shell folder', 'Auto-save interval', 'Max restored panes',
       'Focus new pane on create',
-      'Reopen last workspace on launch', 'Clear workspace on exit'
+      'Reopen last workspace on launch', 'Clear workspace on exit',
+      'Default language', 'Translate'
     ],
     notifications: [
       'Desktop notification when an agent finishes', 'Play a sound when an agent finishes',
@@ -1027,6 +1029,16 @@ export default function SettingsModal(): JSX.Element | null {
                 )}
                 {match('Clear workspace on exit') && (
                   <ToggleCard icon={<Eraser size={16} />} title="Clear workspace on exit" desc="Start fresh next launch instead of restoring." checked={prefs.clearWorkspaceOnExit} onChange={(v) => setPref({ clearWorkspaceOnExit: v })} />
+                )}
+                {match('Default language') && (
+                  <SettingCard icon={<Languages size={16} />} title="Default language" desc="Target language for “Translate selection → send to agents”." control={
+                    <select className="select" value={prefs.defaultLanguage || 'English'} onChange={(e) => setPref({ defaultLanguage: e.target.value })}>
+                      {!LANGUAGES.includes(prefs.defaultLanguage) && prefs.defaultLanguage && (
+                        <option value={prefs.defaultLanguage}>{prefs.defaultLanguage}</option>
+                      )}
+                      {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  } />
                 )}
               </section>
             )}

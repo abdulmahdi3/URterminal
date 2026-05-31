@@ -190,6 +190,8 @@ export interface AppPrefs {
   pasteOnRightClick: boolean
   /** clear the saved workspace on exit (next launch starts empty) */
   clearWorkspaceOnExit: boolean
+  /** target language for the "Translate selection" command (sent to open agents) */
+  defaultLanguage: string
 
   // ---- notifications ----
   /** only fire desktop/sound notifications when the window is NOT focused */
@@ -233,6 +235,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   copyOnSelect: true,
   pasteOnRightClick: true,
   clearWorkspaceOnExit: false,
+  defaultLanguage: 'English',
 
   notifyOnlyUnfocused: false,
   notifyVolume: 60,

@@ -666,6 +666,11 @@ export function onSearchResults(
   return () => d.dispose()
 }
 
+/** The current text selection of a pane's terminal (empty string if none). */
+export function getPaneSelection(paneId: string): string {
+  return pool.get(paneId)?.term.getSelection() ?? ''
+}
+
 /** Copy the active selection of a pane's terminal to the clipboard (keyboard copy). */
 export function copySelection(paneId: string): void {
   const entry = pool.get(paneId)
