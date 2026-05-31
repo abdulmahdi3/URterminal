@@ -22,6 +22,7 @@ import { discoverAgents } from '../agents/discover'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
 import { forgetProject as forgetLearningProject } from '../learning/brain'
+import { enhancePrompt } from '../learning/enhancer'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
@@ -318,6 +319,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
   ipcMain.handle(IPC.learningInject, (_e, { cwd, agentId }: { cwd: string; agentId: string }) =>
     capture.injectNow(cwd, agentId)
+  )
+  ipcMain.handle(IPC.learningEnhance, (_e, args: { text: string; cwd?: string }) =>
+    enhancePrompt(args)
   )
 
   // ---- clipboard (right-click paste of text + images) ----

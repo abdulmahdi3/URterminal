@@ -18,7 +18,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2, Plus, Wand2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
@@ -32,6 +32,7 @@ import { getFullText, getScreenText } from '@renderer/lib/terminalPool'
 import { answerBlocks } from '@renderer/hooks/useChainForwarding'
 import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
+import { enhancePromptFor } from '@renderer/lib/enhance'
 import PaneView from './PaneView'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import 'react-mosaic-component/react-mosaic-component.css'
@@ -564,6 +565,15 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
               }
             ]}
           />
+        )}
+        {paneType === 'ai' && (
+          <button
+            className="icon-btn"
+            title="Enhance the typed prompt using learned memory"
+            onClick={() => enhancePromptFor(paneId)}
+          >
+            <Wand2 size={13} />
+          </button>
         )}
         {paneType === 'ai' && agentCwd && (
           <button

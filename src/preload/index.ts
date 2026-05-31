@@ -94,7 +94,10 @@ const api = {
     forgetProject: (projectHash: string): Promise<{ ok: true }> =>
       ipcRenderer.invoke(IPC.learningForgetProject, projectHash),
     inject: (cwd: string, agentId: string): Promise<{ status: string; file?: string }> =>
-      ipcRenderer.invoke(IPC.learningInject, { cwd, agentId })
+      ipcRenderer.invoke(IPC.learningInject, { cwd, agentId }),
+    /** Rewrite a rough prompt into a clear instruction, grounded in brain memory. */
+    enhance: (text: string, cwd?: string): Promise<string> =>
+      ipcRenderer.invoke(IPC.learningEnhance, { text, cwd })
   },
 
   // ---- clipboard (right-click paste) ----

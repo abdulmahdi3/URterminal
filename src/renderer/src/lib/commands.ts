@@ -12,6 +12,7 @@ import { getAgents } from '@renderer/lib/agents'
 import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { injectText } from '@renderer/lib/inject'
+import { enhanceActivePrompt } from '@renderer/lib/enhance'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -338,6 +339,12 @@ export function getCommands(): Command[] {
       title: 'Learning: Open settings',
       group: 'Learning',
       run: () => ui().openSettings('learning')
+    },
+    {
+      id: 'learning.enhancePrompt',
+      title: 'Enhance prompt with memory (active agent)',
+      group: 'Learning',
+      run: () => enhanceActivePrompt()
     },
 
     // ---- Google Tasks ----
