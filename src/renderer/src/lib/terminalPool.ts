@@ -238,8 +238,14 @@ function noteInputLine(paneId: string, data: string): void {
   let buf = inputLines.get(paneId) ?? ''
   for (const ch of data.replace(INPUT_ESC, '')) {
     const code = ch.charCodeAt(0)
-    if (code === 13 || code === 10) buf = ''
-    else if (code === 127 || code === 8) buf = buf.slice(0, -1)
+    if (code === 13 || code === 10) {
+      // Enter submits the line — hand the clean, reconstructed prompt to the
+      // learning recorder as an authoritative turn boundary (no-op in main
+      // unless the learning layer is enabled).
+      const submitted = buf.trim()
+      if (submitted) window.api.learning?.turnMarker(paneId, submitted, Date.now())
+      buf = ''
+    } else if (code === 127 || code === 8) buf = buf.slice(0, -1)
     else if (code >= 32) buf += ch
   }
   inputLines.set(paneId, buf)

@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch'
 import type { PtySpawnRequest, PtyDataEvent, PtyExitEvent, PtyTaskInfo } from '@shared/types'
 import type { PtyLike } from '../ssh/sshPty'
+import type { CaptureSink } from '../learning/capture'
 
 type Emit = (channel: string, payload: PtyDataEvent | PtyExitEvent) => void
 
@@ -81,12 +82,26 @@ interface Entry {
   paneId: string
   shell: string
   startedAt: number
+  // Agent id (the launched command, e.g. "claude") and cwd, captured at spawn so
+  // the learning sink can tag transcripts without re-deriving them. Absent for
+  // plain shells (no command) and adopted SSH sessions.
+  command?: string
+  cwd?: string
 }
 
 export class PtyManager {
   private ptys = new Map<string, Entry>()
 
+  // Optional learning-layer tap. When set, every pty's output + lifecycle is
+  // mirrored to it. PtyManager imports nothing from the learning domain beyond
+  // this interface, so the feature stays cleanly decoupled (and absent = no-op).
+  private capture?: CaptureSink
+
   constructor(private emit: Emit) {}
+
+  setCaptureSink(sink: CaptureSink): void {
+    this.capture = sink
+  }
 
   spawn(req: PtySpawnRequest): { ptyId: string; shell: string } {
     // If `command` is set we launch that program directly (e.g. `claude`) so it
@@ -106,12 +121,26 @@ export class PtyManager {
     const shell =
       req.command || [resolved.file, ...resolved.args].join(' ').trim() || resolved.file
     const ptyId = randomUUID()
-    this.ptys.set(ptyId, { proc, paneId: req.paneId, shell, startedAt: Date.now() })
+    this.ptys.set(ptyId, {
+      proc,
+      paneId: req.paneId,
+      shell,
+      startedAt: Date.now(),
+      command: req.command,
+      cwd: req.cwd
+    })
+    this.capture?.onSessionStart({
+      ptyId,
+      paneId: req.paneId,
+      agentId: req.command ?? '',
+      cwd: req.cwd ?? ''
+    })
 
     // If a startup command was requested (e.g. launching the `claude` CLI),
     // type it once the shell has produced its first output (prompt is ready).
     let startupSent = !req.startupCommand
     proc.onData((data) => {
+      this.capture?.onPtyData(req.paneId, data)
       this.emit('pty:data', { ptyId, paneId: req.paneId, data })
       if (!startupSent) {
         startupSent = true
@@ -125,6 +154,7 @@ export class PtyManager {
       }
     })
     proc.onExit(({ exitCode }) => {
+      this.capture?.onSessionEnd(req.paneId)
       this.emit('pty:exit', { ptyId, paneId: req.paneId, exitCode })
       this.ptys.delete(ptyId)
     })
@@ -139,8 +169,15 @@ export class PtyManager {
   adopt(proc: PtyLike, paneId: string, shell: string): { ptyId: string; shell: string } {
     const ptyId = randomUUID()
     this.ptys.set(ptyId, { proc, paneId, shell, startedAt: Date.now() })
-    proc.onData((data) => this.emit('pty:data', { ptyId, paneId, data }))
+    // Adopted sessions (SSH) have no agent command; pass an empty agentId so the
+    // capture layer treats them as non-agent panes (skipped under aiOnly).
+    this.capture?.onSessionStart({ ptyId, paneId, agentId: '', cwd: '' })
+    proc.onData((data) => {
+      this.capture?.onPtyData(paneId, data)
+      this.emit('pty:data', { ptyId, paneId, data })
+    })
     proc.onExit(({ exitCode }) => {
+      this.capture?.onSessionEnd(paneId)
       this.emit('pty:exit', { ptyId, paneId, exitCode })
       this.ptys.delete(ptyId)
     })

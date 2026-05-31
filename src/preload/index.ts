@@ -66,6 +66,17 @@ const api = {
     ipcRenderer.invoke(IPC.commandsCheck, names),
   discoverAgents: (): Promise<AgentDiscovery> => ipcRenderer.invoke(IPC.agentsDiscover),
 
+  // ---- learning layer (local recorder; opt-in) ----
+  learning: {
+    /** Report a submitted user prompt as an authoritative turn boundary. */
+    turnMarker: (paneId: string, text: string, ts: number): void =>
+      ipcRenderer.send(IPC.learningTurnMarker, { paneId, text, ts }),
+    getConfig: (): Promise<Record<string, unknown>> => ipcRenderer.invoke(IPC.learningGetConfig),
+    setConfig: (patch: Record<string, unknown>): Promise<Record<string, unknown>> =>
+      ipcRenderer.invoke(IPC.learningSetConfig, patch),
+    openStore: (): Promise<void> => ipcRenderer.invoke(IPC.learningOpenStore)
+  },
+
   // ---- clipboard (right-click paste) ----
   readClipboard: (): Promise<ClipboardContent> => ipcRenderer.invoke(IPC.clipboardRead),
 

@@ -558,6 +558,12 @@ export const IPC = {
   // agents: discover the merged agent list (built-ins + manifest + gh extensions)
   agentsDiscover: 'agents:discover',
 
+  // learning layer (local observe -> distill -> inject; opt-in, default off)
+  learningTurnMarker: 'learning:turn-marker', // renderer -> main: a submitted user prompt
+  learningGetConfig: 'learning:get-config',
+  learningSetConfig: 'learning:set-config',
+  learningOpenStore: 'learning:open-store', // reveal the local learning dir in the OS
+
   // clipboard (right-click paste of text + images)
   clipboardRead: 'clipboard:read',
 

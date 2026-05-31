@@ -17,6 +17,8 @@ import { PtyManager } from '../pty/manager'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
+import { CaptureService } from '../learning/capture'
+import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
@@ -76,6 +78,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   const pty = new PtyManager((channel, payload) => {
     emit(channel, payload)
   })
+
+  // Learning layer: tee every agent's output + clean user turns into a local,
+  // scrubbed transcript store. Lives wholly in main so it sees each pty exactly
+  // once (multi-window-safe), and is a no-op unless the user opts in (default off).
+  const capture = new CaptureService()
+  pty.setCaptureSink(capture)
 
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
     settings.getPublic(
@@ -256,6 +264,18 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.shellListWsl, () => listWslDistros())
   ipcMain.handle(IPC.commandsCheck, (_e, names: string[]) => filterAvailable(names))
   ipcMain.handle(IPC.agentsDiscover, () => discoverAgents())
+
+  // ---- learning layer (local recorder; opt-in, default off) ----
+  ipcMain.on(
+    IPC.learningTurnMarker,
+    (_e, { paneId, text, ts }: { paneId: string; text: string; ts: number }) =>
+      capture.onUserTurn(paneId, text, ts)
+  )
+  ipcMain.handle(IPC.learningGetConfig, () => getLearningConfig())
+  ipcMain.handle(IPC.learningSetConfig, (_e, patch) => setLearningConfig(patch))
+  ipcMain.handle(IPC.learningOpenStore, async () => {
+    await shell.openPath(learningRoot())
+  })
 
   // ---- clipboard (right-click paste of text + images) ----
   // Reading via the main-process clipboard module avoids renderer permission
