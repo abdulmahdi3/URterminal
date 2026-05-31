@@ -25,6 +25,8 @@ import type {
   TickTickProject,
   TickTickProjectData,
   TickTickTask,
+  GoogleTask,
+  GoogleTaskList,
   UpdaterStatus
 } from '@shared/types'
 
@@ -158,6 +160,22 @@ const api = {
     ipcRenderer.invoke(IPC.tickTickCompleteTask, { projectId, taskId }),
   tickTickDeleteTask: (projectId: string, taskId: string): Promise<void> =>
     ipcRenderer.invoke(IPC.tickTickDeleteTask, { projectId, taskId }),
+
+  // ---- Google Tasks ----
+  googleTasksVerify: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.googleTasksVerify),
+  googleTasksListLists: (): Promise<GoogleTaskList[]> => ipcRenderer.invoke(IPC.googleTasksListLists),
+  googleTasksListTasks: (listId?: string, showCompleted?: boolean): Promise<GoogleTask[]> =>
+    ipcRenderer.invoke(IPC.googleTasksListTasks, { listId, showCompleted }),
+  googleTasksCreateTask: (
+    listId: string,
+    input: { title: string; notes?: string; due?: string }
+  ): Promise<GoogleTask> =>
+    ipcRenderer.invoke(IPC.googleTasksCreateTask, { listId, ...input }),
+  googleTasksCompleteTask: (listId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.googleTasksCompleteTask, { listId, taskId }),
+  googleTasksDeleteTask: (listId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.googleTasksDeleteTask, { listId, taskId }),
+  googleTasksAgenda: (): Promise<string> => ipcRenderer.invoke(IPC.googleTasksAgenda),
 
   // ---- self-update (electron-updater backed by GitHub releases) ----
   onUpdateAvailable: (cb: (s: UpdaterStatus) => void): (() => void) =>

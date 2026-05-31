@@ -206,6 +206,15 @@ export class SettingsStore {
     this.store.set(s)
   }
 
+  /** Store/clear the access token for any to-do integration (e.g. on a 401). */
+  setIntegrationToken(id: IntegrationId, token: string | null): void {
+    const s = this.raw()
+    const cur = s.integrations[id] ?? {}
+    if (token) s.integrations[id] = { ...cur, tokenEnc: encrypt(token), connectedAt: Date.now() }
+    else s.integrations[id] = { ...cur, tokenEnc: undefined, connectedAt: undefined }
+    this.store.set(s)
+  }
+
   getPrefs(): AppPrefs {
     return { ...DEFAULT_PREFS, ...this.raw().prefs }
   }

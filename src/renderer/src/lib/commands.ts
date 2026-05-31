@@ -13,6 +13,7 @@ import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { connectSsh } from '@renderer/lib/ssh'
 import { translateSelection } from '@renderer/lib/translate'
+import { injectText } from '@renderer/lib/inject'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -345,6 +346,23 @@ export function getCommands(): Command[] {
       title: 'Learning: Open settings',
       group: 'Learning',
       run: () => ui().setShowSettings(true)
+    },
+
+    // ---- Google Tasks ----
+    {
+      id: 'googleTasks.agenda',
+      title: 'Google Tasks: Insert my agenda into the active pane',
+      group: 'Integrations',
+      run: () => {
+        void window.api
+          .googleTasksAgenda()
+          .then((text) => {
+            const id = ws().activePaneId
+            if (id && injectText(id, text, false)) toast('Inserted Google Tasks agenda', 'ok')
+            else toast('Open a pane first to insert the agenda', 'info')
+          })
+          .catch((e) => toast(`Google Tasks: ${(e as Error).message}`, 'error'))
+      }
     }
   ]
 

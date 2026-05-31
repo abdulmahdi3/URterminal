@@ -158,10 +158,10 @@ const INTEGRATIONS: IntegrationMeta[] = [
     name: 'Google Tasks',
     initials: 'GT',
     kind: 'oauth',
-    active: false,
-    desc: 'Google OAuth access token with the Tasks scope. Paste a token from the OAuth Playground to connect.',
+    active: true,
+    desc: 'Paste a Google OAuth access token with the Tasks scope (e.g. from the OAuth Playground). URterminal validates it, then you can pull your agenda or quick-add tasks from the command palette.',
     setupUrl: 'https://developers.google.com/oauthplayground/',
-    setupLabel: 'Open OAuth Playground',
+    setupLabel: 'Open OAuth Playground (select Tasks API v1)',
     tokenPlaceholder: 'OAuth access token'
   },
   {
@@ -1285,8 +1285,22 @@ export default function SettingsModal(): JSX.Element | null {
                         meta={meta}
                         status={settings.integrations?.[meta.id] ?? { connected: false }}
                         onConnect={(token) => {
-                          void patch({ integrationToken: { id: meta.id, token } })
-                          toast(`${meta.name} connected`, 'ok')
+                          void (async () => {
+                            await patch({ integrationToken: { id: meta.id, token } })
+                            // Google Tasks: validate the pasted token against the API so a
+                            // bad/expired token surfaces immediately instead of failing later.
+                            if (meta.id === 'googleTasks') {
+                              try {
+                                await window.api.googleTasksVerify()
+                                toast('Google Tasks connected', 'ok')
+                              } catch (e) {
+                                await patch({ integrationToken: { id: meta.id, token: null } })
+                                toast(`Google Tasks token rejected: ${(e as Error).message}`, 'error')
+                              }
+                              return
+                            }
+                            toast(`${meta.name} connected`, 'ok')
+                          })()
                         }}
                         onDisconnect={() => {
                           void patch({ integrationToken: { id: meta.id, token: null } })

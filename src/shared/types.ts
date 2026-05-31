@@ -324,6 +324,27 @@ export interface TickTickProjectData {
   columns?: unknown[]
 }
 
+// ---- Google Tasks ----
+export interface GoogleTaskList {
+  id: string
+  title: string
+}
+export interface GoogleTask {
+  id: string
+  title: string
+  notes?: string
+  status: 'needsAction' | 'completed'
+  /** due date (RFC 3339; Google only stores the date part) */
+  due?: string
+  completed?: string
+  updated?: string
+}
+/** A task list plus its (open) tasks — what the agenda is built from. */
+export interface GoogleTaskGroup {
+  list: GoogleTaskList
+  tasks: GoogleTask[]
+}
+
 export interface SettingsPublic {
   providers: ProviderSettingsPublic
   telegram: TelegramSettingsPublic
@@ -635,6 +656,15 @@ export const IPC = {
   tickTickUpdateTask: 'ticktick:update-task',
   tickTickCompleteTask: 'ticktick:complete-task',
   tickTickDeleteTask: 'ticktick:delete-task',
+
+  // Google Tasks to-do integration (bearer token paste + REST)
+  googleTasksVerify: 'gtasks:verify',
+  googleTasksListLists: 'gtasks:list-lists',
+  googleTasksListTasks: 'gtasks:list-tasks',
+  googleTasksCreateTask: 'gtasks:create-task',
+  googleTasksCompleteTask: 'gtasks:complete-task',
+  googleTasksDeleteTask: 'gtasks:delete-task',
+  googleTasksAgenda: 'gtasks:agenda',
 
   // telegram
   telegramStatus: 'telegram:status',

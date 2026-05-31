@@ -25,6 +25,7 @@ import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
 import { computeClaudeUsage } from '../usage/claudeUsage'
 import { TickTickClient, TickTickError } from '../integrations/ticktick'
+import { GoogleTasksClient } from '../integrations/googleTasks'
 
 export interface IpcContext {
   getWindow: () => BrowserWindow | null
@@ -452,6 +453,44 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.tickTickDeleteTask, (_e, ids: { projectId: string; taskId: string }) =>
     ttHandle(() => tickTick.deleteTask(ids.projectId, ids.taskId))
   )
+
+  // ---- Google Tasks (bearer-token REST proxy) ----
+  const googleTasks = new GoogleTasksClient(settings)
+  const gtHandle = async <T>(fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn()
+    } catch (e) {
+      throw new Error((e as Error).message ?? String(e))
+    }
+  }
+  ipcMain.handle(IPC.googleTasksVerify, async () => {
+    await gtHandle(() => googleTasks.verify())
+    // Surface the now-valid connection in the renderer's status pill.
+    emit(IPC.settingsChanged, settings.getPublic(telegram.isRunning(), telegram.getStatus().botUsername))
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.googleTasksListLists, () => gtHandle(() => googleTasks.listTaskLists()))
+  ipcMain.handle(IPC.googleTasksListTasks, (_e, args: { listId?: string; showCompleted?: boolean }) =>
+    gtHandle(() => googleTasks.listTasks(args?.listId ?? '@default', args?.showCompleted ?? false))
+  )
+  ipcMain.handle(
+    IPC.googleTasksCreateTask,
+    (_e, args: { listId?: string; title: string; notes?: string; due?: string }) =>
+      gtHandle(() =>
+        googleTasks.createTask(args.listId ?? '@default', {
+          title: args.title,
+          notes: args.notes,
+          due: args.due
+        })
+      )
+  )
+  ipcMain.handle(IPC.googleTasksCompleteTask, (_e, ids: { listId: string; taskId: string }) =>
+    gtHandle(() => googleTasks.completeTask(ids.listId, ids.taskId))
+  )
+  ipcMain.handle(IPC.googleTasksDeleteTask, (_e, ids: { listId: string; taskId: string }) =>
+    gtHandle(() => googleTasks.deleteTask(ids.listId, ids.taskId))
+  )
+  ipcMain.handle(IPC.googleTasksAgenda, () => gtHandle(() => googleTasks.agendaText()))
 
   // ---- standalone notes (app-wide, separate from per-pane notes) ----
   const notesFile = (): string => join(app.getPath('userData'), 'notes.json')
