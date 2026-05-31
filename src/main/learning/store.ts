@@ -38,7 +38,13 @@ export interface LearningConfig {
   autoApprove: boolean
   injectionPassive: boolean
   injectionActive: boolean
-  model: string
+  /**
+   * Which model distills transcripts into memory/skills (later slice). Default
+   * 'claude-cli-headless' spawns the user's already-authenticated Claude Code
+   * CLI — no new API key, same trust boundary they already accepted. Users can
+   * switch to 'provider-api' (own key) or 'local' (zero egress) in settings.
+   */
+  model: 'claude-cli-headless' | 'provider-api' | 'local'
   distillIdleMs: number
   minTurns: number
   minClusterSupport: number
@@ -57,7 +63,7 @@ export const DEFAULT_LEARNING_CONFIG: LearningConfig = {
   autoApprove: false,
   injectionPassive: true,
   injectionActive: false,
-  model: '',
+  model: 'claude-cli-headless',
   distillIdleMs: 90000,
   minTurns: 6,
   minClusterSupport: 2,

@@ -74,8 +74,6 @@ function createWindow(opts: { secondary?: boolean } = {}): BrowserWindow {
       void import('./smoke').then((m) => m.runSmoke(win))
     } else if (process.env.URTERMINAL_SMOKE_SETTINGS) {
       void import('./smoke').then((m) => m.runSettingsSmoke(win))
-    } else if (process.env.URTERMINAL_MEASURE) {
-      void import('./measure').then((m) => m.runMeasure(win))
     }
   })
 
