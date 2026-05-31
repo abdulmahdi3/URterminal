@@ -418,16 +418,15 @@ select {
   width: 28px;
   height: 28px;
   padding: 0;
-  color: var(--text-dim);
+  color: var(--accent);
   background: var(--bg-elev-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-md);
 }
 .sel-translate-btn:hover {
-  background: var(--bg-elev-3);
+  background: var(--bg-elev-2);
   border-color: var(--accent);
-  color: var(--accent);
 }
 .sel-translate-pop {
   display: flex;
