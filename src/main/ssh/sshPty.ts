@@ -21,6 +21,8 @@ export interface SshConnectOpts {
   password: string
   cols: number
   rows: number
+  /** command run inside the remote shell once it is ready (e.g. "claude") */
+  startupCommand?: string
 }
 
 /**
@@ -65,6 +67,18 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
       stream = s
       for (const p of pending) s.write(p)
       pending.length = 0
+      // Optionally launch a command (e.g. an agent) inside the remote shell.
+      // Delay briefly so the login shell has printed its prompt first.
+      if (opts.startupCommand) {
+        const cmd = opts.startupCommand
+        setTimeout(() => {
+          try {
+            s.write(`${cmd}\r`)
+          } catch {
+            /* channel may have closed */
+          }
+        }, 600)
+      }
       s.on('data', (d: Buffer) => emitData(d.toString('utf8')))
       s.stderr?.on('data', (d: Buffer) => emitData(d.toString('utf8')))
       s.on('close', () => {

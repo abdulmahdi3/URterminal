@@ -110,6 +110,17 @@ export interface PaneTemplate {
   startupCommand?: string
 }
 
+/** A saved SSH server the user can connect to in one click from the SSH menu. */
+export interface SshServer {
+  id: string
+  /** friendly name shown in the list */
+  label: string
+  /** connection target, "user@host" or "user@host:port" */
+  target: string
+  /** if set, this agent is launched inside the session right after connecting (e.g. "claude") */
+  agentOnConnect?: string
+}
+
 export type CursorStyle = 'block' | 'bar' | 'underline'
 export type NotifySound = 'chime' | 'beep'
 
@@ -135,6 +146,8 @@ export interface AppPrefs {
   templates: PaneTemplate[]
   /** recent SSH targets (most recent first, e.g. "user@host"), shown by the SSH button */
   sshHosts: string[]
+  /** saved/named SSH servers managed in settings, connectable in one click */
+  sshServers: SshServer[]
 
   // ---- appearance / terminal ----
   /** app color theme (matches APP_THEMES: dark, amoled, ocean, forest, dusk, light, system) */
@@ -198,6 +211,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   snippets: [],
   templates: [],
   sshHosts: [],
+  sshServers: [],
 
   appTheme: 'dark',
   cursorStyle: 'block',
@@ -391,6 +405,8 @@ export interface SshSpawnRequest {
   password?: string
   /** persist the password (encrypted) for next time */
   savePassword?: boolean
+  /** command typed into the remote shell once it is ready (e.g. "claude") */
+  startupCommand?: string
   cols: number
   rows: number
 }

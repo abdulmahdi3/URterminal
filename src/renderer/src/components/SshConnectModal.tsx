@@ -12,6 +12,7 @@ export default function SshConnectModal(): JSX.Element | null {
   const open = useUi((s) => s.showSshPrompt)
   const setOpen = useUi((s) => s.setShowSshPrompt)
   const hosts = useSettings((s) => s.settings?.prefs.sshHosts ?? [])
+  const servers = useSettings((s) => s.settings?.prefs.sshServers ?? [])
   const [host, setHost] = useState('')
   const [password, setPassword] = useState('')
   const [save, setSave] = useState(false)
@@ -77,6 +78,24 @@ export default function SshConnectModal(): JSX.Element | null {
             <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
             <span>Save credentials</span>
           </label>
+          {servers.length > 0 && (
+            <div className="ssh-recent">
+              <div className="ssh-recent-head">Saved servers</div>
+              {servers.map((s) => (
+                <button
+                  key={s.id}
+                  className="ssh-recent-item"
+                  title={`ssh ${s.target}${s.agentOnConnect ? ` · opens ${s.agentOnConnect}` : ''}`}
+                  onClick={() => {
+                    connectSsh(s.target, '', false, { agentOnConnect: s.agentOnConnect })
+                    close()
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
           {hosts.length > 0 && (
             <div className="ssh-recent">
               <div className="ssh-recent-head">Recent</div>
