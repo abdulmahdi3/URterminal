@@ -61,6 +61,8 @@
   --statusbar-h: 24px;
   --pane-header-h: 30px;
   --gap: 6px;
+  /* scrollbar thickness (user-configurable via the terminal settings) */
+  --scrollbar-size: 14px;
 
 
   /* Shadows */
@@ -114,20 +116,20 @@ select {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-/* default: thumb is a 2px sliver via large transparent border */
+/* default: a visible thumb inset by a 3px transparent border */
 ::-webkit-scrollbar-thumb {
   background: var(--border-faint);
   border-radius: var(--r-pill);
-  border: 4px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
 }
-/* on hover over any scrollable element: expand to 8px */
+/* on hover over any scrollable element: thumb fills nearly the full width */
 *:hover::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-width: 1px;

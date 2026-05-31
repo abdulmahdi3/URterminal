@@ -155,6 +155,8 @@ export interface AppPrefs {
   showPaneHeaders: boolean
   /** terminal scroll speed multiplier */
   scrollSensitivity: number
+  /** width (px) of the scrollbars (terminal viewport + scrollable UI) */
+  scrollbarWidth: number
   /** play a short sound when the terminal emits a bell (\\a) */
   terminalBell: boolean
 
@@ -206,6 +208,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   terminalPadding: 8,
   showPaneHeaders: true,
   scrollSensitivity: 1,
+  scrollbarWidth: 14,
   terminalBell: false,
 
   confirmClose: false,

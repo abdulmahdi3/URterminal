@@ -52,6 +52,11 @@ function applySideEffects(s: SettingsPublic): void {
   })
   // pane title bars (settings-controlled) — collapse the mosaic toolbar when off
   document.documentElement.classList.toggle('hide-pane-headers', !s.prefs.showPaneHeaders)
+  // scrollbar thickness (px) — drives the --scrollbar-size CSS var used by global.css
+  document.documentElement.style.setProperty(
+    '--scrollbar-size',
+    `${Math.max(6, s.prefs.scrollbarWidth || 14)}px`
+  )
   applyAccentColor(s.accentColor || '#4c8dff')
   setTerminalFont(s.prefs.fontFamily || '', s.prefs.fontSize || 13)
   setTerminalConfig({

@@ -5,7 +5,7 @@ import {
   Check, Search, Trash2, RotateCcw, Download, Upload, Keyboard,
   Volume2, Volume1, VolumeX, Play, Monitor, EyeOff,
   KeyRound, Cpu, Bot, SquareTerminal, Server,
-  TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed,
+  TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed, GripVertical,
   Bell, Copy, ClipboardPaste, PanelTop,
   Palette, Type, CaseSensitive, Droplet,
   FolderOpen, Save, Layers, Focus, History, Eraser,
@@ -66,7 +66,7 @@ const KEY_PROVIDERS: KeyProvider[] = ['anthropic', 'openai', 'gemini']
 const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
   terminal: [
     'cursorStyle', 'cursorBlink', 'lineHeight', 'letterSpacing', 'scrollback',
-    'terminalPadding', 'showPaneHeaders', 'scrollSensitivity', 'terminalBell',
+    'terminalPadding', 'showPaneHeaders', 'scrollSensitivity', 'scrollbarWidth', 'terminalBell',
     'copyOnSelect', 'pasteOnRightClick'
   ],
   behavior: [
@@ -614,7 +614,7 @@ export default function SettingsModal(): JSX.Element | null {
     defaults: [t('settings.defaultProvider'), t('settings.defaultModel'), 'Default agent', 'Default terminal'],
     terminal: [
       'Cursor style', 'Cursor blink', 'Line height', 'Letter spacing', 'Scrollback',
-      'Terminal padding', 'Scroll sensitivity', 'Terminal bell sound', 'Copy on select',
+      'Terminal padding', 'Scroll sensitivity', 'Scrollbar width', 'Terminal bell sound', 'Copy on select',
       'Paste on right-click', 'Show pane title bars'
     ],
     appearance: ['Theme', 'Terminal font', 'Font size', 'Accent Color'],
@@ -918,6 +918,12 @@ export default function SettingsModal(): JSX.Element | null {
                   <SettingCard icon={<MoveVertical size={16} />} title="Scroll sensitivity" desc="Mouse-wheel speed multiplier." control={
                     <input className="input num" type="number" min={1} max={10} step={1} value={prefs.scrollSensitivity}
                       onChange={(e) => setPref({ scrollSensitivity: Math.max(1, Number(e.target.value) || 1) })} />
+                  } />
+                )}
+                {match('Scrollbar width') && (
+                  <SettingCard icon={<GripVertical size={16} />} title="Scrollbar width" desc="Thickness of the scrollbars, in pixels." control={
+                    <input className="input num" type="number" min={6} max={28} step={1} value={prefs.scrollbarWidth ?? 14}
+                      onChange={(e) => setPref({ scrollbarWidth: Math.max(6, Math.min(28, Number(e.target.value) || 14)) })} />
                   } />
                 )}
                 {match('Cursor blink') && (
