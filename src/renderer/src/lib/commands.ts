@@ -312,6 +312,39 @@ export function getCommands(): Command[] {
         useActivity.getState().clear()
         toast('Activity log cleared', 'ok')
       }
+    },
+
+    // ---- learning layer (Hermes) ----
+    {
+      id: 'learning.distill',
+      title: 'Learning: Run distillation now',
+      group: 'Learning',
+      run: () => {
+        toast('Running distillation…', 'info')
+        void window.api.learning
+          .distill()
+          .then((r) =>
+            toast(
+              r.ok
+                ? `Distilled — ${r.applied ?? 0} applied, ${r.queued ?? 0} queued`
+                : `Distillation failed: ${r.error ?? 'learning/egress disabled?'}`,
+              r.ok ? 'ok' : 'error'
+            )
+          )
+          .catch((e) => toast(`Distillation failed: ${(e as Error).message}`, 'error'))
+      }
+    },
+    {
+      id: 'learning.openStore',
+      title: 'Learning: Open brain store folder',
+      group: 'Learning',
+      run: () => void window.api.learning.openStore().catch(() => {})
+    },
+    {
+      id: 'learning.settings',
+      title: 'Learning: Open settings',
+      group: 'Learning',
+      run: () => ui().setShowSettings(true)
     }
   ]
 

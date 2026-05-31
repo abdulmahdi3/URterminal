@@ -636,6 +636,7 @@ export default function SettingsModal(): JSX.Element | null {
     ssh: ['SSH', 'SSH servers', 'Saved servers', 'Open agent on connect'],
     snippets: ['Snippets'],
     keyboard: ['Keyboard shortcuts'],
+    learning: ['Learning', 'Cross-agent learning', 'Distillation', 'Review candidates', 'Brain store', 'Hermes'],
     about: ['About', 'Version', 'Export settings', 'Import settings', 'Reset all data']
   }
   const SECTIONS: { id: string; title: string }[] = [
@@ -650,6 +651,7 @@ export default function SettingsModal(): JSX.Element | null {
     { id: 'ssh', title: 'SSH' },
     { id: 'snippets', title: 'Snippets' },
     { id: 'keyboard', title: 'Keyboard' },
+    { id: 'learning', title: 'Learning' },
     { id: 'about', title: 'About' }
   ]
 
