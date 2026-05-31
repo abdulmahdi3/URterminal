@@ -19,6 +19,7 @@ import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
+import { forgetProject as forgetLearningProject } from '../learning/brain'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
 import { TelegramBridge } from '../telegram/bridge'
@@ -278,6 +279,26 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     await shell.openPath(learningRoot())
   })
   ipcMain.handle(IPC.learningListCandidates, () => capture.listCandidates())
+  ipcMain.handle(IPC.learningDistill, async (_e, projectHash?: string) => {
+    try {
+      const r = await capture.distill(projectHash)
+      // Surface any newly-queued review ops + refreshed candidate list to all windows.
+      emit(IPC.learningCandidates, capture.listCandidates())
+      return { ok: true, applied: r.applied, queued: r.queued.length, ops: r.ops.length }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle(IPC.learningListMemory, (_e, projectHash?: string | null) =>
+    capture.brain(projectHash ?? null)
+  )
+  ipcMain.handle(IPC.learningListPendingOps, () => capture.listPendingOps())
+  ipcMain.handle(IPC.learningApproveOp, (_e, id: string) => capture.approveOp(id))
+  ipcMain.handle(IPC.learningRejectOp, (_e, id: string) => capture.rejectOp(id))
+  ipcMain.handle(IPC.learningForgetProject, (_e, projectHash: string) => {
+    forgetLearningProject(projectHash)
+    return { ok: true }
+  })
 
   // ---- clipboard (right-click paste of text + images) ----
   // Reading via the main-process clipboard module avoids renderer permission

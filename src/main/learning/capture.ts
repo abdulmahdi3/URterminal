@@ -1,7 +1,12 @@
 import { TurnAssembler } from './turnAssembler'
 import { CandidateGate } from './candidates'
+import { runDistillForProject, type DistillOutcome } from './distillRunner'
+import { getRunModel } from './model'
+import { ReviewQueue, commitOp, type PendingOp } from './review'
+import { brainIndex } from './brain'
 import { appendTurn, getLearningConfig, type LearningConfig, type TurnRecord } from './store'
 import type { Candidate } from './heuristics'
+import type { DistillOp } from './merge'
 
 // Drop a turn marker that's an exact duplicate of the previous one for the same
 // pane within this window — defends against a mirrored renderer double-delivering
@@ -98,7 +103,7 @@ export class CaptureService implements CaptureSink {
     this.assemblers.delete(paneId)
   }
 
-  /** Current review queue (for the renderer's learning panel). */
+  /** Current candidate review queue (for the renderer's learning panel). */
   listCandidates(): Candidate[] {
     try {
       if (!this.gate) this.gate = new CandidateGate()
@@ -106,5 +111,63 @@ export class CaptureService implements CaptureSink {
     } catch {
       return []
     }
+  }
+
+  private ensureGate(): CandidateGate {
+    if (!this.gate) this.gate = new CandidateGate()
+    return this.gate
+  }
+
+  /**
+   * Run a distillation pass (a model call — the only egress point). Requires the
+   * separate egress gate `egressAllowed`. Distils the given project, or every
+   * project with pending candidates. Returns a summary for the caller to relay.
+   */
+  async distill(projectHash?: string): Promise<DistillOutcome> {
+    const cfg = this.cfg()
+    if (!cfg.enabled || !cfg.egressAllowed) {
+      throw new Error('Distillation is off — enable learning + the distill (egress) toggle first.')
+    }
+    const gate = this.ensureGate()
+    const review = new ReviewQueue()
+    const runModel = getRunModel(cfg)
+    const projects = projectHash ? [projectHash] : gate.projectsWithPending()
+    const merged: DistillOutcome = { ops: [], applied: 0, queued: [] }
+    for (const ph of projects) {
+      const r = await runDistillForProject(ph, gate, runModel, cfg, review)
+      merged.ops.push(...r.ops)
+      merged.applied += r.applied
+      merged.queued.push(...r.queued)
+    }
+    return merged
+  }
+
+  /** Pending distilled ops awaiting the user's approval. */
+  listPendingOps(): PendingOp[] {
+    try {
+      return new ReviewQueue().list()
+    } catch {
+      return []
+    }
+  }
+
+  /** Approve a pending op → write it into the brain. */
+  approveOp(id: string): boolean {
+    return new ReviewQueue().approve(id)
+  }
+
+  /** Reject (discard) a pending op. */
+  rejectOp(id: string): void {
+    new ReviewQueue().reject(id)
+  }
+
+  /** Directly commit an op (used by tests / future auto-approve paths). */
+  commit(projectHash: string, op: DistillOp): void {
+    commitOp(projectHash, op)
+  }
+
+  /** The current brain index for a scope (memories + skills), for the UI. */
+  brain(projectHash: string | null): ReturnType<typeof brainIndex> {
+    return brainIndex(projectHash)
   }
 }

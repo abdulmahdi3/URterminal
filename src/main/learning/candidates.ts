@@ -118,10 +118,24 @@ export class CandidateGate {
     return this.state.pending
   }
 
+  /** Remove the given candidate hashes from the pending queue (after distill). */
+  consume(hashes: string[]): void {
+    const drop = new Set(hashes)
+    if (!drop.size) return
+    this.state.pending = this.state.pending.filter((c) => !drop.has(c.hash))
+    for (const h of hashes) this.seen.delete(h)
+    this.save()
+  }
+
   /** Counts of pending candidates by heuristic kind (for the status pill). */
   summary(): { total: number; byKind: Record<string, number> } {
     const byKind: Record<string, number> = {}
     for (const c of this.state.pending) byKind[c.kind] = (byKind[c.kind] ?? 0) + 1
     return { total: this.state.pending.length, byKind }
+  }
+
+  /** Distinct project hashes that currently have pending candidates. */
+  projectsWithPending(): string[] {
+    return [...new Set(this.state.pending.map((c) => c.projectHash))]
   }
 }

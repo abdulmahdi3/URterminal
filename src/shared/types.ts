@@ -565,6 +565,12 @@ export const IPC = {
   learningOpenStore: 'learning:open-store', // reveal the local learning dir in the OS
   learningListCandidates: 'learning:list-candidates', // renderer -> main: pending review queue
   learningCandidates: 'learning:candidates', // main -> renderer (event): new gate candidates
+  learningDistill: 'learning:distill', // renderer -> main: run a distillation pass (model call)
+  learningListMemory: 'learning:list-memory', // renderer -> main: current brain (memories+skills)
+  learningListPendingOps: 'learning:list-pending-ops', // renderer -> main: distilled ops awaiting review
+  learningApproveOp: 'learning:approve-op', // renderer -> main: write a pending op into the brain
+  learningRejectOp: 'learning:reject-op', // renderer -> main: discard a pending op
+  learningForgetProject: 'learning:forget-project', // renderer -> main: wipe one project's learning
 
   // clipboard (right-click paste of text + images)
   clipboardRead: 'clipboard:read',

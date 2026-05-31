@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 
 /**
@@ -35,6 +35,8 @@ export interface LearningConfig {
   //      config shape is forward-compatible and the UI can bind to it early.
   egressAllowed: boolean
   autoApprove: boolean
+  /** When autoApprove is on, only ops at/above this confidence skip review. */
+  autoApproveMinConfidence: number
   injectionPassive: boolean
   injectionActive: boolean
   /**
@@ -60,6 +62,7 @@ export const DEFAULT_LEARNING_CONFIG: LearningConfig = {
   scrubExtraPatterns: [],
   egressAllowed: false,
   autoApprove: false,
+  autoApproveMinConfidence: 0.75,
   injectionPassive: true,
   injectionActive: false,
   model: 'claude-cli-headless',
@@ -148,4 +151,40 @@ export function appendTurn(rec: TurnRecord): void {
   } catch {
     /* capture must never crash the app — drop the record on any IO error */
   }
+}
+
+/**
+ * Load recent turns for a project from the newest transcript files (for the
+ * distiller, which needs the full text behind a candidate's turnIds). Reads at
+ * most `maxFiles` day-files newest-first; tolerates missing/corrupt lines.
+ */
+export function readTurnsForProject(projectHash: string, maxFiles = 3): TurnRecord[] {
+  const dir = join(root(), 'projects', projectHash, 'transcripts')
+  let files: string[]
+  try {
+    files = readdirSync(dir)
+      .filter((f) => f.endsWith('.jsonl'))
+      .sort()
+      .slice(-maxFiles)
+  } catch {
+    return []
+  }
+  const out: TurnRecord[] = []
+  for (const f of files) {
+    let raw: string
+    try {
+      raw = readFileSync(join(dir, f), 'utf8')
+    } catch {
+      continue
+    }
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue
+      try {
+        out.push(JSON.parse(line) as TurnRecord)
+      } catch {
+        /* skip a corrupt line */
+      }
+    }
+  }
+  return out
 }

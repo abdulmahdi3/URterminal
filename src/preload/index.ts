@@ -77,7 +77,17 @@ const api = {
     openStore: (): Promise<void> => ipcRenderer.invoke(IPC.learningOpenStore),
     listCandidates: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListCandidates),
     onCandidates: (cb: (c: unknown[]) => void): (() => void) =>
-      on<unknown[]>(IPC.learningCandidates, cb)
+      on<unknown[]>(IPC.learningCandidates, cb),
+    /** Run a distillation pass (model call); requires learning + egress enabled. */
+    distill: (projectHash?: string): Promise<{ ok: boolean; applied?: number; queued?: number; ops?: number; error?: string }> =>
+      ipcRenderer.invoke(IPC.learningDistill, projectHash),
+    listMemory: (projectHash?: string | null): Promise<unknown> =>
+      ipcRenderer.invoke(IPC.learningListMemory, projectHash),
+    listPendingOps: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListPendingOps),
+    approveOp: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.learningApproveOp, id),
+    rejectOp: (id: string): Promise<void> => ipcRenderer.invoke(IPC.learningRejectOp, id),
+    forgetProject: (projectHash: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke(IPC.learningForgetProject, projectHash)
   },
 
   // ---- clipboard (right-click paste) ----
