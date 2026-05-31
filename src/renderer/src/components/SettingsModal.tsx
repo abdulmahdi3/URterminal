@@ -21,6 +21,7 @@ import { toast } from '@renderer/store/toasts'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { playDoneSound } from '@renderer/hooks/useDoneNotifications'
+import LearningPanel from './LearningPanel'
 
 const ACCENT_PRESETS = [
   { label: 'Blue', value: '#4c8dff' },
@@ -1328,6 +1329,14 @@ export default function SettingsModal(): JSX.Element | null {
                     </button>
                   }
                 />
+              </section>
+            )}
+
+            {/* Learning */}
+            {showSection('learning', 'Learning') && (
+              <section className="settings-section" ref={sectionRef('learning')}>
+                <Head id="learning" title="Learning" />
+                <LearningPanel />
               </section>
             )}
 

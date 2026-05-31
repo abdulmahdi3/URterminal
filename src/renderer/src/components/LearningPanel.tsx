@@ -84,7 +84,7 @@ export default function LearningPanel(): JSX.Element {
     void api?.setConfig(p as Record<string, unknown>)
   }
 
-  if (!cfg) return <div className="settings-section" />
+  if (!cfg) return <></>
 
   const distill = async (): Promise<void> => {
     setBusy(true)
@@ -109,8 +109,7 @@ export default function LearningPanel(): JSX.Element {
   }
 
   return (
-    <section className="settings-section">
-      <h3 className="settings-section-title">Learning</h3>
+    <>
       <div className="settings-row-desc" style={{ marginBottom: 12 }}>
         URterminal can observe your agent sessions, distill durable memory + skills,
         and feed them back to every agent. All local; opt-in; off by default.
@@ -241,6 +240,6 @@ export default function LearningPanel(): JSX.Element {
           </button>
         }
       />
-    </section>
+    </>
   )
 }
