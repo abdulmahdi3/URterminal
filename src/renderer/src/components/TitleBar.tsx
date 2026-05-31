@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, X, Network, NotebookPen } from 'lucide-react'
+import { Plus, X, Network, NotebookPen, AppWindow } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
@@ -319,6 +319,15 @@ export default function TitleBar(): JSX.Element {
           onClick={toggleNotes}
         >
           <NotebookPen size={15} />
+        </button>
+
+        {/* Open a fresh, independent URterminal window (same as Ctrl+Shift+N) */}
+        <button
+          className="icon-btn agent-icon-btn"
+          title="New window"
+          onClick={() => window.api.openNewWindow()}
+        >
+          <AppWindow size={15} />
         </button>
       </div>
 
