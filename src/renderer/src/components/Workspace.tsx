@@ -268,6 +268,7 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const agentCwd = useWorkspace((s) => s.panes[paneId]?.agent?.cwd)
   const agentCommand = useWorkspace((s) => s.panes[paneId]?.agent?.command)
   const shellCwd = useWorkspace((s) => s.panes[paneId]?.shell?.cwd)
+  const shellSsh = useWorkspace((s) => s.panes[paneId]?.shell?.ssh)
   const agentStatus = usePaneStatus((s) => s.status[paneId]) ?? 'idle'
   const isActive = useTokens((s) => !!s.activePanes[paneId])
   // Account-global Claude usage (real `/usage` numbers) — shown only in claude panes.
@@ -585,7 +586,11 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         {paneType === 'shell' && (
           <button
             className="icon-btn"
-            title={`Open agent in this folder${shellCwd ? `\n${shellCwd}` : ' (home)'}`}
+            title={
+              shellSsh
+                ? `Open agent inside this SSH session\n${shellSsh.target}`
+                : `Open agent in this folder${shellCwd ? `\n${shellCwd}` : ' (home)'}`
+            }
             onClick={() => openAgentHere(paneId)}
           >
             <Bot size={13} />

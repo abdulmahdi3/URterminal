@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import type { MosaicDirection, MosaicNode } from 'react-mosaic-component'
 import type { Pane, PaneType, ProviderId } from '@shared/types'
-import { DEFAULT_AGENT } from '@shared/providers'
+import { DEFAULT_AGENT, agentLaunch, agentDescriptor } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal } from '@renderer/lib/terminalPool'
+import { toast } from '@renderer/store/toasts'
 import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
 
 const uid = (): string =>
@@ -407,9 +408,23 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const s0 = get()
     const pane = s0.panes[paneId]
     if (!pane || pane.type !== 'shell') return
+    const command = s0.defaultAgent || DEFAULT_AGENT
+    // SSH pane: launch the agent INSIDE the remote session (type e.g. `claude`
+    // into the live ssh shell) instead of opening a separate local agent pane.
+    if (pane.shell?.ssh) {
+      const ptyId = pane.shell.ptyId
+      if (!ptyId) {
+        toast('SSH session is still connecting…', 'info')
+        return
+      }
+      const launch = agentLaunch(agentDescriptor(command), command)
+      const line = [launch.command, ...launch.args].join(' ')
+      window.api.writePty(ptyId, `${line}\r`)
+      set({ activePaneId: paneId })
+      return
+    }
     // The shell's launch cwd (live `cd`s aren't tracked); fall back to home.
     const cwd = pane.shell?.cwd ?? getHome()
-    const command = s0.defaultAgent || DEFAULT_AGENT
     const np = makePane('ai', paneDefaults(s0))
     np.agent = { command, cwd }
     np.title = command
