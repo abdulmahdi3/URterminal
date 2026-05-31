@@ -9,6 +9,16 @@ import type { CaptureSink } from '../learning/capture'
 
 type Emit = (channel: string, payload: PtyDataEvent | PtyExitEvent) => void
 
+// pty:data → renderer IPC is coalesced per pty on a short timer so a chatty CLI
+// (measured ~1700 output events/sec under load) collapses into a handful of
+// messages per frame instead of flooding the renderer with thousands of IPC
+// round-trips. The learning-capture tap still sees every raw chunk (it runs
+// in-process, no IPC), so only the renderer-bound emit is batched.
+const OUTPUT_FLUSH_MS = 8
+// Flush immediately once the pending buffer passes this size, to bound latency
+// and memory during a huge burst (e.g. `cat` of a big file) rather than waiting.
+const OUTPUT_FLUSH_MAX = 256 * 1024
+
 function defaultShell(): string {
   if (process.platform === 'win32') {
     return 'powershell.exe'
@@ -87,6 +97,10 @@ interface Entry {
   // plain shells (no command) and adopted SSH sessions.
   command?: string
   cwd?: string
+  // Pending pty:data awaiting the next flush, plus the scheduled flush timer
+  // (null when the buffer is empty). See OUTPUT_FLUSH_MS / bufferOutput.
+  buf: string
+  flushTimer: ReturnType<typeof setTimeout> | null
 }
 
 export class PtyManager {
@@ -101,6 +115,29 @@ export class PtyManager {
 
   setCaptureSink(sink: CaptureSink): void {
     this.capture = sink
+  }
+
+  /** Append output to a pty's pending buffer, arming (or forcing) a flush. */
+  private bufferOutput(ptyId: string, data: string): void {
+    const e = this.ptys.get(ptyId)
+    if (!e) return
+    e.buf += data
+    if (e.buf.length >= OUTPUT_FLUSH_MAX) this.flushOutput(ptyId)
+    else if (!e.flushTimer) e.flushTimer = setTimeout(() => this.flushOutput(ptyId), OUTPUT_FLUSH_MS)
+  }
+
+  /** Emit a pty's buffered output as a single pty:data message (if any). */
+  private flushOutput(ptyId: string): void {
+    const e = this.ptys.get(ptyId)
+    if (!e) return
+    if (e.flushTimer) {
+      clearTimeout(e.flushTimer)
+      e.flushTimer = null
+    }
+    if (!e.buf) return
+    const data = e.buf
+    e.buf = ''
+    this.emit('pty:data', { ptyId, paneId: e.paneId, data })
   }
 
   spawn(req: PtySpawnRequest): { ptyId: string; shell: string } {
@@ -127,7 +164,9 @@ export class PtyManager {
       shell,
       startedAt: Date.now(),
       command: req.command,
-      cwd: req.cwd
+      cwd: req.cwd,
+      buf: '',
+      flushTimer: null
     })
     this.capture?.onSessionStart({
       ptyId,
@@ -140,8 +179,10 @@ export class PtyManager {
     // type it once the shell has produced its first output (prompt is ready).
     let startupSent = !req.startupCommand
     proc.onData((data) => {
+      // Capture taps the raw stream in-process (no IPC); only the renderer-bound
+      // emit is batched, via bufferOutput.
       this.capture?.onPtyData(req.paneId, data)
-      this.emit('pty:data', { ptyId, paneId: req.paneId, data })
+      this.bufferOutput(ptyId, data)
       if (!startupSent) {
         startupSent = true
         setTimeout(() => {
@@ -154,6 +195,7 @@ export class PtyManager {
       }
     })
     proc.onExit(({ exitCode }) => {
+      this.flushOutput(ptyId) // deliver any buffered output before the exit event
       this.capture?.onSessionEnd(req.paneId)
       this.emit('pty:exit', { ptyId, paneId: req.paneId, exitCode })
       this.ptys.delete(ptyId)
@@ -168,15 +210,16 @@ export class PtyManager {
    */
   adopt(proc: PtyLike, paneId: string, shell: string): { ptyId: string; shell: string } {
     const ptyId = randomUUID()
-    this.ptys.set(ptyId, { proc, paneId, shell, startedAt: Date.now() })
+    this.ptys.set(ptyId, { proc, paneId, shell, startedAt: Date.now(), buf: '', flushTimer: null })
     // Adopted sessions (SSH) have no agent command; pass an empty agentId so the
     // capture layer treats them as non-agent panes (skipped under aiOnly).
     this.capture?.onSessionStart({ ptyId, paneId, agentId: '', cwd: '' })
     proc.onData((data) => {
       this.capture?.onPtyData(paneId, data)
-      this.emit('pty:data', { ptyId, paneId, data })
+      this.bufferOutput(ptyId, data)
     })
     proc.onExit(({ exitCode }) => {
+      this.flushOutput(ptyId)
       this.capture?.onSessionEnd(paneId)
       this.emit('pty:exit', { ptyId, paneId, exitCode })
       this.ptys.delete(ptyId)
@@ -201,6 +244,7 @@ export class PtyManager {
   kill(ptyId: string): void {
     const entry = this.ptys.get(ptyId)
     if (!entry) return
+    if (entry.flushTimer) clearTimeout(entry.flushTimer)
     try {
       entry.proc.kill()
     } catch {
