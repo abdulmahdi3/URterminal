@@ -99,6 +99,8 @@ export interface WorkspaceState {
 /** Optional seed for a new pane: which agent CLI, or which shell binary + args. */
 export interface PaneInit {
   agentCommand?: string
+  /** working directory the agent CLI should open in (AI panes only) */
+  agentCwd?: string
   shell?: string
   shellArgs?: string[]
   /** title to show instead of the generic "Shell N" / agent command */
@@ -136,7 +138,7 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
     // An "AI pane" is a terminal that auto-launches an agent CLI (default: claude).
     const command = init?.agentCommand ?? defaults.agent ?? DEFAULT_AGENT
     base.title = init?.label ?? command
-    base.agent = { command }
+    base.agent = { command, cwd: init?.agentCwd }
   } else if (type === 'shell') {
     base.title = init?.label ?? `Shell ${paneCounter}`
     const cwd = init?.shell !== undefined ? undefined : defaults.shellCwd || undefined
@@ -465,7 +467,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
           else if (res.needsSshfs)
             toast('Install SSHFS-Win to edit remote files directly (run "SSH: Install remote-folder mount"). Running commands works now.', 'info')
           else if (res.mountError)
-            toast(`Couldn't mount the remote folder: ${res.mountError}. Running commands still works.`, 'info')
+            toast(`Couldn't mount the remote folder: ${res.mountError}. Running commands still works.`, 'error')
 
           const ESC = String.fromCharCode(27)
           const instruction = res.instruction

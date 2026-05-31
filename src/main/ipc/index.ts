@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, dialog, clipboard, app, shell } from 'electron'
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
-import { writeFileSync, mkdirSync } from 'fs'
+import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { tmpdir, userInfo, homedir } from 'os'
 import { join } from 'path'
 import type { ClipboardContent, SessionData, LastSessionPayload, NoteDoc } from '@shared/types'
@@ -41,6 +41,18 @@ export interface IpcContext {
   pty: PtyManager
   settings: SettingsStore
   telegram: TelegramBridge
+}
+
+/** Empty per-target scratch dir used as the agent's cwd when the remote folder
+ *  isn't mounted (so it doesn't open in the user's personal home). */
+function sshScratchDir(target: string): string {
+  const dir = join(tmpdir(), 'urterminal-ssh', target.replace(/[^A-Za-z0-9._@-]/g, '_') || 'server')
+  try {
+    mkdirSync(dir, { recursive: true })
+  } catch {
+    /* fall back below */
+  }
+  return existsSync(dir) ? dir : homedir()
 }
 
 export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
@@ -308,11 +320,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
             drive = m.drive
           } catch (e) {
             mountError = (e as Error).message
+            console.warn(`[sshfs] mount failed for ${target}:`, mountError)
           }
         }
       }
 
-      const cwd = mountPath ?? homedir()
+      // Without a mount, open in a dedicated empty scratch dir (NOT the user's
+      // home — that would dump personal files and isn't the server) so it's clear
+      // the agent works the server via urssh only.
+      const cwd = mountPath ?? sshScratchDir(target)
       const instruction = buildAgentInstruction(target, helperPath, mountPath)
       return { ok: true, cwd, instruction, mounted: !!mountPath, drive, needsSshfs, mountError }
     } catch (e) {
