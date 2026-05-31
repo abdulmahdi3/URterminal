@@ -4,17 +4,22 @@ import { runDistillForProject, type DistillOutcome } from './distillRunner'
 import { getRunModel } from './model'
 import { ReviewQueue, commitOp, type PendingOp } from './review'
 import { brainIndex } from './brain'
-import { injectForPane } from './inject'
+import { injectForPane, buildActivePreamble } from './inject'
+import { readMemories, readSkills } from './brain'
 import { projectHash as hashOf } from './paths'
 import { appendTurn, getLearningConfig, type LearningConfig, type TurnRecord } from './store'
 import type { Candidate } from './heuristics'
 import type { DistillOp } from './merge'
 
 interface PaneCtx {
+  ptyId: string
   cwd: string
   agentId: string
   projectHash: string
 }
+
+/** Writes bytes into a live pty (active injection). Injected so it stays testable. */
+export type PtyWriter = (ptyId: string, data: string) => void
 
 // Drop a turn marker that's an exact duplicate of the previous one for the same
 // pane within this window — defends against a mirrored renderer double-delivering
@@ -51,12 +56,21 @@ export class CaptureService implements CaptureSink {
   private paneCtx = new Map<string, PaneCtx>()
   // Lazily constructed (reads state.json) — only once a turn actually completes.
   private gate: CandidateGate | null = null
+  // Panes that already received an active-injection this session (inject once).
+  private activeInjected = new Set<string>()
+  // Set by the IPC layer so active injection can write into a live pty.
+  private writer: PtyWriter | null = null
 
   /**
    * @param onCandidates Called with any NEW gate candidates a completed turn
    *   produced, so the IPC layer can broadcast them to the review UI.
    */
   constructor(private readonly onCandidates?: (c: Candidate[]) => void) {}
+
+  /** Wire the pty writer used for active injection. */
+  setWriter(writer: PtyWriter): void {
+    this.writer = writer
+  }
 
   private cfg(): LearningConfig {
     return getLearningConfig()
@@ -84,10 +98,10 @@ export class CaptureService implements CaptureSink {
     // Passive injection at spawn (independent of capture): write the project's
     // current learnings into the agent's native context file before it boots, so
     // the agent reads them on startup. Untracked-only; never crashes the spawn.
-    if (cfg.enabled && cfg.injectionPassive && cwd && agentId) {
-      const ctx: PaneCtx = { cwd, agentId, projectHash: hashOf(cwd) }
+    if (cfg.enabled && (cfg.injectionPassive || cfg.injectionActive) && cwd && agentId) {
+      const ctx: PaneCtx = { ptyId, cwd, agentId, projectHash: hashOf(cwd) }
       this.paneCtx.set(paneId, ctx)
-      this.injectPane(ctx)
+      if (cfg.injectionPassive) this.injectPane(ctx)
     }
 
     if (!cfg.enabled || !cfg.capture) return
@@ -115,6 +129,12 @@ export class CaptureService implements CaptureSink {
   }
 
   onUserTurn(paneId: string, text: string, ts: number): void {
+    // Active injection (default off): on the user's FIRST turn in a pane, type a
+    // compact learned-context note into the live session. Once per session, byte
+    // capped. Input isn't captured (only renderer turn markers are), so injected
+    // text can't feed back into distillation. Gated independently of capture.
+    if (this.cfg().enabled && this.cfg().injectionActive) this.maybeActiveInject(paneId)
+
     if (!this.active()) return
     const t = text.trim()
     if (!t) return
@@ -124,9 +144,27 @@ export class CaptureService implements CaptureSink {
     this.assemblers.get(paneId)?.userTurn(t, ts)
   }
 
+  private maybeActiveInject(paneId: string): void {
+    if (this.activeInjected.has(paneId)) return
+    const ctx = this.paneCtx.get(paneId)
+    if (!ctx || !this.writer) return
+    this.activeInjected.add(paneId) // mark first so a failure doesn't loop
+    try {
+      const preamble = buildActivePreamble(
+        readMemories(ctx.projectHash),
+        readSkills(ctx.projectHash),
+        this.cfg().maxInjectBytes
+      )
+      if (preamble) this.writer(ctx.ptyId, preamble + '\r')
+    } catch {
+      /* active injection must never disrupt the session */
+    }
+  }
+
   onSessionEnd(paneId: string): void {
     this.lastTurn.delete(paneId)
     this.paneCtx.delete(paneId)
+    this.activeInjected.delete(paneId)
     const a = this.assemblers.get(paneId)
     if (!a) return
     a.end()

@@ -75,6 +75,36 @@ export function renderLearnedBlock(
   return lines.join('\n')
 }
 
+/**
+ * Render a compact one-shot context note for ACTIVE injection — text typed into
+ * a live agent session (default OFF). Plain prose (no managed-block markers), so
+ * it reads naturally as a message to the agent, and tightly byte-bounded.
+ * Returns '' when there is nothing worth injecting.
+ */
+export function buildActivePreamble(
+  memories: MemoryEntry[],
+  skills: SkillEntry[],
+  maxChars = 1500
+): string {
+  const ranked = memories.slice().sort((a, b) => b.confidence - a.confidence || b.hits - a.hits)
+  const facts: string[] = []
+  let used = 60 // budget for the framing sentence
+  for (const m of ranked) {
+    const line = `- ${m.body.split('\n')[0].trim()}`
+    if (used + line.length + 1 > maxChars) break
+    facts.push(line)
+    used += line.length + 1
+  }
+  for (const s of skills) {
+    const line = `- skill: ${s.name} — ${s.description}`
+    if (used + line.length + 1 > maxChars) break
+    facts.push(line)
+    used += line.length + 1
+  }
+  if (!facts.length) return ''
+  return `Relevant learned context for this project:\n${facts.join('\n')}`
+}
+
 /** Insert/replace the managed block in existing file content (idempotent). */
 export function upsertManagedBlock(existing: string, block: string): string {
   const startIdx = existing.indexOf(MANAGED_START)

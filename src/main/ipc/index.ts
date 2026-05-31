@@ -85,6 +85,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // so it sees each pty exactly once (multi-window-safe), and is a no-op unless
   // the user opts in (default off). New gate candidates broadcast to all windows.
   const capture = new CaptureService((candidates) => emit(IPC.learningCandidates, candidates))
+  capture.setWriter((ptyId, data) => pty.write(ptyId, data))
   pty.setCaptureSink(capture)
 
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
