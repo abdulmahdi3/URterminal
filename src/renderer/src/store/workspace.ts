@@ -248,6 +248,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => ({ closing: { ...s.closing, [id]: true } }))
     window.setTimeout(() => {
       disposeTerminal(id)
+      // The pane is gone for good — drop its complete-history transcript log so
+      // it isn't carried into the next session restore.
+      void window.api.transcriptRemove(id)
       set((s) => {
         const closed = s.panes[id]
         const panes = { ...s.panes }

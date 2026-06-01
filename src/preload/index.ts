@@ -131,6 +131,15 @@ const api = {
   flushLastSession: (payload: LastSessionPayload): void => {
     ipcRenderer.sendSync(IPC.lastSessionFlush, payload)
   },
+  // complete per-pane terminal history (full session restore)
+  transcriptRead: (paneId: string): Promise<string> =>
+    ipcRenderer.invoke(IPC.transcriptRead, paneId),
+  transcriptPrime: (paneId: string, text: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.transcriptPrime, paneId, text),
+  transcriptRemove: (paneId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.transcriptRemove, paneId),
+  transcriptPrune: (keep: string[]): Promise<void> =>
+    ipcRenderer.invoke(IPC.transcriptPrune, keep),
 
   // ---- standalone notes (app-wide, persisted to userData/notes.json) ----
   readNotes: (): Promise<NoteDoc[]> => ipcRenderer.invoke(IPC.notesRead),

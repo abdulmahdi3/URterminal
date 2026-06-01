@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
+import type { ProviderId } from '@shared/types'
+import { DEFAULT_MODELS, latestModel } from '@shared/providers'
 
 // The Learning settings panel: controls the local observe → distill → inject
-// loop and surfaces the review queue. Self-contained — it reads/writes its own
-// config + queues straight through window.api.learning, so it doesn't touch the
-// app's main settings store. Follows the project's no-CSS-transitions rule.
+// loop, the prompt enhancer, and the shared AI provider. Self-contained — it
+// reads/writes its own config + queues straight through window.api.learning, so
+// it doesn't touch the app's main settings store. Follows the project's
+// purposeful-animation rule (collapsing groups toggle instantly).
+
+type LearnProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic'
 
 interface LearningCfg {
   enabled: boolean
@@ -13,7 +18,9 @@ interface LearningCfg {
   autoApprove: boolean
   injectionPassive: boolean
   injectionActive: boolean
-  model: 'claude-cli-headless' | 'provider-api' | 'local'
+  provider: LearnProvider
+  providerModel: string
+  apiKeys: { gemini: string; openai: string; anthropic: string }
   [k: string]: unknown
 }
 
@@ -26,6 +33,38 @@ interface PendingOp {
   id: string
   op: { kind: string; slug: string; title: string; body: string; confidence: number }
 }
+
+/** Provider metadata for the AI-provider selector (label + key requirement). */
+const PROVIDERS: Array<{
+  id: LearnProvider
+  label: string
+  needsKey: boolean
+  keyHint?: string
+  keyHelp?: string
+}> = [
+  { id: 'claude-cli', label: 'Claude CLI — reuse my login (no key)', needsKey: false },
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    needsKey: true,
+    keyHint: 'AIza…',
+    keyHelp: 'Free key from Google AI Studio — aistudio.google.com/apikey'
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    needsKey: true,
+    keyHint: 'sk-…',
+    keyHelp: 'Key from platform.openai.com/api-keys'
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic',
+    needsKey: true,
+    keyHint: 'sk-ant-…',
+    keyHelp: 'Key from console.anthropic.com/settings/keys'
+  }
+]
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }): JSX.Element {
   return (
@@ -45,13 +84,52 @@ function Row({
   control: React.ReactNode
 }): JSX.Element {
   return (
-    <div className="settings-row">
+    <div className="learn-row">
       <div className="settings-row-text">
         <div className="settings-row-label">{label}</div>
         {desc && <div className="settings-row-desc">{desc}</div>}
       </div>
       <div className="settings-row-control">{control}</div>
     </div>
+  )
+}
+
+/** A titled section; advanced ones start collapsed to keep the tab uncluttered. */
+function Group({
+  title,
+  hint,
+  defaultOpen = true,
+  children
+}: {
+  title: string
+  hint?: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}): JSX.Element {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className="learn-group">
+      <button
+        className="learn-group-head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="learn-group-caret">{open ? '▾' : '▸'}</span>
+        <span className="settings-section-title" style={{ margin: 0 }}>
+          {title}
+        </span>
+      </button>
+      {open && (
+        <div className="learn-group-body">
+          {hint && (
+            <div className="settings-row-desc" style={{ marginBottom: 12 }}>
+              {hint}
+            </div>
+          )}
+          {children}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -108,107 +186,183 @@ export default function LearningPanel(): JSX.Element {
     refresh()
   }
 
+  // ---- AI provider helpers ----
+  const meta = PROVIDERS.find((p) => p.id === cfg.provider) ?? PROVIDERS[0]
+  const isApi = cfg.provider !== 'claude-cli'
+  const baseModels = isApi ? DEFAULT_MODELS[cfg.provider as ProviderId] : []
+  // Keep a saved/custom model id (e.g. migrated from an older default) selectable.
+  const models =
+    cfg.providerModel && !baseModels.includes(cfg.providerModel)
+      ? [cfg.providerModel, ...baseModels]
+      : baseModels
+
+  const onProvider = (id: LearnProvider): void => {
+    if (id === 'claude-cli') {
+      patch({ provider: id })
+      return
+    }
+    const list = DEFAULT_MODELS[id as ProviderId]
+    const model = list.includes(cfg.providerModel) ? cfg.providerModel : latestModel(id as ProviderId)
+    patch({ provider: id, providerModel: model })
+  }
+
+  const setKey = (id: 'gemini' | 'openai' | 'anthropic', value: string): void =>
+    patch({ apiKeys: { ...cfg.apiKeys, [id]: value } })
+
   return (
     <>
-      <div className="settings-row-desc" style={{ marginBottom: 12 }}>
+      <div className="settings-row-desc" style={{ marginBottom: 4 }}>
         URterminal can observe your agent sessions, distill durable memory + skills,
         and feed them back to every agent. All local; opt-in; off by default.
       </div>
 
-      <Row
-        label="Enable learning"
-        desc="Master switch. Nothing is recorded or injected unless this is on."
-        control={<Toggle on={cfg.enabled} onClick={() => patch({ enabled: !cfg.enabled })} />}
-      />
-      <Row
-        label="Record sessions"
-        desc="Capture scrubbed transcripts to a local store (no model calls)."
-        control={<Toggle on={cfg.capture} onClick={() => patch({ capture: !cfg.capture })} />}
-      />
-      <Row
-        label="AI panes only"
-        desc="Skip plain shells/SSH; record only agent panes."
-        control={<Toggle on={cfg.aiOnly} onClick={() => patch({ aiOnly: !cfg.aiOnly })} />}
-      />
+      <Group title="Learning">
+        <Row
+          label="Enable learning"
+          desc="Master switch. Nothing is recorded or injected unless this is on."
+          control={<Toggle on={cfg.enabled} onClick={() => patch({ enabled: !cfg.enabled })} />}
+        />
+        <Row
+          label="Record sessions"
+          desc="Capture scrubbed transcripts to a local store (no model calls)."
+          control={<Toggle on={cfg.capture} onClick={() => patch({ capture: !cfg.capture })} />}
+        />
+        <Row
+          label="AI panes only"
+          desc="Skip plain shells/SSH; record only agent panes."
+          control={<Toggle on={cfg.aiOnly} onClick={() => patch({ aiOnly: !cfg.aiOnly })} />}
+        />
+      </Group>
 
-      <h3 className="settings-section-title" style={{ marginTop: 18 }}>
-        Distillation
-      </h3>
-      <Row
-        label="Allow distillation (model calls)"
-        desc="Separate egress gate. Sends scrubbed transcripts to the chosen model to extract memory/skills."
-        control={
-          <Toggle on={cfg.egressAllowed} onClick={() => patch({ egressAllowed: !cfg.egressAllowed })} />
-        }
-      />
-      <Row
-        label="Model"
-        desc="Default uses your authenticated Claude Code CLI — no new API key."
-        control={
-          <select
-            className="select"
-            value={cfg.model}
-            onChange={(e) => patch({ model: e.target.value as LearningCfg['model'] })}
-          >
-            <option value="claude-cli-headless">Claude CLI (no new key)</option>
-            <option value="provider-api">Provider API key</option>
-            <option value="local">Local model</option>
-          </select>
-        }
-      />
-      <Row
-        label="Auto-approve high-confidence"
-        desc="Off = review every learning before it's stored/injected (recommended)."
-        control={
-          <Toggle on={cfg.autoApprove} onClick={() => patch({ autoApprove: !cfg.autoApprove })} />
-        }
-      />
-      <Row
-        label="Run distillation now"
-        desc={`${candidates.length} candidate exchange(s) gated and ready.`}
-        control={
-          <button className="btn btn-primary" disabled={busy || !cfg.egressAllowed} onClick={distill}>
-            {busy ? 'Working…' : 'Distill'}
-          </button>
-        }
-      />
-      {msg && (
-        <div className="settings-row-desc" style={{ marginTop: 6 }}>
-          {msg}
-        </div>
-      )}
+      <Group
+        title="AI provider"
+        hint="Powers the prompt enhancer (rewrites your typed request using your learned memory) and distillation. Claude CLI reuses your Claude login at no extra cost; the others call the provider's API with your key."
+      >
+        <Row
+          label="Provider"
+          desc="Which AI service runs the learning model calls."
+          control={
+            <select
+              className="select"
+              value={cfg.provider}
+              onChange={(e) => onProvider(e.target.value as LearnProvider)}
+            >
+              {PROVIDERS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          }
+        />
+        {isApi && (
+          <Row
+            label="Model"
+            desc="The model used for this provider."
+            control={
+              <select
+                className="select"
+                value={cfg.providerModel || ''}
+                onChange={(e) => patch({ providerModel: e.target.value })}
+              >
+                {models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            }
+          />
+        )}
+        {isApi && meta.needsKey && (
+          <Row
+            label={`${meta.label} API key`}
+            desc={meta.keyHelp}
+            control={
+              <input
+                className="input"
+                type="password"
+                placeholder={meta.keyHint}
+                value={cfg.apiKeys[cfg.provider as 'gemini' | 'openai' | 'anthropic'] ?? ''}
+                onChange={(e) => setKey(cfg.provider as 'gemini' | 'openai' | 'anthropic', e.target.value)}
+                style={{ width: 240 }}
+              />
+            }
+          />
+        )}
+        {!isApi && (
+          <div className="settings-row-desc">
+            No API key needed — the enhancer spawns your authenticated Claude Code CLI.
+          </div>
+        )}
+      </Group>
 
-      <h3 className="settings-section-title" style={{ marginTop: 18 }}>
-        Injection
-      </h3>
-      <Row
-        label="Passive (context files)"
-        desc="Write learnings into each agent's native context file (untracked only)."
-        control={
-          <Toggle
-            on={cfg.injectionPassive}
-            onClick={() => patch({ injectionPassive: !cfg.injectionPassive })}
-          />
-        }
-      />
-      <Row
-        label="Active (live session)"
-        desc="Type a compact context note into a new agent session. Off by default."
-        control={
-          <Toggle
-            on={cfg.injectionActive}
-            onClick={() => patch({ injectionActive: !cfg.injectionActive })}
-          />
-        }
-      />
+      <Group
+        title="Distillation"
+        defaultOpen={false}
+        hint="Turns recorded sessions into durable memory + skills by sending scrubbed transcripts to the AI provider above. Egress is off by default."
+      >
+        <Row
+          label="Allow distillation (model calls)"
+          desc="Separate egress gate. Sends scrubbed transcripts to the chosen provider to extract memory/skills."
+          control={
+            <Toggle on={cfg.egressAllowed} onClick={() => patch({ egressAllowed: !cfg.egressAllowed })} />
+          }
+        />
+        <Row
+          label="Auto-approve high-confidence"
+          desc="Off = review every learning before it's stored/injected (recommended)."
+          control={
+            <Toggle on={cfg.autoApprove} onClick={() => patch({ autoApprove: !cfg.autoApprove })} />
+          }
+        />
+        <Row
+          label="Run distillation now"
+          desc={`${candidates.length} candidate exchange(s) gated and ready.`}
+          control={
+            <button className="btn btn-primary" disabled={busy || !cfg.egressAllowed} onClick={distill}>
+              {busy ? 'Working…' : 'Distill'}
+            </button>
+          }
+        />
+        {msg && (
+          <div className="settings-row-desc" style={{ marginTop: 6 }}>
+            {msg}
+          </div>
+        )}
+      </Group>
+
+      <Group
+        title="Injection"
+        defaultOpen={false}
+        hint="How learned memory is fed back to your agents."
+      >
+        <Row
+          label="Passive (context files)"
+          desc="Write learnings into each agent's native context file (untracked only)."
+          control={
+            <Toggle
+              on={cfg.injectionPassive}
+              onClick={() => patch({ injectionPassive: !cfg.injectionPassive })}
+            />
+          }
+        />
+        <Row
+          label="Active (live session)"
+          desc="Type a compact context note into a new agent session. Off by default."
+          control={
+            <Toggle
+              on={cfg.injectionActive}
+              onClick={() => patch({ injectionActive: !cfg.injectionActive })}
+            />
+          }
+        />
+      </Group>
 
       {pending.length > 0 && (
-        <>
-          <h3 className="settings-section-title" style={{ marginTop: 18 }}>
-            Review queue ({pending.length})
-          </h3>
+        <Group title={`Review queue (${pending.length})`}>
           {pending.map((p) => (
-            <div key={p.id} className="settings-row">
+            <div key={p.id} className="learn-row">
               <div className="settings-row-text">
                 <div className="settings-row-label">
                   {p.op.kind}: {p.op.title}
@@ -225,21 +379,20 @@ export default function LearningPanel(): JSX.Element {
               </div>
             </div>
           ))}
-        </>
+        </Group>
       )}
 
-      <h3 className="settings-section-title" style={{ marginTop: 18 }}>
-        Storage
-      </h3>
-      <Row
-        label="Open learning folder"
-        desc="Inspect the local transcripts, memory and skills."
-        control={
-          <button className="btn" onClick={() => void api?.openStore()}>
-            Open folder
-          </button>
-        }
-      />
+      <Group title="Storage" defaultOpen={false}>
+        <Row
+          label="Open learning folder"
+          desc="Inspect the local transcripts, memory and skills."
+          control={
+            <button className="btn" onClick={() => void api?.openStore()}>
+              Open folder
+            </button>
+          }
+        />
+      </Group>
     </>
   )
 }

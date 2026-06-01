@@ -1,10 +1,18 @@
 import { create } from 'zustand'
 import type { MosaicNode } from 'react-mosaic-component'
-import type { Pane } from '@shared/types'
+import type { Pane, PersistedWorkspace } from '@shared/types'
 import { useWorkspace } from './workspace'
+import { useWorkspaces } from './workspaces'
 import { getAgentDescriptor } from '@renderer/lib/agents'
 import { capturePane, seedRestore, disposeTerminal } from '@renderer/lib/terminalPool'
 import { isSecondaryWindow } from '@renderer/lib/windowMode'
+
+/** A pane restore seed (structural — RestoreSeed isn't exported from terminalPool). */
+interface Seed {
+  transcript?: string
+  resumeArgs?: string[]
+  scrollFromBottom?: number
+}
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
 
@@ -87,20 +95,32 @@ function remapIds(
   return { panes: nextPanes, layout: remapLayout(layout, idMap), transcripts: nextTranscripts }
 }
 
-/** Capture the chat content (terminal transcript) of every pane in the workspace. */
-function captureTranscripts(panes: Record<string, Pane>): Record<string, string> {
+/**
+ * Capture the complete chat history of every pane for a NAMED save. Pulls the
+ * full transcript from the main-process log (unbounded by xterm's scrollback),
+ * falling back to the live xterm serialize when no log exists.
+ */
+async function captureTranscripts(panes: Record<string, Pane>): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
   for (const id of Object.keys(panes)) {
-    const text = capturePane(id)
+    let text = ''
+    try {
+      text = await window.api.transcriptRead(id)
+    } catch {
+      /* fall back to the live buffer below */
+    }
+    if (!text) text = capturePane(id)
     if (text) out[id] = text
   }
   return out
 }
 
 /**
- * Restore a snapshot into the live workspace: tear down the current panes'
+ * Restore a NAMED session into the live workspace: tear down the current panes'
  * terminals, seed each restored pane with its chat replay (or agent-resume
- * args), then hydrate. Shared by named-session restore and auto-restore.
+ * args), then hydrate. Panes get fresh ids (remap) so they can't collide with
+ * anything still running, and each replayed pane's main-process transcript log
+ * is primed so subsequent auto-saves keep the restored history.
  */
 export function applyRestore(
   panes: Record<string, Pane>,
@@ -120,9 +140,50 @@ export function applyRestore(
       seedRestore(id, { resumeArgs })
     } else if (remapped.transcripts[id]) {
       seedRestore(id, { transcript: remapped.transcripts[id] })
+      // Prime the (new id's) main log so it carries the restored history forward.
+      void window.api.transcriptPrime(id, remapped.transcripts[id])
     }
   }
   useWorkspace.getState().hydrate(remapped.panes, remapped.layout)
+}
+
+/**
+ * Restore the WHOLE app on launch: every workspace (tabs), each with its panes,
+ * layout, replayed chat history and scroll position. Pane ids are preserved (no
+ * remap) so they stay aligned with their on-disk transcript logs. Background
+ * workspaces are kept as snapshots and spawn lazily when first switched to —
+ * their panes are seeded up front so the replay fires whenever they mount.
+ */
+export function applyLaunchRestore(
+  workspaces: PersistedWorkspace[],
+  activeWorkspaceId: string,
+  transcripts: Record<string, string>,
+  scroll: Record<string, number>
+): void {
+  for (const id of Object.keys(useWorkspace.getState().panes)) disposeTerminal(id)
+
+  const wsList = workspaces.map((w) => ({
+    id: w.id,
+    name: w.name,
+    panes: sanitize(w.panes ?? {}),
+    layout: (w.layout as MosaicNode<string> | null) ?? null
+  }))
+
+  for (const w of wsList) {
+    for (const [id, pane] of Object.entries(w.panes)) {
+      const resumeArgs =
+        pane.type === 'ai' ? getAgentDescriptor(pane.agent?.command)?.resumeArgs : undefined
+      const seed: Seed = {}
+      if (resumeArgs?.length) seed.resumeArgs = resumeArgs
+      else if (transcripts[id]) seed.transcript = transcripts[id]
+      if (scroll[id]) seed.scrollFromBottom = scroll[id]
+      if (seed.transcript || seed.resumeArgs || seed.scrollFromBottom) seedRestore(id, seed)
+    }
+  }
+
+  const active = wsList.find((w) => w.id === activeWorkspaceId) ?? wsList[0]
+  useWorkspaces.getState().hydrateAll(wsList, active?.id ?? activeWorkspaceId)
+  useWorkspace.getState().hydrate(active?.panes ?? {}, active?.layout ?? null)
 }
 
 /** Write the session metadata list to the on-disk JSON file (transcripts stored separately). */
@@ -154,8 +215,11 @@ export const useSessions = create<SessionsState>((set, get) => ({
       panes: sanitize(panes),
       layout
     }
-    // Persist chat content (per-pane terminal transcripts) to its own file.
-    void window.api.writeSessionData(id, { transcripts: captureTranscripts(panes) })
+    // Persist the complete chat history (per-pane) to its own file — async so a
+    // large transcript read never blocks the save click.
+    void captureTranscripts(panes).then((transcripts) =>
+      window.api.writeSessionData(id, { transcripts })
+    )
     const sessions = [session, ...get().sessions]
     persist(sessions)
     set({ sessions })
@@ -205,20 +269,38 @@ async function bootstrapSessions(): Promise<void> {
   }
 
   // Archive the last run's snapshot as an auto entry (dedupe by its savedAt).
+  // The auto entry captures the active workspace (matching pre-multi-workspace
+  // behavior); its full chat content comes from the per-pane transcript logs.
   const last = await window.api.readLastSession()
-  if (last?.panes && Object.keys(last.panes).length && last.savedAt) {
+  const activeWs = last?.workspaces
+    ? last.workspaces.find((w) => w.id === last.activeWorkspaceId) ?? last.workspaces[0]
+    : undefined
+  const lastPanes = activeWs?.panes ?? last?.panes
+  const lastLayout = (activeWs?.layout ?? last?.layout ?? null) as MosaicNode<string> | null
+  if (lastPanes && Object.keys(lastPanes).length && last?.savedAt) {
     const already = list.some((s) => s.auto && s.savedAt === last.savedAt)
     if (!already) {
       const id = uid()
-      await window.api.writeSessionData(id, { transcripts: last.transcripts ?? {} })
+      const transcripts: Record<string, string> = {}
+      for (const pid of Object.keys(lastPanes)) {
+        let t = ''
+        try {
+          t = await window.api.transcriptRead(pid)
+        } catch {
+          /* fall back to legacy inline transcript below */
+        }
+        if (!t && last.transcripts?.[pid]) t = last.transcripts[pid]
+        if (t) transcripts[pid] = t
+      }
+      await window.api.writeSessionData(id, { transcripts })
       list = [
         {
           id,
           name: formatStamp(last.savedAt),
           savedAt: last.savedAt,
-          paneCount: Object.keys(last.panes).length,
-          panes: last.panes,
-          layout: (last.layout as MosaicNode<string> | null) ?? null,
+          paneCount: Object.keys(lastPanes).length,
+          panes: lastPanes,
+          layout: lastLayout,
           auto: true
         },
         ...list

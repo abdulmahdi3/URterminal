@@ -16,6 +16,13 @@ import { join } from 'path'
  * switch defaults OFF (opt-in).
  */
 
+/**
+ * Providers the learning layer can call for its model work. 'claude-cli' reuses
+ * the user's already-authenticated Claude Code CLI (no new API key); the rest
+ * are HTTP APIs that need a key stored in `LearningConfig.apiKeys`.
+ */
+export type LearningProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic'
+
 export interface LearningConfig {
   /** Master switch. The entire layer is inert unless this is true. */
   enabled: boolean
@@ -40,12 +47,18 @@ export interface LearningConfig {
   injectionPassive: boolean
   injectionActive: boolean
   /**
-   * Which model distills transcripts into memory/skills (later slice). Default
-   * 'claude-cli-headless' spawns the user's already-authenticated Claude Code
-   * CLI — no new API key, same trust boundary they already accepted. Users can
-   * switch to 'provider-api' (own key) or 'local' (zero egress) in settings.
+   * The single AI provider that powers the learning layer's model calls — both
+   * the user-initiated *prompt enhancer* and (when egress is allowed)
+   * *distillation*. Default 'claude-cli' reuses the user's already-authenticated
+   * Claude Code CLI (no new API key, same trust boundary they already accepted).
+   * 'gemini' | 'openai' | 'anthropic' call that provider's HTTP API with the key
+   * stored in `apiKeys`.
    */
-  model: 'claude-cli-headless' | 'provider-api' | 'local'
+  provider: LearningProvider
+  /** Model id for the chosen API provider. Ignored when provider is 'claude-cli'. */
+  providerModel: string
+  /** Per-provider API keys (stored locally, never synced). Empty until set. */
+  apiKeys: { gemini: string; openai: string; anthropic: string }
   distillIdleMs: number
   minTurns: number
   minClusterSupport: number
@@ -65,7 +78,9 @@ export const DEFAULT_LEARNING_CONFIG: LearningConfig = {
   autoApproveMinConfidence: 0.75,
   injectionPassive: true,
   injectionActive: false,
-  model: 'claude-cli-headless',
+  provider: 'claude-cli',
+  providerModel: '',
+  apiKeys: { gemini: '', openai: '', anthropic: '' },
   distillIdleMs: 90000,
   minTurns: 6,
   minClusterSupport: 2,
@@ -86,13 +101,37 @@ let cached: LearningConfig | null = null
 
 export function getLearningConfig(): LearningConfig {
   if (cached) return cached
+  let raw: Record<string, unknown> = {}
   try {
-    const raw = JSON.parse(readFileSync(configPath(), 'utf8')) as Partial<LearningConfig>
-    cached = { ...DEFAULT_LEARNING_CONFIG, ...raw }
+    raw = JSON.parse(readFileSync(configPath(), 'utf8')) as Record<string, unknown>
   } catch {
-    cached = { ...DEFAULT_LEARNING_CONFIG }
+    /* missing/corrupt config — fall back to defaults */
   }
+  cached = migrateConfig(raw)
   return cached
+}
+
+/**
+ * Merge a stored config over the defaults, carrying the pre-0.3.x split
+ * enhancer/distiller model fields (`enhanceProvider`, `geminiApiKey`,
+ * `geminiModel`, `model`) forward into the unified provider shape so existing
+ * users keep their key and choice after upgrading.
+ */
+function migrateConfig(raw: Record<string, unknown>): LearningConfig {
+  const cfg: LearningConfig = { ...DEFAULT_LEARNING_CONFIG, ...(raw as Partial<LearningConfig>) }
+  // apiKeys may be absent or partial in an older/foreign config.
+  cfg.apiKeys = {
+    ...DEFAULT_LEARNING_CONFIG.apiKeys,
+    ...(typeof cfg.apiKeys === 'object' && cfg.apiKeys ? cfg.apiKeys : {})
+  }
+  if (raw.provider == null) {
+    // Old enhancer enum was 'gemini' | 'claude-cli-headless'; everything else
+    // (incl. the old distiller-only 'claude-cli-headless') maps to Claude CLI.
+    cfg.provider = raw.enhanceProvider === 'gemini' ? 'gemini' : 'claude-cli'
+  }
+  if (!cfg.providerModel && typeof raw.geminiModel === 'string') cfg.providerModel = raw.geminiModel
+  if (!cfg.apiKeys.gemini && typeof raw.geminiApiKey === 'string') cfg.apiKeys.gemini = raw.geminiApiKey
+  return cfg
 }
 
 export function setLearningConfig(patch: Partial<LearningConfig>): LearningConfig {

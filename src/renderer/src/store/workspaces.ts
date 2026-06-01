@@ -37,6 +37,8 @@ interface WorkspacesState {
   movePanesToNew: (paneIds: string[]) => void
   /** patch a pane in any workspace (active or background-snapshot) by id */
   patchPaneIn: (workspaceId: string, paneId: string, patch: Partial<Pane>) => void
+  /** replace the whole workspace list + active id (session restore on launch) */
+  hydrateAll: (list: WorkspaceEntry[], activeId: string) => void
 }
 
 const firstId = uid()
@@ -214,5 +216,11 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
     after.setActive(moving[moving.length - 1])
     after.clearPaneSelection()
     for (const id of moving) repaintTerminal(id)
+  },
+
+  hydrateAll: (list, activeId) => {
+    const safe = list.length ? list : [{ id: uid(), name: 'Workspace' }]
+    const active = safe.some((w) => w.id === activeId) ? activeId : safe[0].id
+    set({ list: safe, activeId: active, badges: {} })
   }
 }))

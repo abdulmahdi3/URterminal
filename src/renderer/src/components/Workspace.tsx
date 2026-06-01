@@ -18,7 +18,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2, Plus, Wand2, Loader2 } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
@@ -32,7 +32,6 @@ import { getFullText, getScreenText } from '@renderer/lib/terminalPool'
 import { answerBlocks } from '@renderer/hooks/useChainForwarding'
 import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
-import { enhancePromptFor } from '@renderer/lib/enhance'
 import PaneView from './PaneView'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import 'react-mosaic-component/react-mosaic-component.css'
@@ -246,33 +245,6 @@ function PaneConnectMenu({
         </div>
       )}
     />
-  )
-}
-
-/**
- * Enhance-prompt button for agent panes: rewrites the typed prompt using brain
- * memory, showing a spinner until the rewrite is pasted back. Lives at the end
- * of the pane controls.
- */
-function EnhanceButton({ paneId }: { paneId: string }): JSX.Element {
-  const [busy, setBusy] = useState(false)
-  return (
-    <button
-      className="icon-btn"
-      title="Enhance the typed prompt using learned memory"
-      disabled={busy}
-      onClick={async () => {
-        if (busy) return
-        setBusy(true)
-        try {
-          await enhancePromptFor(paneId)
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      {busy ? <Loader2 size={13} className="spin" /> : <Wand2 size={13} />}
-    </button>
   )
 }
 
@@ -647,7 +619,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
         >
           <Rows2 size={13} />
         </button>
-        {paneType === 'ai' && <EnhanceButton paneId={paneId} />}
         <button className="icon-btn danger" title="Close (Ctrl+W)" onClick={close}>
           <X size={13} />
         </button>

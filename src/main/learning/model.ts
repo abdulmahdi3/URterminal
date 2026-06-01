@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 import type { RunModel } from './distiller'
-import type { LearningConfig } from './store'
+import type { LearningConfig, LearningProvider } from './store'
 
 /**
  * The model-invocation seam — the ONLY place the learning layer reaches a model,
@@ -63,16 +63,146 @@ export const runClaudeHeadless: RunModel = (system, prompt) =>
     child.stdin.end()
   })
 
-/** Pick the model runner for the configured backend. */
-export function getRunModel(cfg: LearningConfig): RunModel {
-  switch (cfg.model) {
-    case 'claude-cli-headless':
-      return runClaudeHeadless
-    case 'provider-api':
-      return () => Promise.reject(new Error('provider-api distillation not yet wired — choose Claude CLI in settings'))
-    case 'local':
-      return () => Promise.reject(new Error('local-model distillation not yet wired — choose Claude CLI in settings'))
+/**
+ * Run Google's Gemini API (free tier) and return its text output. Used by the
+ * prompt enhancer. Thinking is disabled for speed/cost — rewriting a request
+ * doesn't need it. Throws a readable error so the UI can surface it.
+ */
+export function runGemini(apiKey: string, model: string): RunModel {
+  return async (system, prompt) => {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}` +
+      `:generateContent?key=${encodeURIComponent(apiKey)}`
+    const body = {
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, thinkingConfig: { thinkingBudget: 0 } }
+    }
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).catch((e) => {
+      throw new Error(`Gemini request failed: ${(e as Error).message}`)
+    })
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '')
+      throw new Error(`Gemini failed: HTTP ${r.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
+    }
+    const data = (await r.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    }
+    const text = (data.candidates?.[0]?.content?.parts ?? [])
+      .map((p) => p.text ?? '')
+      .join('')
+    return text
+  }
+}
+
+/**
+ * Run OpenAI's Chat Completions API and return the assistant text. Used wherever
+ * the learning layer needs a model and the user picked OpenAI as the provider.
+ */
+export function runOpenAI(apiKey: string, model: string): RunModel {
+  return async (system, prompt) => {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: prompt }
+        ]
+      })
+    }).catch((e) => {
+      throw new Error(`OpenAI request failed: ${(e as Error).message}`)
+    })
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '')
+      throw new Error(`OpenAI failed: HTTP ${r.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
+    }
+    const data = (await r.json()) as { choices?: Array<{ message?: { content?: string } }> }
+    return data.choices?.[0]?.message?.content ?? ''
+  }
+}
+
+/**
+ * Run Anthropic's Messages API and return the assistant text. Runs in the main
+ * process, so there is no browser CORS constraint.
+ */
+export function runAnthropic(apiKey: string, model: string): RunModel {
+  return async (system, prompt) => {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 2048,
+        temperature: 0.3,
+        system,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    }).catch((e) => {
+      throw new Error(`Anthropic request failed: ${(e as Error).message}`)
+    })
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '')
+      throw new Error(`Anthropic failed: HTTP ${r.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
+    }
+    const data = (await r.json()) as { content?: Array<{ text?: string }> }
+    return (data.content ?? []).map((p) => p.text ?? '').join('')
+  }
+}
+
+/** Fallback model id per API provider when the user hasn't picked one. */
+const DEFAULT_MODEL_BY_PROVIDER: Record<Exclude<LearningProvider, 'claude-cli'>, string> = {
+  gemini: 'gemini-2.0-flash',
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-haiku-4-5-20251001'
+}
+
+/**
+ * Resolve the configured provider into a runnable model fn. The prompt enhancer
+ * and distillation share this single seam. 'claude-cli' needs no key; the HTTP
+ * providers require a key in `apiKeys` and otherwise return a fn that rejects
+ * with a readable error so the UI can prompt the user to add one.
+ */
+export function getLearningRunModel(cfg: LearningConfig): RunModel {
+  const provider = cfg.provider ?? 'claude-cli'
+  if (provider === 'claude-cli') return runClaudeHeadless
+
+  const key = (cfg.apiKeys?.[provider] || '').trim()
+  if (!key) {
+    return () =>
+      Promise.reject(
+        new Error(
+          `Add a ${provider} API key in Learning settings, or switch the AI provider to Claude CLI.`
+        )
+      )
+  }
+  const model = cfg.providerModel || DEFAULT_MODEL_BY_PROVIDER[provider]
+  switch (provider) {
+    case 'gemini':
+      return runGemini(key, model)
+    case 'openai':
+      return runOpenAI(key, model)
+    case 'anthropic':
+      return runAnthropic(key, model)
     default:
       return runClaudeHeadless
   }
 }
+
+/**
+ * The prompt enhancer and distillation use the same configured provider, so both
+ * names resolve to {@link getLearningRunModel}. Kept as separate exports for the
+ * two call sites (enhancer / capture) and any future divergence.
+ */
+export const getEnhanceRunModel = getLearningRunModel
+export const getRunModel = getLearningRunModel

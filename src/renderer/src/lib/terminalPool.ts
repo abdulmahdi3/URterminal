@@ -190,6 +190,8 @@ interface RestoreSeed {
   transcript?: string
   /** extra args to relaunch the agent with so it resumes (e.g. ["--continue"]) */
   resumeArgs?: string[]
+  /** lines the viewport was scrolled up from the bottom (restore the read position) */
+  scrollFromBottom?: number
 }
 const restoreSeeds = new Map<string, RestoreSeed>()
 
@@ -210,6 +212,18 @@ export function capturePane(paneId: string, maxLines = 2000): string {
     return entry.serialize.serialize({ scrollback: maxLines })
   } catch {
     return ''
+  }
+}
+
+/** How many lines a pane's viewport is scrolled up from the bottom (0 = at bottom). */
+export function capturePaneScroll(paneId: string): number {
+  const entry = pool.get(paneId)
+  if (!entry) return 0
+  try {
+    const buf = entry.term.buffer.active
+    return Math.max(0, buf.baseY - buf.viewportY)
+  } catch {
+    return 0
   }
 }
 
@@ -259,6 +273,16 @@ export function getInputLine(paneId: string): string {
 /** Forget a pane's typed line (after it's been submitted/broadcast). */
 export function clearInputLine(paneId: string): void {
   inputLines.set(paneId, '')
+}
+
+/**
+ * Overwrite a pane's tracked input line. Used when text is injected straight
+ * into the PTY (e.g. the prompt enhancer typing its rewrite), bypassing the
+ * keystroke handler that normally keeps this in sync, so broadcast/turn
+ * tracking still sees the right typed content.
+ */
+export function setInputLine(paneId: string, text: string): void {
+  inputLines.set(paneId, text)
 }
 
 /** Current visible screen text of a pane's terminal (the "result in current state"). */
@@ -373,7 +397,19 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   restoreSeeds.delete(paneId)
   if (seed?.transcript) {
     term.write(seed.transcript)
-    term.write('\r\n\x1b[90m── session restored ──\x1b[0m\r\n')
+    // Once the replayed history has been parsed, restore the read position the
+    // user left off at (scrolled up from the bottom). Output the resumed process
+    // prints arrives below; xterm keeps the viewport put while it's off-bottom.
+    term.write('\r\n\x1b[90m── session restored ──\x1b[0m\r\n', () => {
+      const up = seed.scrollFromBottom ?? 0
+      if (up > 0) {
+        try {
+          term.scrollLines(-up)
+        } catch {
+          /* noop */
+        }
+      }
+    })
   }
 
   const entry: Entry = {
@@ -497,6 +533,8 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
         command: launch?.command,
         // launch args + resume args (e.g. `claude --continue`) when restoring a session
         commandArgs: launch ? [...launch.args, ...(seed?.resumeArgs ?? [])] : undefined,
+        // a resuming agent reprints its history — reset the log so it isn't duplicated
+        freshLog: !!seed?.resumeArgs?.length,
         shell: opts.shell,
         shellArgs: opts.shellArgs,
         cwd: opts.cwd,

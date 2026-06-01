@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import type { MosaicNode } from 'react-mosaic-component'
-import type { Pane, LastSessionPayload } from '@shared/types'
+import type { Pane, LastSessionPayload, PersistedWorkspace } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
+import { useWorkspaces } from '@renderer/store/workspaces'
 import { useSettings } from '@renderer/store/settings'
-import { applyRestore } from '@renderer/store/sessions'
-import { capturePane } from '@renderer/lib/terminalPool'
+import { applyRestore, applyLaunchRestore } from '@renderer/store/sessions'
+import { capturePaneScroll } from '@renderer/lib/terminalPool'
 import { getLeaves } from '@renderer/lib/mosaicTree'
 import { buildAutoLayout } from '@renderer/lib/layoutPresets'
 import { toast } from '@renderer/store/toasts'
@@ -29,20 +30,29 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   return out
 }
 
-/** Capture the chat content (replayable terminal transcript) of every open pane. */
-function captureTranscripts(panes: Record<string, Pane>): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const id of Object.keys(panes)) {
-    const text = capturePane(id)
-    if (text) out[id] = text
-  }
-  return out
-}
-
-/** Build the full auto-save snapshot of the current workspace (panes + layout + chats). */
+/**
+ * Build the auto-save snapshot of the WHOLE app: every workspace (the active one
+ * from the live store, the rest from their saved snapshots) plus per-pane scroll
+ * positions. Chat content is NOT inlined — it streams to per-pane transcript logs
+ * in the main process and is referenced by pane id, so this stays small and the
+ * synchronous close-flush is cheap.
+ */
 function snapshot(): LastSessionPayload {
-  const { panes, layout } = useWorkspace.getState()
-  return { panes: sanitize(panes), layout, transcripts: captureTranscripts(panes), savedAt: Date.now() }
+  const wsStore = useWorkspaces.getState()
+  const active = useWorkspace.getState()
+  const workspaces: PersistedWorkspace[] = wsStore.list.map((w) =>
+    w.id === wsStore.activeId
+      ? { id: w.id, name: w.name, panes: sanitize(active.panes), layout: active.layout }
+      : { id: w.id, name: w.name, panes: sanitize(w.panes ?? {}), layout: w.layout ?? null }
+  )
+  const scroll: Record<string, number> = {}
+  for (const w of workspaces) {
+    for (const id of Object.keys(w.panes)) {
+      const up = capturePaneScroll(id)
+      if (up > 0) scroll[id] = up
+    }
+  }
+  return { workspaces, activeWorkspaceId: wsStore.activeId, scroll, savedAt: Date.now() }
 }
 
 /** Cap a restored snapshot to the first `max` panes (0 = unlimited), rebalancing the layout. */
@@ -72,8 +82,36 @@ export function usePersistence(): void {
     // legacy localStorage config blob from older versions (layout only).
     void window.api
       .readLastSession()
-      .then((last) => {
+      .then(async (last) => {
         const max = useSettings.getState().settings?.prefs.maxRestorePanes ?? 0
+        // New multi-workspace snapshot: restore every tab, pulling each pane's
+        // complete history from its main-process transcript log.
+        if (last?.workspaces && last.workspaces.length) {
+          const allIds = last.workspaces.flatMap((w) => Object.keys(w.panes ?? {}))
+          const transcripts: Record<string, string> = {}
+          await Promise.all(
+            allIds.map(async (id) => {
+              try {
+                const t = await window.api.transcriptRead(id)
+                if (t) transcripts[id] = t
+              } catch {
+                /* no log for this pane → restore its config only */
+              }
+            })
+          )
+          // Cap only the active workspace if a restore limit is set.
+          const workspaces = last.workspaces.map((w) => {
+            if (w.id !== last.activeWorkspaceId) return w
+            const capped = capPanes(w.panes ?? {}, (w.layout as MosaicNode<string> | null) ?? null, max)
+            return { ...w, panes: capped.panes, layout: capped.layout }
+          })
+          const activeId = last.activeWorkspaceId ?? workspaces[0].id
+          applyLaunchRestore(workspaces, activeId, transcripts, last.scroll ?? {})
+          // Drop transcript logs for panes that no longer exist (crash orphans).
+          void window.api.transcriptPrune(workspaces.flatMap((w) => Object.keys(w.panes ?? {})))
+          return
+        }
+        // Legacy single-workspace snapshot (pre-multi-workspace upgrade).
         if (last && last.panes && Object.keys(last.panes).length) {
           const capped = capPanes(
             last.panes,
@@ -120,7 +158,9 @@ export function usePersistence(): void {
         // launch starts fresh.
         const clear = useSettings.getState().settings?.prefs.clearWorkspaceOnExit
         window.api.flushLastSession(
-          clear ? { panes: {}, layout: null, transcripts: {}, savedAt: Date.now() } : snapshot()
+          clear
+            ? { workspaces: [], activeWorkspaceId: '', scroll: {}, savedAt: Date.now() }
+            : snapshot()
         )
       } catch {
         /* non-fatal */

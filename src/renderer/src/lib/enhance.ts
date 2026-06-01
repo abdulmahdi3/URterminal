@@ -1,10 +1,8 @@
 import { useWorkspace } from '@renderer/store/workspace'
-import { getInputLine, clearInputLine } from '@renderer/lib/terminalPool'
+import { getInputLine, setInputLine } from '@renderer/lib/terminalPool'
 import { toast } from '@renderer/store/toasts'
 
-const ESC = String.fromCharCode(27)
 const DEL = String.fromCharCode(127) // backspace/delete keystroke
-const bracketPaste = (s: string): string => `${ESC}[200~${s}${ESC}[201~`
 
 /**
  * "AI prompt enhancer depend on memory": take what the user has typed (but not
@@ -43,11 +41,17 @@ export async function enhancePromptFor(paneId: string): Promise<void> {
   }
 
   // Delete whatever is currently typed (backspaces over the reconstructed line),
-  // then paste the rewrite. The user reviews it and presses Enter to send.
+  // then type the rewrite directly into the input field — NOT as a bracketed
+  // paste. Agents like Claude collapse a bracketed paste into a "[Pasted text]"
+  // placeholder, so the user can't see or edit the result until they send it.
+  // Typing the characters in makes the enhanced prompt visible and editable in
+  // the input line. Newlines are flattened to spaces so the typed text stays on
+  // a single line (a bare CR would submit the prompt before the user reviews it).
+  const typed = enhanced.replace(/\s*\r?\n\s*/g, ' ').trim()
   const current = getInputLine(paneId)
   if (current.length) window.api.writePty(ptyId, DEL.repeat(current.length))
-  clearInputLine(paneId)
-  window.api.writePty(ptyId, bracketPaste(enhanced))
+  window.api.writePty(ptyId, typed)
+  setInputLine(paneId, typed)
   toast('Prompt enhanced — review and press Enter', 'ok')
 }
 

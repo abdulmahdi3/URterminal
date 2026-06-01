@@ -24,7 +24,7 @@ describe('learning store config', () => {
   it('defaults to disabled (opt-in)', () => {
     expect(getLearningConfig().enabled).toBe(false)
     expect(getLearningConfig().capture).toBe(true)
-    expect(getLearningConfig().model).toBe('claude-cli-headless')
+    expect(getLearningConfig().provider).toBe('claude-cli')
   })
 
   it('merges + persists a patch and reflects it on next read', () => {

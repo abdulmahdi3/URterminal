@@ -1,6 +1,6 @@
 import { readMemories, readSkills } from './brain'
 import { projectHash } from './paths'
-import { getRunModel } from './model'
+import { getEnhanceRunModel } from './model'
 import { getLearningConfig } from './store'
 import { ENHANCE_SYSTEM, buildEnhancePrompt } from './enhancePrompt'
 
@@ -25,7 +25,7 @@ export async function enhancePrompt(opts: { text: string; cwd?: string }): Promi
     description: s.description
   }))
 
-  const run = getRunModel(getLearningConfig())
+  const run = getEnhanceRunModel(getLearningConfig())
   const out = await run(ENHANCE_SYSTEM, buildEnhancePrompt(text, memories, skills))
   const trimmed = out.trim()
   if (!trimmed) throw new Error('The enhancer returned nothing')

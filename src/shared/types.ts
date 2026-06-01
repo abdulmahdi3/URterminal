@@ -57,14 +57,38 @@ export interface SessionData {
   transcripts: Record<string, string>
 }
 
-/** Full auto-saved snapshot of the live workspace, written on change + on close. */
-export interface LastSessionPayload {
+/** One workspace's panes + layout inside an auto-saved snapshot. */
+export interface PersistedWorkspace {
+  id: string
+  name: string
   panes: Record<string, Pane>
   /** mosaic layout tree (pane-id leaves); kept loose to avoid importing react-mosaic here */
   layout: unknown
-  transcripts: Record<string, string>
+}
+
+/**
+ * Full auto-saved snapshot of the whole app, written on change + on close.
+ *
+ * Pane chat content is NOT inlined here — it streams to per-pane transcript logs
+ * in the main process (see TranscriptStore) and is referenced by pane id, so the
+ * synchronous close-flush stays cheap and the history isn't capped to what fits
+ * in one JSON blob. `panes`/`layout`/`transcripts` remain for back-compat reading
+ * of pre-multi-workspace snapshots.
+ */
+export interface LastSessionPayload {
+  /** every workspace (tabs), not just the active one */
+  workspaces?: PersistedWorkspace[]
+  /** id of the workspace that was on screen */
+  activeWorkspaceId?: string
+  /** paneId -> lines scrolled up from the bottom (0 = at bottom) */
+  scroll?: Record<string, number>
   /** epoch ms this snapshot was written (used to archive it into the session list) */
   savedAt?: number
+
+  // ---- legacy single-workspace fields (still read for back-compat) ----
+  panes?: Record<string, Pane>
+  layout?: unknown
+  transcripts?: Record<string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -411,6 +435,9 @@ export interface PtySpawnRequest {
   command?: string
   /** extra args for the directly-spawned `command` (e.g. ["--continue"] to resume a session) */
   commandArgs?: string[]
+  /** reset this pane's transcript log at spawn — used when a resumable agent will
+   *  reprint its own history (e.g. `claude --continue`) so it isn't duplicated. */
+  freshLog?: boolean
 }
 
 /** Result of setting up "agent over SSH" for a target. */
@@ -656,6 +683,11 @@ export const IPC = {
   lastSessionRead: 'sessions:last-read',
   lastSessionWrite: 'sessions:last-write',
   lastSessionFlush: 'sessions:last-flush', // synchronous write used on window close
+  // complete per-pane terminal history (full session restore), kept in main
+  transcriptRead: 'transcript:read',
+  transcriptPrime: 'transcript:prime',
+  transcriptRemove: 'transcript:remove',
+  transcriptPrune: 'transcript:prune',
 
   // standalone, app-wide notes (separate file under userData, survives close)
   notesRead: 'notes:read',

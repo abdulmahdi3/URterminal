@@ -21,6 +21,7 @@ import { SshAgentBridge } from '../ssh/agentBridge'
 import { buildAgentInstruction } from '../ssh/ursshHelpers'
 import { SshfsManager, sshfsInstalled, SSHFS_INSTALL, SSHFS_BIN } from '../ssh/sshfs'
 import { PtyManager } from '../pty/manager'
+import { TranscriptStore } from '../pty/transcriptStore'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
@@ -109,6 +110,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   const capture = new CaptureService((candidates) => emit(IPC.learningCandidates, candidates))
   capture.setWriter((ptyId, data) => pty.write(ptyId, data))
   pty.setCaptureSink(capture)
+
+  // Complete per-pane terminal history for full session restore (kept in main so
+  // it survives regardless of renderer scrollback / which workspace is on screen).
+  const transcripts = new TranscriptStore()
+  pty.setTranscriptSink(transcripts)
+  app.on('before-quit', () => transcripts.persistAll())
 
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
     settings.getPublic(
@@ -505,11 +512,20 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     try {
       mkdirSync(app.getPath('userData'), { recursive: true })
       writeFileSync(lastSessionFile(), JSON.stringify(payload), 'utf8')
+      transcripts.persistAll() // ensure the latest chat history hits disk too
     } catch {
       /* non-fatal */
     }
     e.returnValue = true // unblock sendSync
   })
+
+  // ---- complete per-pane terminal history (full-fidelity session restore) ----
+  ipcMain.handle(IPC.transcriptRead, (_e, paneId: string): string => transcripts.read(paneId))
+  ipcMain.handle(IPC.transcriptPrime, (_e, paneId: string, text: string): void =>
+    transcripts.prime(paneId, text)
+  )
+  ipcMain.handle(IPC.transcriptRemove, (_e, paneId: string): void => transcripts.remove(paneId))
+  ipcMain.handle(IPC.transcriptPrune, (_e, keep: string[]): void => transcripts.pruneExcept(keep))
 
   // ---- TickTick OAuth + Open API proxy (main-process bearer storage) ----
   const tickTick = new TickTickClient(settings)

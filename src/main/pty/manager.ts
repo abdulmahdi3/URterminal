@@ -7,6 +7,13 @@ import type { PtySpawnRequest, PtyDataEvent, PtyExitEvent, PtyTaskInfo } from '@
 import type { PtyLike } from '../ssh/sshPty'
 import type { CaptureSink } from '../learning/capture'
 
+/** Sink that records every pane's complete output history for session restore. */
+export interface TranscriptSink {
+  append(paneId: string, data: string): void
+  /** clear a pane's recorded history (resumable agents reprint their own). */
+  reset(paneId: string): void
+}
+
 type Emit = (channel: string, payload: PtyDataEvent | PtyExitEvent) => void
 
 // pty:data → renderer IPC is coalesced per pty on a short timer so a chatty CLI
@@ -111,10 +118,18 @@ export class PtyManager {
   // this interface, so the feature stays cleanly decoupled (and absent = no-op).
   private capture?: CaptureSink
 
+  // Optional transcript tap. Records the full output history of every pane for
+  // session restore. Decoupled like `capture` (absent = no-op).
+  private transcript?: TranscriptSink
+
   constructor(private emit: Emit) {}
 
   setCaptureSink(sink: CaptureSink): void {
     this.capture = sink
+  }
+
+  setTranscriptSink(sink: TranscriptSink): void {
+    this.transcript = sink
   }
 
   /** Append output to a pty's pending buffer, arming (or forcing) a flush. */
@@ -168,6 +183,9 @@ export class PtyManager {
       buf: '',
       flushTimer: null
     })
+    // A resumable agent will reprint its full history on launch (e.g. via
+    // `--continue`); clear the old log first so the reprint doesn't stack on top.
+    if (req.freshLog) this.transcript?.reset(req.paneId)
     this.capture?.onSessionStart({
       ptyId,
       paneId: req.paneId,
@@ -182,6 +200,7 @@ export class PtyManager {
       // Capture taps the raw stream in-process (no IPC); only the renderer-bound
       // emit is batched, via bufferOutput.
       this.capture?.onPtyData(req.paneId, data)
+      this.transcript?.append(req.paneId, data)
       this.bufferOutput(ptyId, data)
       if (!startupSent) {
         startupSent = true
@@ -216,6 +235,7 @@ export class PtyManager {
     this.capture?.onSessionStart({ ptyId, paneId, agentId: '', cwd: '' })
     proc.onData((data) => {
       this.capture?.onPtyData(paneId, data)
+      this.transcript?.append(paneId, data)
       this.bufferOutput(ptyId, data)
     })
     proc.onExit(({ exitCode }) => {
