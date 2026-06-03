@@ -1,12 +1,55 @@
 import { useEffect, useState } from 'react'
-import { Loader2, AlertCircle, RefreshCw, X } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, X, Wand2 } from 'lucide-react'
 import type { Pane } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { getLastAgentCwd, setLastAgentCwd } from '@renderer/lib/agentPrefs'
-import { isTerminalStarted } from '@renderer/lib/terminalPool'
+import { isTerminalStarted, getInputLine, onTerminalInput } from '@renderer/lib/terminalPool'
+import { enhancePromptFor } from '@renderer/lib/enhance'
 import TerminalPane from './TerminalPane'
 import AgentLauncher from './AgentLauncher'
+
+/**
+ * Floating "enhance prompt" action: sits inside the pane at the center-right,
+ * by the input line, instead of in the pane header. It only appears once the
+ * user has started typing a prompt. Clicking it rewrites the typed prompt
+ * (using learned memory) and types the result back into the input field for
+ * review — see `enhancePromptFor`.
+ */
+function EnhanceFab({ paneId }: { paneId: string }): JSX.Element | null {
+  const [busy, setBusy] = useState(false)
+  // Show only while there's an unsent prompt typed. The tracked input line isn't
+  // reactive, so re-read it on every keystroke routed to this pane.
+  const [hasText, setHasText] = useState(() => getInputLine(paneId).trim().length > 0)
+  useEffect(() => {
+    return onTerminalInput((id) => {
+      if (id === paneId) setHasText(getInputLine(paneId).trim().length > 0)
+    })
+  }, [paneId])
+
+  if (!hasText && !busy) return null
+  return (
+    <button
+      className="enhance-fab"
+      title="Enhance the typed prompt using learned memory"
+      disabled={busy}
+      // Don't let the click bubble to the pane (which would start a selection /
+      // refocus) before the enhancer reads the typed line.
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={async () => {
+        if (busy) return
+        setBusy(true)
+        try {
+          await enhancePromptFor(paneId)
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      {busy ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
+    </button>
+  )
+}
 
 /**
  * The "AI pane" launches an agent CLI (default: claude) directly in a chosen
@@ -81,6 +124,7 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
         onExit={() => removePane(pane.id)}
         onStarted={() => setStarted(true)}
       />
+      {started && <EnhanceFab paneId={pane.id} />}
     </div>
   )
 }

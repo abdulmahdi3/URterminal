@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SnippetItem } from '@shared/types'
 
-export const APP_THEMES = ['dark', 'amoled', 'ocean', 'forest', 'dusk'] as const
+export const APP_THEMES = ['dark', 'light', 'amoled', 'ocean', 'forest', 'dusk'] as const
 export type AppTheme = (typeof APP_THEMES)[number]
 
 interface UiState {
@@ -22,10 +22,18 @@ interface UiState {
   fillSnippet: SnippetItem | null
   /** save-as-template modal open for this pane id (null = closed) */
   savingTemplatePaneId: string | null
+  /** SSH connect prompt open */
+  showSshPrompt: boolean
+  /** standalone notes panel open */
+  showNotes: boolean
   /** app-wide color theme */
   appTheme: AppTheme
+  /** when opening settings, jump to this section id (consumed once by SettingsModal) */
+  settingsSection: string | null
 
   setShowSettings: (v: boolean) => void
+  /** open settings, optionally navigating straight to a section (e.g. 'learning') */
+  openSettings: (section?: string) => void
   setShowCommandPalette: (v: boolean) => void
   toggleCommandPalette: () => void
   setShowShortcuts: (v: boolean) => void
@@ -40,6 +48,9 @@ interface UiState {
   setSearchOpen: (v: boolean) => void
   setFillSnippet: (s: SnippetItem | null) => void
   setSavingTemplatePaneId: (id: string | null) => void
+  setShowSshPrompt: (v: boolean) => void
+  setShowNotes: (v: boolean) => void
+  toggleNotes: () => void
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
@@ -55,6 +66,8 @@ const ALL_CLOSED = {
   showPipeMode: false,
   showTaskManager: false,
   showAskAll: false,
+  showSshPrompt: false,
+  showNotes: false,
   linkingPaneId: null as string | null
 }
 
@@ -71,11 +84,16 @@ export const useUi = create<UiState>((set, get) => ({
   searchOpen: false,
   fillSnippet: null,
   savingTemplatePaneId: null,
+  showSshPrompt: false,
+  showNotes: false,
   appTheme: 'dark',
+  settingsSection: null,
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
   // hitting Ctrl+K while Settings is open swaps to the palette, not stacks).
   setShowSettings: (v) => set(v ? { ...ALL_CLOSED, showSettings: true } : { showSettings: false }),
+  openSettings: (section) =>
+    set({ ...ALL_CLOSED, showSettings: true, settingsSection: section ?? null }),
   setShowCommandPalette: (v) =>
     set(v ? { ...ALL_CLOSED, showCommandPalette: true } : { showCommandPalette: false }),
   toggleCommandPalette: () =>
@@ -100,6 +118,10 @@ export const useUi = create<UiState>((set, get) => ({
   setSearchOpen: (v) => set({ searchOpen: v }),
   setFillSnippet: (s) => set({ fillSnippet: s }),
   setSavingTemplatePaneId: (id) => set({ savingTemplatePaneId: id }),
+  setShowSshPrompt: (v) => set(v ? { ...ALL_CLOSED, showSshPrompt: true } : { showSshPrompt: false }),
+  setShowNotes: (v) => set(v ? { ...ALL_CLOSED, showNotes: true } : { showNotes: false }),
+  toggleNotes: () =>
+    set((s) => (s.showNotes ? { showNotes: false } : { ...ALL_CLOSED, showNotes: true })),
   toggleZoom: (id) => set({ zoomedPaneId: get().zoomedPaneId === id ? null : id }),
   setAppTheme: (theme) => set({ appTheme: theme }),
   cycleAppTheme: () =>
@@ -115,6 +137,8 @@ export const useUi = create<UiState>((set, get) => ({
       showPipeMode: false,
       showTaskManager: false,
       showAskAll: false,
+      showSshPrompt: false,
+      showNotes: false,
       linkingPaneId: null
     })
 }))

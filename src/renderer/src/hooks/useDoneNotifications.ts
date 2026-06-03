@@ -18,27 +18,37 @@ function showDesktopNotification(title: string, body: string): void {
   }
 }
 
-/** Short two-tone chime via WebAudio (no bundled asset). */
-function playDoneSound(): void {
+/**
+ * Notification sound via WebAudio (no bundled asset). `volume` is 0–100; `name`
+ * selects the timbre ('chime' = two-tone sine, 'beep' = single square blip).
+ * Exported so the Settings panel can preview the chosen sound.
+ */
+export function playDoneSound(volume: number, name: 'chime' | 'beep'): void {
+  const peak = Math.max(0, Math.min(1, volume / 100)) * 0.3
+  if (peak <= 0) return
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     const ctx = new Ctx()
     const now = ctx.currentTime
-    const beep = (freq: number, at: number): void => {
+    const beep = (freq: number, at: number, type: OscillatorType): void => {
       const o = ctx.createOscillator()
       const g = ctx.createGain()
       o.connect(g)
       g.connect(ctx.destination)
-      o.type = 'sine'
+      o.type = type
       o.frequency.value = freq
       g.gain.setValueAtTime(0.0001, now + at)
-      g.gain.exponentialRampToValueAtTime(0.18, now + at + 0.01)
+      g.gain.exponentialRampToValueAtTime(peak, now + at + 0.01)
       g.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.18)
       o.start(now + at)
       o.stop(now + at + 0.2)
     }
-    beep(660, 0)
-    beep(880, 0.14)
+    if (name === 'beep') {
+      beep(880, 0, 'square')
+    } else {
+      beep(660, 0, 'sine')
+      beep(880, 0.14, 'sine')
+    }
     window.setTimeout(() => void ctx.close(), 500)
   } catch {
     /* audio unavailable — ignore */
@@ -56,11 +66,13 @@ export function useDoneNotifications(): void {
       onPaneTurnComplete((paneId) => {
         const prefs = useSettings.getState().settings?.prefs
         if (!prefs || (!prefs.notifyOnDone && !prefs.notifySound)) return
+        // "only when unfocused" suppresses both alerts while the app has focus.
+        if (prefs.notifyOnlyUnfocused && document.hasFocus()) return
         const pane = useWorkspace.getState().panes[paneId]
         if (!pane || pane.type !== 'ai') return
         const name = pane.title || pane.agent?.command || 'Agent'
         if (prefs.notifyOnDone) showDesktopNotification(`${name} finished`, 'The agent is idle and ready.')
-        if (prefs.notifySound) playDoneSound()
+        if (prefs.notifySound) playDoneSound(prefs.notifyVolume ?? 60, prefs.notifySoundName ?? 'chime')
       }),
     []
   )

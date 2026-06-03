@@ -24,6 +24,7 @@ export function eventToCombo(e: KeyLike): string | null {
   else if (code === 'Slash') key = '/'
   else if (code === 'Enter') key = 'Enter'
   else if (code === 'Space') key = 'Space'
+  else if (code === 'Tab') key = 'Tab'
   else if (code === 'Backquote') key = '`'
   else return null // lone modifier, arrows, etc. — not bindable
 

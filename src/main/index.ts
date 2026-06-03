@@ -1,14 +1,24 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { IPC } from '@shared/types'
 import { registerIpc, type IpcContext } from './ipc'
 import { initAutoUpdate } from './updater'
 import appIcon from '../../resources/icon.png?asset'
+import newWindowIcon from '../../resources/new-window.ico?asset'
 
+// The first window opened is the "primary" — it owns session restore + the
+// auto-saved workspace. Every additional window is a fresh, independent
+// workspace (see `secondary` query flag below).
 let mainWindow: BrowserWindow | null = null
 let ipc: IpcContext | null = null
 
-function createWindow(): void {
-  mainWindow = new BrowserWindow({
+/** The window IPC/dialogs/updater should target: the focused one, else any. */
+function getFocusedWindow(): BrowserWindow | null {
+  return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
+}
+
+function createWindow(opts: { secondary?: boolean } = {}): BrowserWindow {
+  const win = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 800,
@@ -34,45 +44,88 @@ function createWindow(): void {
     }
   })
 
+  // The primary window is the one that drives session restore/auto-save.
+  if (!opts.secondary && (!mainWindow || mainWindow.isDestroyed())) mainWindow = win
+
   // Reveal the window reliably: prefer 'ready-to-show', but fall back to
   // 'did-finish-load' and a timeout so the window never stays stuck hidden.
   let shown = false
   const reveal = (): void => {
-    if (shown || !mainWindow) return
+    if (shown || win.isDestroyed()) return
     shown = true
-    mainWindow.show()
-    mainWindow.focus()
+    win.show()
+    win.focus()
   }
-  mainWindow.once('ready-to-show', reveal)
-  mainWindow.webContents.once('did-finish-load', reveal)
+  win.once('ready-to-show', reveal)
+  win.webContents.once('did-finish-load', reveal)
   setTimeout(reveal, 3000)
 
   // Tell the renderer when the OS maximize state flips so the title-bar
   // maximize/restore button can stay in sync.
-  const sendMaxState = (): void =>
-    mainWindow?.webContents.send('window:maximized-changed', mainWindow.isMaximized())
-  mainWindow.on('maximize', sendMaxState)
-  mainWindow.on('unmaximize', sendMaxState)
+  const sendMaxState = (): void => {
+    if (!win.isDestroyed()) win.webContents.send('window:maximized-changed', win.isMaximized())
+  }
+  win.on('maximize', sendMaxState)
+  win.on('unmaximize', sendMaxState)
 
-  mainWindow.webContents.once('did-finish-load', () => {
-    if (!mainWindow) return
+  win.webContents.once('did-finish-load', () => {
+    if (win.isDestroyed()) return
     if (process.env.URTERMINAL_SMOKE) {
-      void import('./smoke').then((m) => m.runSmoke(mainWindow!))
+      void import('./smoke').then((m) => m.runSmoke(win))
     } else if (process.env.URTERMINAL_SMOKE_SETTINGS) {
-      void import('./smoke').then((m) => m.runSettingsSmoke(mainWindow!))
+      void import('./smoke').then((m) => m.runSettingsSmoke(win))
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
+  // Secondary windows carry `?secondary=1` so the renderer starts an empty
+  // workspace and skips session restore / auto-save (which would otherwise
+  // clobber the primary window's persisted session and duplicate its panes).
+  const query = opts.secondary ? { secondary: '1' } : undefined
   // electron-vite injects ELECTRON_RENDERER_URL in dev.
   if (process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    const base = process.env['ELECTRON_RENDERER_URL']
+    win.loadURL(opts.secondary ? `${base}${base.includes('?') ? '&' : '?'}secondary=1` : base)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'), query ? { query } : undefined)
+  }
+
+  return win
+}
+
+/**
+ * Register the Windows jump list (right-click the taskbar/Start icon). The
+ * "New Window" task relaunches the exe with `--new-window`; the single-instance
+ * `second-instance` handler turns that into a fresh window on the CURRENT
+ * virtual desktop instead of switching to an existing window elsewhere.
+ *
+ * Packaged only: in dev, `process.execPath` is the bare electron.exe and the
+ * single-instance lock is disabled, so the task would launch Electron's default
+ * welcome window instead of the app. We clear any task left over from a dev run.
+ */
+function setupJumpList(): void {
+  if (process.platform !== 'win32') return
+  try {
+    if (!app.isPackaged) {
+      app.setUserTasks([]) // remove a stale task from a previous dev session
+      return
+    }
+    app.setUserTasks([
+      {
+        program: process.execPath,
+        arguments: '--new-window',
+        iconPath: newWindowIcon,
+        iconIndex: 0,
+        title: 'New Window',
+        description: 'Open a new URterminal window'
+      }
+    ])
+  } catch {
+    /* jump list unavailable — non-fatal */
   }
 }
 
@@ -88,20 +141,25 @@ const hasInstanceLock = !app.isPackaged || app.requestSingleInstanceLock()
 if (!hasInstanceLock) {
   app.quit()
 } else {
+  // Relaunching the app (desktop/Start shortcut, or the "New Window" jump-list
+  // task) fires here in the already-running instance. Open a NEW window — it
+  // lands on the user's CURRENT virtual desktop — instead of focusing the
+  // existing window, which would yank the user across desktops.
   app.on('second-instance', () => {
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
+    createWindow({ secondary: true })
   })
 }
 
 app.whenReady().then(() => {
   if (!hasInstanceLock) return
   app.setAppUserModelId('com.urterminal.app')
-  ipc = registerIpc(() => mainWindow)
+  setupJumpList()
+  ipc = registerIpc(getFocusedWindow)
+  // In-app "New Window" (command palette / Ctrl+Shift+N). Unlike the jump list
+  // this works in dev too, since it never relaunches the exe.
+  ipcMain.on(IPC.windowOpenNew, () => createWindow({ secondary: true }))
   createWindow()
-  initAutoUpdate(() => mainWindow)
+  initAutoUpdate(getFocusedWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -118,5 +176,6 @@ app.on('window-all-closed', () => {
 })
 
 export function getMainWindow(): BrowserWindow | null {
-  return mainWindow
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow
+  return getFocusedWindow()
 }

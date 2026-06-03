@@ -10,20 +10,53 @@ export type PaneStatus = 'awaiting' | 'working' | 'idle'
 
 interface PaneStatusState {
   status: Record<string, PaneStatus>
+  /**
+   * Panes that finished a turn and haven't been looked at yet — drives the
+   * "done" glow. A pane is marked done when its turn completes and cleared once
+   * the user focuses it (PaneView) or it starts working again (set, below).
+   */
+  done: Record<string, boolean>
   set: (id: string, s: PaneStatus) => void
+  markDone: (id: string) => void
+  clearDone: (id: string) => void
   remove: (id: string) => void
 }
 
 export const usePaneStatus = create<PaneStatusState>((set) => ({
   status: {},
+  done: {},
   set: (id, s) =>
-    set((st) => (st.status[id] === s ? st : { status: { ...st.status, [id]: s } })),
+    set((st) => {
+      if (st.status[id] === s) return st
+      // Starting a new turn (working/awaiting) clears any stale "done" glow.
+      const clearGlow = (s === 'working' || s === 'awaiting') && st.done[id]
+      const next: Partial<PaneStatusState> = { status: { ...st.status, [id]: s } }
+      if (clearGlow) {
+        const done = { ...st.done }
+        delete done[id]
+        next.done = done
+      }
+      return next
+    }),
+  markDone: (id) =>
+    set((st) => (st.done[id] ? st : { done: { ...st.done, [id]: true } })),
+  clearDone: (id) =>
+    set((st) => {
+      if (!st.done[id]) return st
+      const done = { ...st.done }
+      delete done[id]
+      return { done }
+    }),
   remove: (id) =>
     set((st) => {
-      if (!(id in st.status)) return st
+      const hasStatus = id in st.status
+      const hasDone = id in st.done
+      if (!hasStatus && !hasDone) return st
       const status = { ...st.status }
+      const done = { ...st.done }
       delete status[id]
-      return { status }
+      delete done[id]
+      return { status, done }
     })
 }))
 

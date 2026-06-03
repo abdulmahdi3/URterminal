@@ -1,6 +1,6 @@
 {
   "name": "urterminal",
-  "version": "0.2.1",
+  "version": "0.3.7",
   "description": "Multi-pane AI + shell terminal",
   "main": "./out/main/index.js",
   "author": "URterminal",
@@ -26,27 +26,35 @@
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.3",
     "grammy": "^1.30.0",
-    "lucide-react": "^0.460.0"
+    "lucide-react": "^0.460.0",
+    "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@tanstack/react-virtual": "^3.10.8",
     "@types/node": "^22.7.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.2",
+    "@types/ssh2": "^1.15.5",
+    "@vitejs/plugin-react": "^4.6.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.15.0",
+    "@xterm/addon-serialize": "^0.13.0",
     "@xterm/xterm": "^5.5.0",
-    "electron": "^39.8.5",
-    "electron-builder": "^25.1.8",
-    "electron-vite": "^2.3.0",
+    "electron": "^29.4.6",
+    "electron-builder": "^26.0.0",
+    "electron-vite": "^5.0.0",
     "i18next": "^23.15.2",
+    "pngjs": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^15.0.2",
     "react-mosaic-component": "^6.1.1",
     "typescript": "^5.6.2",
-    "vite": "^5.4.8",
+    "vite": "^7.0.0",
+    "vitest": "^3.0.0",
     "zustand": "^4.5.5"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

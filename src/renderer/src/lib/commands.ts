@@ -1,6 +1,6 @@
 import type { Pane } from '@shared/types'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
+import { useWorkspaces } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
 import { useBroadcastStore } from '@renderer/store/broadcast'
 import { useSettings } from '@renderer/store/settings'
@@ -8,6 +8,11 @@ import { useActivity, activityToMarkdown } from '@renderer/store/activity'
 import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
+import { getAgents } from '@renderer/lib/agents'
+import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
+import { confirmPaneClose } from '@renderer/lib/paneClose'
+import { injectText } from '@renderer/lib/inject'
+import { enhanceActivePrompt } from '@renderer/lib/enhance'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -27,6 +32,15 @@ const ui = (): ReturnType<typeof useUi.getState> => useUi.getState()
 function activePane(): Pane | null {
   const s = ws()
   return (s.activePaneId && s.panes[s.activePaneId]) || null
+}
+
+/** Switch to the workspace `offset` tabs away from the active one (wraps around). */
+function switchWorkspaceBy(offset: number): void {
+  const { list, activeId, switchTo } = useWorkspaces.getState()
+  if (list.length < 2) return
+  const idx = list.findIndex((w) => w.id === activeId)
+  if (idx < 0) return
+  switchTo(list[(idx + offset + list.length) % list.length].id)
 }
 
 /** Run `command` in the active AI pane, or spin up a new one. */
@@ -59,6 +73,29 @@ export function getCommands(): Command[] {
       run: () => ws().addPane('shell')
     },
     {
+      id: 'ssh.connect',
+      title: 'Connect to SSH server…',
+      group: 'Panes',
+      run: () => ui().setShowSshPrompt(true)
+    },
+    {
+      id: 'ssh.installSshfs',
+      title: 'SSH: Install remote-folder mount (SSHFS-Win)',
+      group: 'Panes',
+      run: () => {
+        void window.api.sshfsStatus().then((s) => {
+          if (s.installed) {
+            toast('SSHFS-Win is already installed', 'ok')
+            return
+          }
+          void window.api.sshfsInstall().then((r) => {
+            if (r.ok) toast('Installing SSHFS-Win in a console — approve the UAC prompt, then restart URterminal.', 'info')
+            else toast(`Install failed to start: ${r.error ?? 'unknown'}`, 'error')
+          })
+        })
+      }
+    },
+    {
       id: 'pane.splitRight',
       title: 'Split active pane → right (duplicate)',
       group: 'Panes',
@@ -87,10 +124,13 @@ export function getCommands(): Command[] {
       shortcut: 'Ctrl+W',
       run: () => {
         const id = ws().activePaneId
-        if (id) {
-          window.api.linkPaneToTelegram(id, null)
-          ws().removePane(id)
-        }
+        if (!id) return
+        void (async () => {
+          if (await confirmPaneClose(id)) {
+            window.api.linkPaneToTelegram(id, null)
+            ws().removePane(id)
+          }
+        })()
       }
     },
     {
@@ -104,7 +144,7 @@ export function getCommands(): Command[] {
       id: 'pane.openTerminal',
       title: 'Open terminal in agent folder',
       group: 'Panes',
-      shortcut: 'Ctrl+Shift+C',
+      shortcut: 'Ctrl+Shift+O',
       run: () => {
         const id = ws().activePaneId
         if (id) ws().openTerminalHere(id)
@@ -156,6 +196,28 @@ export function getCommands(): Command[] {
       }
     },
 
+    // ---- clipboard ----
+    {
+      id: 'edit.copy',
+      title: 'Copy selection',
+      group: 'General',
+      shortcut: 'Ctrl+Shift+C',
+      run: () => {
+        const id = ws().activePaneId
+        if (id) copySelection(id)
+      }
+    },
+    {
+      id: 'edit.paste',
+      title: 'Paste into terminal (text or image)',
+      group: 'General',
+      shortcut: 'Ctrl+V',
+      run: () => {
+        const id = ws().activePaneId
+        if (id) pasteClipboard(id)
+      }
+    },
+
     // ---- broadcast ----
     {
       id: 'broadcast.toggle',
@@ -188,7 +250,30 @@ export function getCommands(): Command[] {
       }
     },
 
+    // ---- workspaces ----
+    {
+      id: 'workspace.next',
+      title: 'Next workspace',
+      group: 'Workspaces',
+      shortcut: 'Ctrl+Tab',
+      run: () => switchWorkspaceBy(1)
+    },
+    {
+      id: 'workspace.prev',
+      title: 'Previous workspace',
+      group: 'Workspaces',
+      shortcut: 'Ctrl+Shift+Tab',
+      run: () => switchWorkspaceBy(-1)
+    },
+
     // ---- app ----
+    {
+      id: 'app.newWindow',
+      title: 'New window',
+      group: 'App',
+      shortcut: 'Ctrl+Shift+N',
+      run: () => window.api.openNewWindow()
+    },
     {
       id: 'app.settings',
       title: 'Open settings',
@@ -200,7 +285,7 @@ export function getCommands(): Command[] {
       id: 'app.shortcuts',
       title: 'Keyboard shortcuts',
       group: 'App',
-      shortcut: '?',
+      shortcut: 'Ctrl+/',
       run: () => ui().setShowShortcuts(true)
     },
     {
@@ -238,23 +323,78 @@ export function getCommands(): Command[] {
         useActivity.getState().clear()
         toast('Activity log cleared', 'ok')
       }
+    },
+
+    // ---- learning layer (Hermes) ----
+    {
+      id: 'learning.distill',
+      title: 'Learning: Run distillation now',
+      group: 'Learning',
+      run: () => {
+        toast('Running distillation…', 'info')
+        void window.api.learning
+          .distill()
+          .then((r) =>
+            toast(
+              r.ok
+                ? `Distilled — ${r.applied ?? 0} applied, ${r.queued ?? 0} queued`
+                : `Distillation failed: ${r.error ?? 'learning/egress disabled?'}`,
+              r.ok ? 'ok' : 'error'
+            )
+          )
+          .catch((e) => toast(`Distillation failed: ${(e as Error).message}`, 'error'))
+      }
+    },
+    {
+      id: 'learning.openStore',
+      title: 'Learning: Open brain store folder',
+      group: 'Learning',
+      run: () => void window.api.learning.openStore().catch(() => {})
+    },
+    {
+      id: 'learning.settings',
+      title: 'Learning: Open settings',
+      group: 'Learning',
+      run: () => ui().openSettings('learning')
+    },
+    {
+      id: 'learning.enhancePrompt',
+      title: 'Enhance prompt with memory (active agent)',
+      group: 'Learning',
+      run: () => enhanceActivePrompt()
+    },
+
+    // ---- Google Tasks ----
+    {
+      id: 'googleTasks.agenda',
+      title: 'Google Tasks: Insert my agenda into the active pane',
+      group: 'Integrations',
+      run: () => {
+        void window.api
+          .googleTasksAgenda()
+          .then((text) => {
+            const id = ws().activePaneId
+            if (id && injectText(id, text, false)) toast('Inserted Google Tasks agenda', 'ok')
+            else toast('Open a pane first to insert the agenda', 'info')
+          })
+          .catch((e) => toast(`Google Tasks: ${(e as Error).message}`, 'error'))
+      }
     }
   ]
 
-  // a "new pane" + "switch active pane" command for each agent CLI
-  for (const a of AGENTS) {
-    const label = AGENT_LABELS[a]
+  // a "new pane" + "switch active pane" command for each discovered agent CLI
+  for (const { id, label } of getAgents()) {
     cmds.push({
-      id: `agent.new.${a}`,
+      id: `agent.new.${id}`,
       title: `New ${label} agent pane`,
       group: 'Agent',
-      run: () => ws().addPane('ai', undefined, { agentCommand: a, label })
+      run: () => ws().addPane('ai', undefined, { agentCommand: id, label })
     })
     cmds.push({
-      id: `agent.run.${a}`,
+      id: `agent.run.${id}`,
       title: `Switch active pane → ${label}`,
       group: 'Agent',
-      run: () => runAgent(a)
+      run: () => runAgent(id)
     })
   }
 

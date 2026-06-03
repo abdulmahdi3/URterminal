@@ -1,0 +1,1103 @@
+/* ---- standalone notes modal — sidebar list + editor, sized like settings ---- */
+.modal.notes-modal {
+  width: min(1080px, 96vw);
+  height: min(720px, 92vh);
+  max-width: 96vw;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.notes-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 0;
+}
+
+/* ---- sidebar: search + new + note list ---- */
+.notes-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.notes-sidebar-head {
+  padding: 10px 10px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.notes-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+}
+.notes-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+}
+.notes-summary {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+.notes-group {
+  margin-bottom: 8px;
+}
+.notes-group-head {
+  padding: 6px 10px 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.notes-group-active {
+  color: var(--accent);
+  font-weight: 700;
+}
+.notes-group-tt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--accent);
+}
+.notes-group-refresh {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+}
+.notes-group-refresh:hover {
+  color: var(--text);
+}
+.notes-group-refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.notes-todos-completed {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.notes-todos-completed-head {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.notes-todos-completed-head.as-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.notes-todos-completed-head.as-button:hover {
+  color: var(--text);
+}
+
+/* ---- TickTick filter bar + expandable task rows ---- */
+.tt-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-1);
+}
+.tt-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+.tt-filter input,
+.tt-filter select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.tt-filter input:focus,
+.tt-filter select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tt-task {
+  margin: 5px 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-lg);
+}
+.tt-task:hover {
+  background: var(--bg-elev-2);
+  border-color: var(--border);
+  box-shadow: var(--shadow-md);
+}
+.tt-task.done {
+  opacity: 0.5;
+  box-shadow: none;
+}
+.tt-task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  min-height: 42px;
+}
+/* Title is the focal point: larger, full-weight, truncates cleanly */
+.tt-task-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  line-height: 1.35;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tt-task.done .tt-task-title {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+/* Round completion circle, colored by priority (authentic to-do look).
+   Scoped under .tt-task-row so it beats the shared .notes-todo-check rule
+   that's declared later in this file. */
+.tt-task-row .tt-check {
+  width: 19px;
+  height: 19px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+  flex-shrink: 0;
+}
+.tt-task-row .tt-check:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.tt-task.pri-high .tt-check:not(.checked) { border-color: var(--danger); }
+.tt-task.pri-med  .tt-check:not(.checked) { border-color: var(--warn); }
+.tt-task.pri-low  .tt-check:not(.checked) { border-color: var(--info); }
+.tt-task-row .tt-check.checked {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.tt-task-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.tt-task-expand:hover {
+  color: var(--text);
+  background: var(--bg-elev-3);
+}
+.tt-task-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.tt-task-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.tt-task-tag {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+/* Due-date pill, color-coded by urgency */
+.tt-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tt-due.today {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+.tt-due.soon {
+  color: var(--warn);
+}
+.tt-due.overdue {
+  color: var(--danger);
+  background: rgba(240, 93, 87, 0.13);
+  border-color: transparent;
+}
+/* Delete only appears on row hover to keep things calm */
+.tt-task-row .tt-task-del {
+  opacity: 0;
+  flex-shrink: 0;
+}
+.tt-task:hover .tt-task-del {
+  opacity: 0.55;
+}
+.tt-task-row .tt-task-del:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+/* ---- inline edit panel under a task row ---- */
+.tt-task-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 10px 8px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-bottom-left-radius: var(--r-md);
+  border-bottom-right-radius: var(--r-md);
+}
+.tt-edit-title,
+.tt-edit-content {
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  outline: none;
+  resize: vertical;
+}
+.tt-edit-title { font-weight: 600; }
+.tt-edit-title:focus,
+.tt-edit-content:focus {
+  border-color: var(--accent);
+}
+
+.tt-edit-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tt-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-faint);
+  flex: 1 1 120px;
+}
+.tt-edit-field.full { flex: 1 1 100%; }
+.tt-sched {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tt-sched-allday {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.tt-sched-allday input {
+  accent-color: var(--accent);
+}
+.tt-edit-field input,
+.tt-edit-field select {
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 5px 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  outline: none;
+}
+.tt-edit-field input:focus,
+.tt-edit-field select:focus {
+  border-color: var(--accent);
+}
+
+.tt-subtasks {
+  margin-top: 4px;
+  padding: 6px 4px;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.tt-subtasks-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-faint);
+  padding: 0 4px 4px 4px;
+}
+.tt-subtasks-empty {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  padding: 2px 4px 4px 4px;
+}
+.tt-subtask {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+}
+.tt-subtask.done .notes-todo-text {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+.tt-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  align-items: center;
+}
+.tt-edit-spacer { flex: 1; }
+.notes-list-icon {
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.notes-todos-empty {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  padding: 4px 0 8px 0;
+}
+.notes-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.notes-editor-pane {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notes-editor-ws {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-faint);
+  background: var(--bg-elev-1);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+}
+.notes-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 18px 4px 18px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+.notes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+.notes-empty-list {
+  padding: 20px 14px;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+.notes-list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.notes-list-item:hover {
+  background: var(--bg-elev-1);
+}
+.notes-list-item.active {
+  background: var(--bg-elev-2);
+  border-color: var(--accent);
+}
+.notes-list-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.notes-list-pin {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.notes-list-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.notes-list-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.notes-list-snippet {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.notes-list-meta {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+/* ---- editor / content panel ---- */
+.notes-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+.notes-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-faint);
+  padding: 40px;
+  text-align: center;
+}
+
+.notes-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.notes-title-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-family: inherit;
+  padding: 2px 0;
+}
+.notes-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.icon-btn.danger:hover {
+  color: var(--danger);
+}
+
+/* ---- tag row ---- */
+.notes-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.notes-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+.notes-tag-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+}
+.notes-tag-x:hover {
+  background: rgba(240, 93, 87, 0.18);
+  color: var(--danger);
+}
+.notes-tag-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+  min-width: 100px;
+  flex: 1;
+}
+
+/* ---- body textarea ---- */
+.notes-body {
+  flex: 1;
+  min-height: 200px;
+  background: var(--bg-elev-1);
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  padding: 18px;
+  resize: none;
+}
+
+/* ---- to-do section under the body ---- */
+.notes-todos-section {
+  padding: 10px 18px 18px 18px;
+  border-top: 1px solid var(--border);
+}
+.notes-todos-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.notes-todo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.notes-todo.done .notes-todo-text {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+.notes-todo-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  border: 1.5px solid var(--border-strong);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.notes-todo-check:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.notes-todo.done .notes-todo-check {
+  background: var(--ok);
+  color: #fff;
+  border-color: var(--ok);
+}
+/* Subtasks share the round checkbox; fill green when completed */
+.tt-subtask.done .notes-todo-check {
+  background: var(--ok);
+  color: #fff;
+  border-color: var(--ok);
+}
+.notes-todo-text {
+  flex: 1;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.notes-todo-del {
+  opacity: 0.6;
+}
+.notes-todo:hover .notes-todo-del {
+  opacity: 1;
+}
+.notes-todo-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.notes-todo-input {
+  flex: 1;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  padding: 5px 8px;
+  border-radius: var(--r-md);
+}
+.notes-todo-input:focus {
+  border-color: var(--accent);
+}
+
+.notes-footer {
+  padding: 8px 18px 12px 18px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  border-top: 1px solid var(--border);
+}
+
+/* ---- integrations section in settings ---- */
+.integrations-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 620px;
+}
+.integration-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.integration-card:hover {
+  border-color: var(--border-strong);
+}
+.integration-card.connected,
+.integration-card.connected:hover {
+  border-color: var(--accent);
+}
+/* "Coming soon" services are visually dimmed and non-interactive — only the
+   active ones can actually be connected right now. */
+.integration-card.inactive {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+.integration-card.inactive .integration-actions input,
+.integration-card.inactive .integration-actions button {
+  cursor: not-allowed;
+}
+.integration-status.inactive {
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+}
+.integration-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.integration-logo {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.integration-logo.todoist     { background: #e44332; }
+.integration-logo.ticktick    { background: #29a8df; }
+.integration-logo.microsoftTodo { background: #2364aa; }
+.integration-logo.googleTasks { background: #1a73e8; }
+.integration-logo.notion      { background: #000; color: #fff; border: 1px solid var(--border); }
+
+.integration-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+.integration-status {
+  margin-left: auto;
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-3);
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.integration-status.connected {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.integration-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin: 0;
+}
+.integration-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.integration-field label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.integration-field input {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px 9px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  outline: none;
+}
+.integration-field input:focus {
+  border-color: var(--accent);
+}
+.integration-desc code {
+  background: var(--bg-elev-2);
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+}
+
+.integration-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.integration-actions input {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px 9px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  outline: none;
+}
+.integration-actions input:focus {
+  border-color: var(--accent);
+}
+.integration-help {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.integration-help a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.integration-help a:hover {
+  text-decoration: underline;
+}
+
+/* Source tabs (Notes / TickTick / Google Tasks) under the panel header */
+.notes-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+.notes-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.notes-tab:hover:not(.disabled) {
+  color: var(--text);
+}
+.notes-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.notes-tab.disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.notes-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.notes-tab-soon {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+}
+
+/* TickTick smart views (Today / Next 7 / Overdue / All) in the sidebar */
+.notes-smart-views {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+.notes-smart-view {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.notes-smart-view:hover {
+  background: var(--bg-elev-1);
+  color: var(--text);
+}
+.notes-smart-view.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+.notes-smart-icon {
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+.notes-smart-view:hover .notes-smart-icon,
+.notes-smart-view.active .notes-smart-icon {
+  color: var(--accent);
+}
+.notes-smart-label {
+  flex: 1;
+}
+.notes-list-badge.danger {
+  background: #ef4444;
+}
+
+/* Quick-add bar above TickTick views (parses #tag / !! / today tokens) */
+.tt-quickadd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.tt-quickadd-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.tt-quickadd-input {
+  flex: 1;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  outline: none;
+}
+.tt-quickadd-input::placeholder {
+  color: var(--text-faint);
+}
+.tt-quickadd-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* "New list" affordance at the bottom of the TickTick sidebar group */
+.notes-newlist-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  margin-top: 2px;
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+.notes-newlist-trigger:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.notes-newlist {
+  display: flex;
+  gap: 6px;
+  padding: 4px 4px 2px 4px;
+}
+
+/* Project label chip shown on smart-view rows (tasks span projects) */
+.tt-task-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  flex-shrink: 0;
+  max-width: 130px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tt-project-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+}
+
+/* ---- TickTick list-view polish: header, empties, scrollable body ---- */
+.notes-todos-section.ticktick {
+  padding: 6px 16px 20px 16px;
+  border-top: none;
+}
+.notes-todos-section.ticktick .notes-todos-head {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--text);
+  padding: 8px 2px 10px 2px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.notes-todos-section.ticktick .notes-todos-empty {
+  text-align: center;
+  padding: 40px 16px;
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}

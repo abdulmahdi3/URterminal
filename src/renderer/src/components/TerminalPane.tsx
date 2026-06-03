@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { mountTerminal, fitTerminal } from '@renderer/lib/terminalPool'
+import { mountTerminal, fitTerminal, bumpFontSize } from '@renderer/lib/terminalPool'
+import { useSettings } from '@renderer/store/settings'
 
 interface Props {
   paneId: string
@@ -13,6 +14,8 @@ interface Props {
   cwd?: string
   /** command auto-typed once the shell is ready (pane templates) */
   startupCommand?: string
+  /** when set, this pane is an SSH session (target = "user@host[:port]") */
+  ssh?: { target: string }
   /** called once the pty exists so the store can track its id */
   onReady?: (ptyId: string, shell: string) => void
   /** called when the pty process exits (e.g. agent quit via Ctrl+C twice) */
@@ -33,6 +36,7 @@ export default function TerminalPane({
   shellArgs,
   cwd,
   startupCommand,
+  ssh,
   onReady,
   onExit,
   onStarted
@@ -55,6 +59,7 @@ export default function TerminalPane({
       shellArgs,
       cwd,
       startupCommand,
+      ssh,
       onReady: (id, shell) => onReadyRef.current?.(id, shell),
       onExit: (code) => onExitRef.current?.(code),
       onStarted: () => onStartedRef.current?.()
@@ -70,12 +75,29 @@ export default function TerminalPane({
     ro.observe(container)
     fitTerminal(paneId)
 
+    // Ctrl+scroll zooms the terminal font in/out (applied live to every pane),
+    // debounced-persisted to settings. Non-passive so we can preventDefault and
+    // stop the wheel from also scrolling the buffer while zooming.
+    let persistT = 0
+    const onWheel = (e: WheelEvent): void => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      const size = bumpFontSize(e.deltaY < 0 ? 1 : -1)
+      window.clearTimeout(persistT)
+      persistT = window.setTimeout(() => {
+        void useSettings.getState().patch({ prefs: { fontSize: size } })
+      }, 400)
+    }
+    container.addEventListener('wheel', onWheel, { passive: false })
+
     return () => {
       window.clearTimeout(t)
+      window.clearTimeout(persistT)
+      container.removeEventListener('wheel', onWheel)
       ro.disconnect()
       // Terminal stays alive in the pool — only disposed when the pane is closed.
     }
-  }, [paneId, command, shell, shellArgs?.join(' '), cwd])
+  }, [paneId, command, shell, shellArgs?.join(' '), cwd, ssh?.target])
 
   return <div className="shell-pane" ref={containerRef} />
 }

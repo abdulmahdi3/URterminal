@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { SettingsPublic, SettingsPatch } from '@shared/types'
-import i18n from '@renderer/i18n/i18n'
-import { setTerminalFont } from '@renderer/lib/terminalPool'
+import { setTerminalFont, setTerminalConfig, setTerminalTheme } from '@renderer/lib/terminalPool'
 import { useWorkspace } from './workspace'
+import { useUi, type AppTheme } from './ui'
 
 interface SettingsState {
   settings: SettingsPublic | null
@@ -40,19 +40,62 @@ function applySideEffects(s: SettingsPublic): void {
   } catch {
     /* ignore */
   }
-  // Single refined dark theme — no in-face theme switcher by design.
   document.documentElement.setAttribute('data-theme', 'dark')
-  document.documentElement.setAttribute('dir', s.language === 'ar' ? 'rtl' : 'ltr')
-  if (i18n.language !== s.language) void i18n.changeLanguage(s.language)
   useWorkspace.getState().setDefaults({
     provider: s.defaultProvider,
     model: s.defaultModel,
     agent: s.defaultAgent,
     shell: s.defaultShell,
-    shellArgs: s.defaultShellArgs
+    shellArgs: s.defaultShellArgs,
+    shellCwd: s.prefs.defaultShellCwd,
+    focusNewPane: s.prefs.focusNewPane
   })
+  // pane title bars (settings-controlled) — collapse the mosaic toolbar when off
+  document.documentElement.classList.toggle('hide-pane-headers', !s.prefs.showPaneHeaders)
+  // scrollbar thickness (px) — drives the --scrollbar-size CSS var used by global.css
+  document.documentElement.style.setProperty(
+    '--scrollbar-size',
+    `${Math.max(6, s.prefs.scrollbarWidth || 14)}px`
+  )
   applyAccentColor(s.accentColor || '#4c8dff')
   setTerminalFont(s.prefs.fontFamily || '', s.prefs.fontSize || 13)
+  setTerminalConfig({
+    cursorStyle: s.prefs.cursorStyle,
+    cursorBlink: s.prefs.cursorBlink,
+    lineHeight: s.prefs.lineHeight,
+    letterSpacing: s.prefs.letterSpacing,
+    scrollback: s.prefs.scrollback,
+    scrollSensitivity: s.prefs.scrollSensitivity,
+    copyOnSelect: s.prefs.copyOnSelect,
+    pasteOnRightClick: s.prefs.pasteOnRightClick,
+    bell: s.prefs.terminalBell,
+    padding: s.prefs.terminalPadding
+  })
+  // App color theme: 'system' resolves to light/dark via the OS preference;
+  // every other value is a concrete theme class applied on .app (see App.tsx).
+  const themePref = s.prefs.appTheme || 'dark'
+  const resolved =
+    themePref === 'system'
+      ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'
+      : themePref
+  useUi.getState().setAppTheme(resolved as AppTheme)
+  setTerminalTheme(resolved) // agent/shell terminal background follows the theme
+  // Recolor the native window caption buttons to match the theme's title-bar
+  // (--bg-elev) and dim text (--text-dim).
+  const ov = OVERLAY_COLORS[resolved] ?? OVERLAY_COLORS.dark
+  window.api.setWindowOverlay(ov.color, ov.symbol)
+}
+
+/** Native caption-overlay colors per theme — color = --bg-elev, symbol = --text-dim. */
+const OVERLAY_COLORS: Record<string, { color: string; symbol: string }> = {
+  dark: { color: '#12151c', symbol: '#8b94a6' },
+  light: { color: '#ffffff', symbol: '#4f5b6e' },
+  amoled: { color: '#090909', symbol: '#8b94a6' },
+  ocean: { color: '#0c1524', symbol: '#8b94a6' },
+  forest: { color: '#0b160e', symbol: '#8b94a6' },
+  dusk: { color: '#1b1610', symbol: '#8b94a6' }
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({

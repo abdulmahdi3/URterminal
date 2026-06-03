@@ -13,6 +13,8 @@ export interface ShellPaneState {
   ptyId?: string
   /** command auto-typed once the shell is ready (used by pane templates) */
   startupCommand?: string
+  /** when set, this pane is an SSH session (target = "user@host[:port]") */
+  ssh?: { target: string }
 }
 
 /** An "AI pane" is a terminal that auto-launches an agent CLI (claude, codex, …). */
@@ -22,6 +24,15 @@ export interface AgentPaneState {
   cwd?: string
   ptyId?: string
   shell?: string
+  /** when this agent was opened over SSH, the target whose mount/conn it owns */
+  sshTarget?: string
+}
+
+/** A single checkable item in a pane's to-do list. */
+export interface TodoItem {
+  id: string
+  text: string
+  done: boolean
 }
 
 export interface Pane {
@@ -36,6 +47,48 @@ export interface Pane {
   pipeTargets?: string[]
   /** free-form note attached to the pane (shown via the header note button) */
   notes?: string
+  /** checkable to-do list attached to the pane (shown in the note popover) */
+  todos?: TodoItem[]
+}
+
+/** Chat content for a saved session: per-pane terminal transcript (replayable ANSI). */
+export interface SessionData {
+  /** paneId -> serialized terminal buffer (ANSI snapshot produced by addon-serialize) */
+  transcripts: Record<string, string>
+}
+
+/** One workspace's panes + layout inside an auto-saved snapshot. */
+export interface PersistedWorkspace {
+  id: string
+  name: string
+  panes: Record<string, Pane>
+  /** mosaic layout tree (pane-id leaves); kept loose to avoid importing react-mosaic here */
+  layout: unknown
+}
+
+/**
+ * Full auto-saved snapshot of the whole app, written on change + on close.
+ *
+ * Pane chat content is NOT inlined here — it streams to per-pane transcript logs
+ * in the main process (see TranscriptStore) and is referenced by pane id, so the
+ * synchronous close-flush stays cheap and the history isn't capped to what fits
+ * in one JSON blob. `panes`/`layout`/`transcripts` remain for back-compat reading
+ * of pre-multi-workspace snapshots.
+ */
+export interface LastSessionPayload {
+  /** every workspace (tabs), not just the active one */
+  workspaces?: PersistedWorkspace[]
+  /** id of the workspace that was on screen */
+  activeWorkspaceId?: string
+  /** paneId -> lines scrolled up from the bottom (0 = at bottom) */
+  scroll?: Record<string, number>
+  /** epoch ms this snapshot was written (used to archive it into the session list) */
+  savedAt?: number
+
+  // ---- legacy single-workspace fields (still read for back-compat) ----
+  panes?: Record<string, Pane>
+  layout?: unknown
+  transcripts?: Record<string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +107,10 @@ export interface TelegramSettingsPublic {
   tokenPreview?: string
   defaultChatId?: string
   running: boolean
+  /** bot @username once connected (getMe succeeded) */
+  botUsername?: string
+  /** last connection/polling error, surfaced in the UI when the bot isn't running */
+  error?: string
 }
 
 export type ThemeName = 'dark' | 'light'
@@ -79,6 +136,9 @@ export interface PaneTemplate {
   startupCommand?: string
 }
 
+export type CursorStyle = 'block' | 'bar' | 'underline'
+export type NotifySound = 'chime' | 'beep'
+
 /** Free-form user preferences persisted as one JSON blob via electron-store. */
 export interface AppPrefs {
   /** desktop notification when an agent finishes a turn */
@@ -99,6 +159,64 @@ export interface AppPrefs {
   snippets: SnippetItem[]
   /** saved pane configurations */
   templates: PaneTemplate[]
+  /** recent SSH targets (most recent first, e.g. "user@host"), shown by the SSH button */
+  sshHosts: string[]
+
+  // ---- appearance / terminal ----
+  /** app color theme (matches APP_THEMES: dark, amoled, ocean, forest, dusk, light, system) */
+  appTheme: string
+  /** terminal caret shape */
+  cursorStyle: CursorStyle
+  /** terminal caret blink */
+  cursorBlink: boolean
+  /** terminal line height multiplier (1.0 = default) */
+  lineHeight: number
+  /** terminal letter spacing in px */
+  letterSpacing: number
+  /** terminal scrollback buffer size (lines) */
+  scrollback: number
+  /** inner padding around terminal contents (px) */
+  terminalPadding: number
+  /** show the per-pane title/header bar */
+  showPaneHeaders: boolean
+  /** terminal scroll speed multiplier */
+  scrollSensitivity: number
+  /** width (px) of the scrollbars (terminal viewport + scrollable UI) */
+  scrollbarWidth: number
+  /** play a short sound when the terminal emits a bell (\\a) */
+  terminalBell: boolean
+
+  // ---- behavior / workflow ----
+  /** warn before closing a pane whose process is still running */
+  confirmClose: boolean
+  /** working directory new shell panes open in ('' = home) */
+  defaultShellCwd: string
+  /** debounce (seconds) before the live workspace is auto-saved to disk */
+  autoSaveSeconds: number
+  /** cap on how many panes are restored on launch (0 = unlimited) */
+  maxRestorePanes: number
+  /** focus a newly created pane automatically */
+  focusNewPane: boolean
+  /** copy the terminal selection to the clipboard automatically */
+  copyOnSelect: boolean
+  /** paste on right-click in a terminal */
+  pasteOnRightClick: boolean
+  /** clear the saved workspace on exit (next launch starts empty) */
+  clearWorkspaceOnExit: boolean
+  /** target language for the "Translate selection" command (sent to open agents) */
+  defaultLanguage: string
+  /** OPT-IN: mount the remote folder (SSHFS) when opening an agent over SSH so it can edit
+   *  files in place. Off by default — the agent already manages the server via the urssh
+   *  helper; mounting needs SSHFS-Win and can slow the open if the server's slow to mount. */
+  sshAgentMount: boolean
+
+  // ---- notifications ----
+  /** only fire desktop/sound notifications when the window is NOT focused */
+  notifyOnlyUnfocused: boolean
+  /** notification chime volume (0–100) */
+  notifyVolume: number
+  /** which built-in notification sound to play */
+  notifySoundName: NotifySound
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -110,7 +228,138 @@ export const DEFAULT_PREFS: AppPrefs = {
   fontSize: 13,
   autoRestore: true,
   snippets: [],
-  templates: []
+  templates: [],
+  sshHosts: [],
+
+  appTheme: 'dark',
+  cursorStyle: 'block',
+  cursorBlink: true,
+  lineHeight: 1.0,
+  letterSpacing: 0,
+  scrollback: 3000,
+  terminalPadding: 8,
+  showPaneHeaders: true,
+  scrollSensitivity: 1,
+  scrollbarWidth: 14,
+  terminalBell: false,
+
+  confirmClose: false,
+  defaultShellCwd: '',
+  autoSaveSeconds: 1,
+  maxRestorePanes: 0,
+  focusNewPane: true,
+  copyOnSelect: true,
+  pasteOnRightClick: true,
+  clearWorkspaceOnExit: false,
+  defaultLanguage: 'English',
+  sshAgentMount: false,
+
+  notifyOnlyUnfocused: false,
+  notifyVolume: 60,
+  notifySoundName: 'chime'
+}
+
+/** External to-do services the user can connect for syncing tasks. */
+export type IntegrationId = 'todoist' | 'ticktick' | 'microsoftTodo' | 'googleTasks' | 'notion'
+
+/** Public view of a connected integration — never exposes raw token, just status. */
+/** Update-related payload pushed from the main-process auto-updater. */
+export interface UpdaterStatus {
+  version: string
+  releaseNotes?: string
+  releaseDate?: string
+}
+
+export interface IntegrationStatus {
+  /** true if a credential/token is stored for this service */
+  connected: boolean
+  /** epoch ms the user connected (or last refreshed the token) */
+  connectedAt?: number
+}
+/** TickTick has extra setup fields (client_id/client_secret) it needs from the user. */
+export interface TickTickStatus extends IntegrationStatus {
+  /** the user's app client_id, shown plain (it's not secret on its own) */
+  clientId?: string
+  /** whether a client_secret has been saved (not the value itself) */
+  clientSecretSet: boolean
+}
+export interface IntegrationsPublic {
+  todoist: IntegrationStatus
+  ticktick: TickTickStatus
+  microsoftTodo: IntegrationStatus
+  googleTasks: IntegrationStatus
+  notion: IntegrationStatus
+}
+
+// ---------------------------------------------------------------------------
+// TickTick open API surface (subset we actually use)
+// ---------------------------------------------------------------------------
+
+export interface TickTickProject {
+  id: string
+  name: string
+  color?: string
+  closed?: boolean
+  viewMode?: string
+  kind?: 'TASK' | 'NOTE' | string
+}
+
+export interface TickTickChecklistItem {
+  id: string
+  title: string
+  status: number // 0 = normal, 1 = completed
+  startDate?: string
+  isAllDay?: boolean
+  timeZone?: string
+  sortOrder?: number
+  completedTime?: string
+}
+
+export interface TickTickTask {
+  id: string
+  projectId: string
+  title: string
+  content?: string
+  desc?: string
+  isAllDay?: boolean
+  startDate?: string
+  dueDate?: string
+  timeZone?: string
+  reminders?: string[]
+  tags?: string[]
+  repeatFlag?: string
+  priority?: number // 0 None, 1 Low, 3 Medium, 5 High
+  status?: number // 0 Open, 2 Completed
+  completedTime?: string
+  sortOrder?: number
+  items?: TickTickChecklistItem[]
+}
+
+export interface TickTickProjectData {
+  project: TickTickProject
+  tasks: TickTickTask[]
+  columns?: unknown[]
+}
+
+// ---- Google Tasks ----
+export interface GoogleTaskList {
+  id: string
+  title: string
+}
+export interface GoogleTask {
+  id: string
+  title: string
+  notes?: string
+  status: 'needsAction' | 'completed'
+  /** due date (RFC 3339; Google only stores the date part) */
+  due?: string
+  completed?: string
+  updated?: string
+}
+/** A task list plus its (open) tasks — what the agenda is built from. */
+export interface GoogleTaskGroup {
+  list: GoogleTaskList
+  tasks: GoogleTask[]
 }
 
 export interface SettingsPublic {
@@ -125,9 +374,24 @@ export interface SettingsPublic {
   /** args for the default shell (e.g. ["-d", "Ubuntu"]) */
   defaultShellArgs: string[]
   theme: ThemeName
-  language: string
   accentColor: string
   prefs: AppPrefs
+  integrations: IntegrationsPublic
+}
+
+/** A standalone, app-wide note (lives outside any pane; persisted to disk). */
+export interface NoteDoc {
+  id: string
+  title: string
+  body: string
+  /** optional tags for grouping in the notes panel */
+  tags?: string[]
+  /** optional inline to-do list */
+  todos?: TodoItem[]
+  createdAt: number
+  updatedAt: number
+  /** "pinned to top" in the notes panel sidebar */
+  pinned?: boolean
 }
 
 // Patch shapes the renderer may send to mutate settings.
@@ -142,10 +406,15 @@ export interface SettingsPatch {
   defaultShell?: string
   defaultShellArgs?: string[]
   theme?: ThemeName
-  language?: string
   accentColor?: string
   /** shallow-merged into the stored prefs blob */
   prefs?: Partial<AppPrefs>
+  /** set or clear a to-do service credential (token = null disconnects) */
+  integrationToken?: { id: IntegrationId; token: string | null }
+  /** set TickTick app client_id (registered on developer.ticktick.com); null clears it */
+  tickTickClientId?: string | null
+  /** set TickTick app client_secret; null clears it */
+  tickTickClientSecret?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +433,54 @@ export interface PtySpawnRequest {
   startupCommand?: string
   /** spawn this program directly as the pty process (e.g. "claude"), instead of a shell */
   command?: string
+  /** extra args for the directly-spawned `command` (e.g. ["--continue"] to resume a session) */
+  commandArgs?: string[]
+  /** reset this pane's transcript log at spawn — used when a resumable agent will
+   *  reprint its own history (e.g. `claude --continue`) so it isn't duplicated. */
+  freshLog?: boolean
+}
+
+/** Result of setting up "agent over SSH" for a target. */
+export interface SshAgentResult {
+  ok: boolean
+  /** local working directory for the agent pane: the SSHFS mount path, else home */
+  cwd?: string
+  /** starter message to inject into the agent pane (when ok) */
+  instruction?: string
+  /** true if the remote folder was mounted locally via SSHFS */
+  mounted?: boolean
+  /** drive letter of the SSHFS mount (e.g. "Z") when mounted */
+  drive?: string
+  /** true when SSHFS-Win isn't installed (agent still works via urssh; file editing needs it) */
+  needsSshfs?: boolean
+  /** non-fatal mount failure (the agent still opened via the urssh fallback) */
+  mountError?: string
+  /** failure reason (when !ok) */
+  error?: string
+}
+
+/** Whether the SSHFS toolchain (WinFsp + SSHFS-Win) is available, + how to get it. */
+export interface SshfsStatus {
+  installed: boolean
+  /** absolute path to sshfs.exe when found */
+  sshfsPath?: string
+  /** one-line winget command to install the toolchain */
+  installCommand: string
+  /** docs/download URL */
+  url: string
+}
+
+/** Open an SSH session that streams through the same pty:data/pty:exit channels. */
+export interface SshSpawnRequest {
+  paneId: string
+  /** "user@host" or "user@host:port" */
+  target: string
+  /** password for a fresh connection; omit to use a previously saved one */
+  password?: string
+  /** persist the password (encrypted) for next time */
+  savePassword?: boolean
+  cols: number
+  rows: number
 }
 
 export interface PtyDataEvent {
@@ -265,6 +582,26 @@ export interface PerfSample {
   timestamp: number
 }
 
+/**
+ * Live Claude usage from Anthropic's OAuth usage endpoint (the same source as
+ * `/usage`). Account-global, not per-pane. `percent` is the real plan
+ * utilization; `resetInMs` counts down to the window reset.
+ */
+export interface ClaudeUsageWindow {
+  /** Plan utilization for this window, 0–100 (rounded). */
+  percent: number
+  /** Milliseconds until this window resets. */
+  resetInMs: number
+}
+export interface ClaudeUsage {
+  /** A usage reading was obtained (token present + endpoint answered). */
+  ok: boolean
+  /** Rolling 5-hour window. */
+  fiveHour: ClaudeUsageWindow | null
+  /** Rolling 7-day window. */
+  sevenDay: ClaudeUsageWindow | null
+}
+
 // ---------------------------------------------------------------------------
 // Window controls + file save (frameless window)
 // ---------------------------------------------------------------------------
@@ -288,6 +625,9 @@ export interface FileSaveResult {
 // ---------------------------------------------------------------------------
 
 export const IPC = {
+  // app info (version, etc.)
+  appInfo: 'app:info',
+
   // settings
   settingsGet: 'settings:get',
   settingsPatch: 'settings:patch',
@@ -306,6 +646,24 @@ export const IPC = {
   shellListWsl: 'shell:list-wsl',
   // which: report which of the given commands are installed on PATH
   commandsCheck: 'shell:check-commands',
+  // agents: discover the merged agent list (built-ins + manifest + gh extensions)
+  agentsDiscover: 'agents:discover',
+
+  // learning layer (local observe -> distill -> inject; opt-in, default off)
+  learningTurnMarker: 'learning:turn-marker', // renderer -> main: a submitted user prompt
+  learningGetConfig: 'learning:get-config',
+  learningSetConfig: 'learning:set-config',
+  learningOpenStore: 'learning:open-store', // reveal the local learning dir in the OS
+  learningListCandidates: 'learning:list-candidates', // renderer -> main: pending review queue
+  learningCandidates: 'learning:candidates', // main -> renderer (event): new gate candidates
+  learningDistill: 'learning:distill', // renderer -> main: run a distillation pass (model call)
+  learningListMemory: 'learning:list-memory', // renderer -> main: current brain (memories+skills)
+  learningListPendingOps: 'learning:list-pending-ops', // renderer -> main: distilled ops awaiting review
+  learningApproveOp: 'learning:approve-op', // renderer -> main: write a pending op into the brain
+  learningRejectOp: 'learning:reject-op', // renderer -> main: discard a pending op
+  learningForgetProject: 'learning:forget-project', // renderer -> main: wipe one project's learning
+  learningInject: 'learning:inject', // renderer -> main: write the brain into an agent's context file
+  learningEnhance: 'learning:enhance', // renderer -> main: rewrite a prompt using brain memory
 
   // clipboard (right-click paste of text + images)
   clipboardRead: 'clipboard:read',
@@ -315,12 +673,69 @@ export const IPC = {
   systemProcKill: 'system:proc-kill',
 
   // saved sessions (named workspace snapshots persisted to disk)
-  sessionsRead: 'sessions:read',
+  sessionsRead: 'sessions:read', // metadata + pane config list (sessions.json)
   sessionsWrite: 'sessions:write',
+  // per-session chat content (terminal transcripts), stored one file per session
+  sessionDataRead: 'sessions:data-read',
+  sessionDataWrite: 'sessions:data-write',
+  sessionDataDelete: 'sessions:data-delete',
+  // auto-saved "last session" (full snapshot incl. transcripts) for crash/close restore
+  lastSessionRead: 'sessions:last-read',
+  lastSessionWrite: 'sessions:last-write',
+  lastSessionFlush: 'sessions:last-flush', // synchronous write used on window close
+  // complete per-pane terminal history (full session restore), kept in main
+  transcriptRead: 'transcript:read',
+  transcriptPrime: 'transcript:prime',
+  transcriptRemove: 'transcript:remove',
+  transcriptPrune: 'transcript:prune',
+
+  // standalone, app-wide notes (separate file under userData, survives close)
+  notesRead: 'notes:read',
+  notesWrite: 'notes:write',
+
+  // app self-update (electron-updater backed by GitHub releases)
+  updaterAvailable: 'updater:available', // main -> renderer (event)
+  updaterDownloaded: 'updater:downloaded', // main -> renderer (event)
+  updaterError: 'updater:error', // main -> renderer (event)
+  updaterInstall: 'updater:install', // renderer -> main: quit + apply
+
+  // TickTick to-do integration (OAuth via main-process loopback server + REST)
+  tickTickConnect: 'ticktick:connect',
+  tickTickDisconnect: 'ticktick:disconnect',
+  tickTickListProjects: 'ticktick:list-projects',
+  tickTickCreateProject: 'ticktick:create-project',
+  tickTickDeleteProject: 'ticktick:delete-project',
+  tickTickProjectData: 'ticktick:project-data',
+  tickTickCreateTask: 'ticktick:create-task',
+  tickTickUpdateTask: 'ticktick:update-task',
+  tickTickCompleteTask: 'ticktick:complete-task',
+  tickTickDeleteTask: 'ticktick:delete-task',
+
+  // Google Tasks to-do integration (bearer token paste + REST)
+  googleTasksVerify: 'gtasks:verify',
+  googleTasksListLists: 'gtasks:list-lists',
+  googleTasksListTasks: 'gtasks:list-tasks',
+  googleTasksCreateTask: 'gtasks:create-task',
+  googleTasksUpdateTask: 'gtasks:update-task',
+  googleTasksCompleteTask: 'gtasks:complete-task',
+  googleTasksDeleteTask: 'gtasks:delete-task',
+  googleTasksAgenda: 'gtasks:agenda',
+
+  // selection translation (Google gtx endpoint, main-side to avoid CORS)
+  translateText: 'translate:text',
+
+  // "agent over SSH" — set up the urssh exec bridge for a local agent
+  sshOpenAgent: 'ssh:open-agent',
+  // release a target's resources (unmount + close exec conn) when its pane closes
+  sshCloseAgent: 'ssh:close-agent',
+  // SSHFS (mount remote folder so a local agent can edit files): status + install
+  sshfsStatus: 'sshfs:status',
+  sshfsInstall: 'sshfs:install',
 
   // telegram
   telegramStatus: 'telegram:status',
   telegramRestart: 'telegram:restart',
+  telegramTest: 'telegram:test', // send a test message to verify the round trip
   telegramLinkPane: 'telegram:link-pane',
   telegramForward: 'telegram:forward',
   telegramStartTurn: 'telegram:start-turn', // show prompt + "working" placeholder
@@ -333,18 +748,29 @@ export const IPC = {
   // perf
   perfSample: 'perf:sample',
 
+  // claude usage (live from Anthropic's OAuth /usage endpoint)
+  claudeUsage: 'claude:usage',
+
   // window controls (frameless)
   windowMinimize: 'window:minimize',
   windowMaximizeToggle: 'window:maximize-toggle',
   windowClose: 'window:close',
   windowIsMaximized: 'window:is-maximized',
   windowMaximizedChanged: 'window:maximized-changed', // main -> renderer (event)
+  windowSetOverlay: 'window:set-overlay', // recolor the native caption-button overlay (theme)
+  windowOpenNew: 'window:open-new', // open a fresh, independent window (current desktop)
 
   // file save dialog
   fileSave: 'file:save',
 
   // directory picker (choose the folder to open an agent in)
   dialogOpenDir: 'dialog:open-dir',
+
+  // open a path in the OS file manager (Explorer / Finder)
+  shellOpenPath: 'shell:open-path',
+
+  // open an SSH session (streams via the pty:data/pty:exit channels)
+  sshSpawn: 'ssh:spawn',
 
   // pane registry (renderer pushes snapshot to main on every workspace change)
   panesUpdate: 'panes:update',

@@ -1,9 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/types'
+import type { AgentDiscovery } from '@shared/providers'
 import type {
   SettingsPublic,
   SettingsPatch,
   PtySpawnRequest,
+  SshSpawnRequest,
+  SshAgentResult,
+  SshfsStatus,
   PtyDataEvent,
   PtyExitEvent,
   PtyTaskInfo,
@@ -13,9 +17,19 @@ import type {
   TelegramInbound,
   TelegramCreatePane,
   PerfSample,
+  ClaudeUsage,
   FileSaveRequest,
   FileSaveResult,
-  PaneInfo
+  PaneInfo,
+  SessionData,
+  LastSessionPayload,
+  NoteDoc,
+  TickTickProject,
+  TickTickProjectData,
+  TickTickTask,
+  GoogleTask,
+  GoogleTaskList,
+  UpdaterStatus
 } from '@shared/types'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
@@ -26,6 +40,9 @@ function on<T>(channel: string, cb: (payload: T) => void): () => void {
 }
 
 const api = {
+  // ---- app info ----
+  getAppInfo: (): Promise<{ version: string; homeDir: string }> => ipcRenderer.invoke(IPC.appInfo),
+
   // ---- settings ----
   getSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke(IPC.settingsGet),
   patchSettings: (patch: SettingsPatch): Promise<SettingsPublic> =>
@@ -36,6 +53,13 @@ const api = {
   // ---- pty ----
   spawnPty: (req: PtySpawnRequest): Promise<{ ptyId: string; shell: string }> =>
     ipcRenderer.invoke(IPC.ptySpawn, req),
+  spawnSsh: (req: SshSpawnRequest): Promise<{ ptyId: string; shell: string }> =>
+    ipcRenderer.invoke(IPC.sshSpawn, req),
+  sshOpenAgent: (target: string): Promise<SshAgentResult> =>
+    ipcRenderer.invoke(IPC.sshOpenAgent, target),
+  sshCloseAgent: (target: string): void => ipcRenderer.send(IPC.sshCloseAgent, target),
+  sshfsStatus: (): Promise<SshfsStatus> => ipcRenderer.invoke(IPC.sshfsStatus),
+  sshfsInstall: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.sshfsInstall),
   writePty: (ptyId: string, data: string): void => ipcRenderer.send(IPC.ptyWrite, { ptyId, data }),
   resizePty: (ptyId: string, cols: number, rows: number): void =>
     ipcRenderer.send(IPC.ptyResize, { ptyId, cols, rows }),
@@ -49,6 +73,36 @@ const api = {
     ipcRenderer.invoke(IPC.shellListWsl),
   checkCommands: (names: string[]): Promise<string[]> =>
     ipcRenderer.invoke(IPC.commandsCheck, names),
+  discoverAgents: (): Promise<AgentDiscovery> => ipcRenderer.invoke(IPC.agentsDiscover),
+
+  // ---- learning layer (local recorder; opt-in) ----
+  learning: {
+    /** Report a submitted user prompt as an authoritative turn boundary. */
+    turnMarker: (paneId: string, text: string, ts: number): void =>
+      ipcRenderer.send(IPC.learningTurnMarker, { paneId, text, ts }),
+    getConfig: (): Promise<Record<string, unknown>> => ipcRenderer.invoke(IPC.learningGetConfig),
+    setConfig: (patch: Record<string, unknown>): Promise<Record<string, unknown>> =>
+      ipcRenderer.invoke(IPC.learningSetConfig, patch),
+    openStore: (): Promise<void> => ipcRenderer.invoke(IPC.learningOpenStore),
+    listCandidates: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListCandidates),
+    onCandidates: (cb: (c: unknown[]) => void): (() => void) =>
+      on<unknown[]>(IPC.learningCandidates, cb),
+    /** Run a distillation pass (model call); requires learning + egress enabled. */
+    distill: (projectHash?: string): Promise<{ ok: boolean; applied?: number; queued?: number; ops?: number; error?: string }> =>
+      ipcRenderer.invoke(IPC.learningDistill, projectHash),
+    listMemory: (projectHash?: string | null): Promise<unknown> =>
+      ipcRenderer.invoke(IPC.learningListMemory, projectHash),
+    listPendingOps: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListPendingOps),
+    approveOp: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.learningApproveOp, id),
+    rejectOp: (id: string): Promise<void> => ipcRenderer.invoke(IPC.learningRejectOp, id),
+    forgetProject: (projectHash: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke(IPC.learningForgetProject, projectHash),
+    inject: (cwd: string, agentId: string): Promise<{ status: string; file?: string }> =>
+      ipcRenderer.invoke(IPC.learningInject, { cwd, agentId }),
+    /** Rewrite a rough prompt into a clear instruction, grounded in brain memory. */
+    enhance: (text: string, cwd?: string): Promise<string> =>
+      ipcRenderer.invoke(IPC.learningEnhance, { text, cwd })
+  },
 
   // ---- clipboard (right-click paste) ----
   readClipboard: (): Promise<ClipboardContent> => ipcRenderer.invoke(IPC.clipboardRead),
@@ -61,10 +115,111 @@ const api = {
   readSessions: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.sessionsRead),
   writeSessions: (sessions: unknown[]): Promise<void> =>
     ipcRenderer.invoke(IPC.sessionsWrite, sessions),
+  // per-session chat content (terminal transcripts)
+  readSessionData: (id: string): Promise<SessionData | null> =>
+    ipcRenderer.invoke(IPC.sessionDataRead, id),
+  writeSessionData: (id: string, data: SessionData): Promise<void> =>
+    ipcRenderer.invoke(IPC.sessionDataWrite, id, data),
+  deleteSessionData: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.sessionDataDelete, id),
+  // auto-saved last session (full snapshot for close/crash restore)
+  readLastSession: (): Promise<LastSessionPayload | null> =>
+    ipcRenderer.invoke(IPC.lastSessionRead),
+  writeLastSession: (payload: LastSessionPayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.lastSessionWrite, payload),
+  /** synchronous final write at window close (async IPC can't finish in beforeunload) */
+  flushLastSession: (payload: LastSessionPayload): void => {
+    ipcRenderer.sendSync(IPC.lastSessionFlush, payload)
+  },
+  // complete per-pane terminal history (full session restore)
+  transcriptRead: (paneId: string): Promise<string> =>
+    ipcRenderer.invoke(IPC.transcriptRead, paneId),
+  transcriptPrime: (paneId: string, text: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.transcriptPrime, paneId, text),
+  transcriptRemove: (paneId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.transcriptRemove, paneId),
+  transcriptPrune: (keep: string[]): Promise<void> =>
+    ipcRenderer.invoke(IPC.transcriptPrune, keep),
+
+  // ---- standalone notes (app-wide, persisted to userData/notes.json) ----
+  readNotes: (): Promise<NoteDoc[]> => ipcRenderer.invoke(IPC.notesRead),
+  writeNotes: (notes: NoteDoc[]): Promise<void> => ipcRenderer.invoke(IPC.notesWrite, notes),
+
+  // ---- TickTick to-do integration (OAuth + Open API proxy) ----
+  tickTickConnect: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.tickTickConnect),
+  tickTickDisconnect: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.tickTickDisconnect),
+  tickTickListProjects: (): Promise<TickTickProject[]> =>
+    ipcRenderer.invoke(IPC.tickTickListProjects),
+  tickTickCreateProject: (input: {
+    name: string
+    color?: string
+    viewMode?: string
+    kind?: string
+  }): Promise<TickTickProject> => ipcRenderer.invoke(IPC.tickTickCreateProject, input),
+  tickTickDeleteProject: (projectId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.tickTickDeleteProject, projectId),
+  tickTickProjectData: (projectId: string): Promise<TickTickProjectData> =>
+    ipcRenderer.invoke(IPC.tickTickProjectData, projectId),
+  tickTickCreateTask: (input: {
+    projectId: string
+    title: string
+    content?: string
+    desc?: string
+    dueDate?: string
+    startDate?: string
+    isAllDay?: boolean
+    priority?: number
+    tags?: string[]
+    items?: Array<{ title: string; status?: number; sortOrder?: number }>
+  }): Promise<TickTickTask> => ipcRenderer.invoke(IPC.tickTickCreateTask, input),
+  tickTickUpdateTask: (
+    input: Partial<TickTickTask> & { id: string; projectId: string }
+  ): Promise<TickTickTask> => ipcRenderer.invoke(IPC.tickTickUpdateTask, input),
+  tickTickCompleteTask: (projectId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.tickTickCompleteTask, { projectId, taskId }),
+  tickTickDeleteTask: (projectId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.tickTickDeleteTask, { projectId, taskId }),
+
+  // ---- Google Tasks ----
+  googleTasksVerify: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC.googleTasksVerify),
+  googleTasksListLists: (): Promise<GoogleTaskList[]> => ipcRenderer.invoke(IPC.googleTasksListLists),
+  googleTasksListTasks: (listId?: string, showCompleted?: boolean): Promise<GoogleTask[]> =>
+    ipcRenderer.invoke(IPC.googleTasksListTasks, { listId, showCompleted }),
+  googleTasksCreateTask: (
+    listId: string,
+    input: { title: string; notes?: string; due?: string }
+  ): Promise<GoogleTask> =>
+    ipcRenderer.invoke(IPC.googleTasksCreateTask, { listId, ...input }),
+  googleTasksUpdateTask: (
+    listId: string,
+    taskId: string,
+    patch: { title?: string; notes?: string | null; due?: string | null; status?: GoogleTask['status'] }
+  ): Promise<GoogleTask> =>
+    ipcRenderer.invoke(IPC.googleTasksUpdateTask, { listId, taskId, ...patch }),
+  googleTasksCompleteTask: (listId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.googleTasksCompleteTask, { listId, taskId }),
+  googleTasksDeleteTask: (listId: string, taskId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.googleTasksDeleteTask, { listId, taskId }),
+  googleTasksAgenda: (): Promise<string> => ipcRenderer.invoke(IPC.googleTasksAgenda),
+
+  // ---- selection translation ----
+  translateText: (text: string, targetLang: string): Promise<{ text: string; sourceLang?: string }> =>
+    ipcRenderer.invoke(IPC.translateText, { text, targetLang }),
+
+  // ---- self-update (electron-updater backed by GitHub releases) ----
+  onUpdateAvailable: (cb: (s: UpdaterStatus) => void): (() => void) =>
+    on<UpdaterStatus>(IPC.updaterAvailable, cb),
+  onUpdateDownloaded: (cb: (s: UpdaterStatus) => void): (() => void) =>
+    on<UpdaterStatus>(IPC.updaterDownloaded, cb),
+  onUpdateError: (cb: (msg: string) => void): (() => void) =>
+    on<string>(IPC.updaterError, cb),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.updaterInstall),
 
   // ---- telegram ----
   getTelegramStatus: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramStatus),
   restartTelegram: (): Promise<TelegramStatus> => ipcRenderer.invoke(IPC.telegramRestart),
+  testTelegram: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.telegramTest),
   linkPaneToTelegram: (paneId: string, chatId: string | null): Promise<void> =>
     ipcRenderer.invoke(IPC.telegramLinkPane, { paneId, chatId }),
   forwardToTelegram: (paneId: string, text: string): void =>
@@ -85,6 +240,9 @@ const api = {
   // ---- perf ----
   getPerfSample: (): Promise<PerfSample> => ipcRenderer.invoke(IPC.perfSample),
 
+  // ---- claude usage ----
+  getClaudeUsage: (): Promise<ClaudeUsage> => ipcRenderer.invoke(IPC.claudeUsage),
+
   // ---- window controls (frameless) ----
   windowMinimize: (): void => ipcRenderer.send(IPC.windowMinimize),
   windowMaximizeToggle: (): void => ipcRenderer.send(IPC.windowMaximizeToggle),
@@ -92,6 +250,10 @@ const api = {
   windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke(IPC.windowIsMaximized),
   onWindowMaximizedChanged: (cb: (maximized: boolean) => void): (() => void) =>
     on<boolean>(IPC.windowMaximizedChanged, cb),
+  setWindowOverlay: (color: string, symbolColor: string): void =>
+    ipcRenderer.send(IPC.windowSetOverlay, { color, symbolColor }),
+  /** Open a new, independent URterminal window on the current desktop. */
+  openNewWindow: (): void => ipcRenderer.send(IPC.windowOpenNew),
 
   // ---- file save ----
   saveFile: (req: FileSaveRequest): Promise<FileSaveResult> =>
@@ -100,6 +262,9 @@ const api = {
   // ---- directory picker ----
   pickDirectory: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.dialogOpenDir, defaultPath),
+
+  // ---- open a folder in the OS file manager ----
+  openPath: (path: string): Promise<void> => ipcRenderer.invoke(IPC.shellOpenPath, path),
 
   // ---- pane registry (keeps main process in sync for Telegram /panes) ----
   updatePaneRegistry: (panes: PaneInfo[]): Promise<void> =>

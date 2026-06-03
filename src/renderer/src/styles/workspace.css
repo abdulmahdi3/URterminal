@@ -11,7 +11,28 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
+/* Drop overlay shown over each non-dragged pane while another pane is being
+   dragged within the same workspace. The overlay catches drag events; the
+   highlighted preview child shows where the dragged pane will slot in. */
+.pane-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+.pane-drop-preview {
+  position: absolute;
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  border-radius: var(--r-sm);
+  pointer-events: none;
+}
+.pane-drop-preview.top    { top: 0;    left: 0;   right: 0;  height: 50%; }
+.pane-drop-preview.bottom { bottom: 0; left: 0;   right: 0;  height: 50%; }
+.pane-drop-preview.left   { top: 0;    bottom: 0; left: 0;   width: 50%; }
+.pane-drop-preview.right  { top: 0;    bottom: 0; right: 0;  width: 50%; }
 
 /* ---- empty state ---- */
 .workspace-empty {
@@ -302,6 +323,34 @@
 .pane-body.active {
   box-shadow: inset 0 0 0 1px var(--accent-soft);
 }
+
+/* "Agent finished" cue: a soft accent glow pulses on an unfocused pane whose
+   turn just completed, so you can tell at a glance which agent is done. It
+   stops the moment you focus the pane (the .pane-done class is removed). This is
+   the one intentional animation in the app — an at-a-glance status signal. */
+.pane-body.pane-done {
+  animation: pane-done-glow 1.6s ease-in-out infinite;
+}
+@keyframes pane-done-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px var(--accent-soft);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px var(--accent),
+      inset 0 0 22px 2px var(--accent-glow);
+  }
+}
+/* Respect a reduced-motion preference: show a steady accent ring, no pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .pane-body.pane-done {
+    animation: none;
+    box-shadow:
+      inset 0 0 0 2px var(--accent),
+      inset 0 0 18px 2px var(--accent-glow);
+  }
+}
 .pane-placeholder {
   display: grid;
   place-items: center;
@@ -400,6 +449,45 @@
   flex-direction: column;
 }
 
+/* Floating prompt-enhancer button: anchored at the center-right of the pane,
+   by the input line, so the rewrite is triggered right where the user types. */
+.enhance-fab {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--bg-elev-2);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    border-color 0.12s ease;
+}
+.enhance-fab:hover {
+  opacity: 1;
+  border-color: var(--accent);
+  transform: translateY(-50%) scale(1.06);
+}
+.enhance-fab:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.enhance-fab .spin {
+  animation: pane-spin 1s linear infinite;
+}
+
 /* loader shown while the agent CLI boots (until its first output) */
 .agent-booting {
   position: absolute;
@@ -482,6 +570,17 @@
   color: var(--text-dim);
   line-height: 1.5;
 }
+.launcher-hint .install-hint {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  user-select: all;
+}
 .agent-toggle-row {
   display: flex;
   flex-wrap: wrap;
@@ -518,6 +617,20 @@
   border-color: var(--border);
   background: var(--bg-sunken);
 }
+
+/* Uninstalled agents stay visible but dimmed in the quick-launch surfaces
+   (titlebar icons, empty-workspace chips, empty-pane cards). Still clickable —
+   opening one lands on the launcher, which shows how to install it. */
+.agent-icon-btn.unavailable,
+.empty-chip.unavailable,
+.empty-card.unavailable {
+  opacity: 0.4;
+}
+.agent-icon-btn.unavailable:hover,
+.empty-chip.unavailable:hover,
+.empty-card.unavailable:hover {
+  opacity: 0.7;
+}
 .launcher-row {
   display: flex;
   gap: 6px;
@@ -553,11 +666,16 @@
 .shell-pane {
   height: 100%;
   width: 100%;
-  padding: var(--sp-3) 0 var(--sp-3) var(--sp-4);
+  /* inner padding is settings-controlled (Terminal → padding) */
+  padding: var(--term-pad, 8px);
   background: var(--bg);
 }
 .shell-pane .xterm {
   height: 100%;
+}
+/* "Show pane title bars" off → collapse the per-pane header (drag/rename gone) */
+.hide-pane-headers .mosaic-urterminal .mosaic-window-toolbar {
+  display: none !important;
 }
 
 /* ---- custom pane header (replaces the default mosaic toolbar) ---- */
@@ -594,6 +712,23 @@
   flex-shrink: 0;
   user-select: none;
 }
+/* AI pane number carries the turn-status glow (static — no animation):
+   Working = blue, Awaiting = orange, Idle = green. */
+.pane-num.is-working {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 5px 0 var(--accent);
+}
+.pane-num.is-awaiting {
+  border-color: #d29922;
+  color: #d29922;
+  box-shadow: 0 0 5px 0 #d29922;
+}
+.pane-num.is-idle {
+  border-color: #3fb950;
+  color: #3fb950;
+  box-shadow: 0 0 5px 0 #3fb950;
+}
 
 .pane-icon {
   color: var(--text-dim);
@@ -618,7 +753,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  max-width: 160px;
+  max-width: 360px;
   padding: 1px 6px;
   border-radius: var(--r-sm);
   background: var(--bg-sunken);
@@ -629,6 +764,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 0 1 auto;
+}
+.pane-cwd.clickable {
+  cursor: pointer;
+}
+.pane-cwd.clickable:hover {
+  color: var(--text);
+  background: var(--bg-elev-3);
 }
 .pane-broadcast-tag {
   display: inline-flex;
@@ -642,39 +784,12 @@
   font-weight: 600;
   flex: 0 0 auto;
 }
-/* Agent turn-status dot (static colors — no animation by project convention). */
-.agent-stat-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+/* Agent logo wrapper — turn status is conveyed via the hover tooltip only
+   (no glow/color), per the user's request. */
+.pane-logo {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
-  background: var(--text-faint);
-}
-.agent-stat-dot.is-working {
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-.agent-stat-dot.is-awaiting {
-  background: #d29922;
-}
-.agent-stat-dot.is-idle {
-  background: #3fb950;
-}
-.pane-cwd::before {
-  content: '';
-  width: 4px;
-  height: 4px;
-  border-radius: 1px;
-  background: var(--accent);
-  flex: 0 0 auto;
-}
-@keyframes cwd-glow {
-  0%, 100% { box-shadow: 0 0 1px 0px var(--accent); }
-  50%       { box-shadow: 0 0 3px 1px var(--accent); }
-}
-.pane-cwd.active::before {
-  animation: cwd-glow 1.4s ease-in-out infinite;
 }
 @keyframes pane-spin {
   to { transform: rotate(360deg); }
@@ -717,6 +832,26 @@
   font-family: var(--mono);
   color: var(--text-faint);
   flex-shrink: 0;
+}
+/* Claude 5-hour usage meter (account-global; shown in claude pane titles). */
+.pane-usage {
+  font-size: var(--fs-2xs);
+  font-family: var(--mono);
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-faint);
+  background: var(--bg-elev-2);
+}
+.pane-usage.high {
+  color: var(--warn, #d6a700);
+  border-color: var(--warn, #d6a700);
+}
+.pane-usage.over {
+  color: var(--danger, #e5534b);
+  border-color: var(--danger, #e5534b);
 }
 .pane-header-spacer {
   flex: 1;
@@ -863,7 +998,9 @@
 /* a pane marked (right-click) for a group move to another workspace */
 .pane-header.selected {
   cursor: grab;
-  background: var(--accent-soft);
+  /* layer the (translucent) accent tint over the OPAQUE header base so the
+     terminal content underneath can't bleed through behind the title/number */
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg-elev-2);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 .pane-header.selected:active {
@@ -871,18 +1008,6 @@
 }
 .mosaic-urterminal .mosaic-window:has(.pane-header.selected) {
   border-color: var(--accent);
-}
-/* selected: pull the title off the left and center it (drop the cwd/spacer) */
-.pane-header.selected .pane-title {
-  flex: 1;
-  text-align: center;
-}
-.pane-header.selected .pane-header-spacer {
-  display: none;
-}
-.pane-header.selected .pane-cwd,
-.pane-header.selected .pane-tok {
-  display: none;
 }
 
 /* portalled header popover (notes / pipe / broadcast) — fixed-positioned at the
@@ -922,6 +1047,107 @@
   color: var(--text-faint);
 }
 
+/* pane to-do list (checkable items, stored on the pane) */
+.pane-todos {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.pane-todo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Fully custom box so the *unchecked* state follows the theme instead of the
+   browser-default white. Checked = accent fill + checkmark. */
+.pane-todo-check {
+  flex: none;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+.pane-todo-check:hover {
+  border-color: var(--accent);
+}
+.pane-todo-check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pane-todo-check:checked::after {
+  content: '';
+  width: 3px;
+  height: 6px;
+  border: solid var(--bg);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.pane-todo-text {
+  flex: 1;
+  font-size: var(--fs-2xs);
+  color: var(--text);
+  cursor: pointer;
+  word-break: break-word;
+}
+.pane-todo.done .pane-todo-text {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+.pane-todo-del {
+  flex: none;
+  opacity: 0.6;
+}
+.pane-todo-del:hover {
+  opacity: 1;
+}
+.pane-todo-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.pane-todo-input {
+  flex: 1;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  padding: 4px 6px;
+  outline: none;
+}
+.pane-todo-input:focus {
+  border-color: var(--accent);
+}
+.icon-btn:has(.header-popover-badge) {
+  position: relative;
+  overflow: visible;
+}
+.header-popover-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  line-height: 13px;
+  text-align: center;
+  font-weight: 600;
+}
+
 /* pipe / broadcast target picker */
 .pane-conn-trigger {
   position: relative;
@@ -955,6 +1181,12 @@
   font-weight: 600;
   color: var(--text-dim);
   padding: 3px 6px 6px;
+}
+/* second+ section in the merged pipe/broadcast menu gets a divider above it */
+.pane-conn-section + .pane-conn-section {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border-faint);
 }
 .pane-conn-empty {
   font-size: var(--fs-2xs);

@@ -42,11 +42,12 @@ export default function SessionsMenu(): JSX.Element {
   }
 
   const doRestore = (id: string): void => {
-    const s = restore(id)
-    if (s) {
-      toast(`Restored session: ${s.name}`, 'ok')
-      setOpen(false)
-    }
+    void restore(id).then((s) => {
+      if (s) {
+        toast(`Restored session: ${s.name}`, 'ok')
+        setOpen(false)
+      }
+    })
   }
 
   return (
@@ -82,8 +83,10 @@ export default function SessionsMenu(): JSX.Element {
             {sessions.length === 0 ? (
               <p className="sessions-empty">No saved sessions yet.</p>
             ) : (
-              sessions.map((s) => (
-                <div key={s.id} className="session-row">
+              [...sessions]
+                .sort((a, b) => b.savedAt - a.savedAt)
+                .map((s) => (
+                <div key={s.id} className={clsx('session-row', s.auto && 'auto')}>
                   <div className="session-info" onClick={() => doRestore(s.id)} title="Restore">
                     <span className="session-name">{s.name}</span>
                     <span className="session-meta">

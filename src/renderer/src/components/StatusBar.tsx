@@ -8,8 +8,7 @@ import { useUi } from '@renderer/store/ui'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
-
-const VERSION = 'v0.2.0'
+import LearningStatus from './LearningStatus'
 
 function formatChars(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -76,6 +75,12 @@ export default function StatusBar(): JSX.Element {
     return () => window.clearInterval(id)
   }, [])
 
+  // Real app version (from package.json via the main process), not a hardcoded string.
+  const [version, setVersion] = useState('')
+  useEffect(() => {
+    void window.api.getAppInfo().then((i) => setVersion(i.version)).catch(() => {})
+  }, [])
+
   const [layoutOpen, setLayoutOpen] = useState(false)
   const layoutCloseRef = useRef<number>(0)
 
@@ -95,7 +100,7 @@ export default function StatusBar(): JSX.Element {
       </button>
       <button
         className="sb-item sb-icon-btn"
-        title="Command palette (Ctrl+K)"
+        title="Command palette (Ctrl+Shift+K)"
         onClick={toggleCommandPalette}
       >
         <CommandIcon size={12} />
@@ -132,6 +137,9 @@ export default function StatusBar(): JSX.Element {
 
       <span className="sb-spacer" />
 
+      {/* Hermes learning: pending-review indicator (only when learning is on) */}
+      <LearningStatus />
+
       {/* Combined CPU + RAM button → opens the task manager */}
       <button
         className="sb-item sb-resource-btn"
@@ -152,7 +160,7 @@ export default function StatusBar(): JSX.Element {
       <span className="sb-item">
         <Clock size={12} /> {clock}
       </span>
-      <span className="sb-item dim">{VERSION}</span>
+      <span className="sb-item dim">{version ? `v${version}` : ''}</span>
     </footer>
   )
 }

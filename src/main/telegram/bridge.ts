@@ -3,9 +3,60 @@ import { BrowserWindow } from 'electron'
 import type { TelegramStatus, TelegramInbound, TelegramCreatePane, PaneInfo } from '@shared/types'
 import { AGENTS } from '@shared/providers'
 import type { SettingsStore } from '../settings/store'
+import type { TickTickClient } from '../integrations/ticktick'
+
+/** Local "yyyy-mm-dd" today / +N days, for TickTick agenda + quick-add. */
+function ttToday(): string {
+  const d = new Date()
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+function ttAddDays(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  const p = (x: number): string => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+/** Parse "/task" text: #tag, ! / !! / !!! priority, today/tomorrow → TickTick fields. */
+function parseTaskText(raw: string): {
+  title: string
+  priority?: number
+  tags?: string[]
+  dueDate?: string
+} {
+  let text = ` ${raw} `
+  const tags: string[] = []
+  text = text.replace(/\s#([^\s#]+)/g, (_m, tag: string) => {
+    tags.push(tag)
+    return ' '
+  })
+  let priority: number | undefined
+  const prio = text.match(/\s(!{1,3})(?=\s)/)
+  if (prio) {
+    priority = prio[1].length === 3 ? 5 : prio[1].length === 2 ? 3 : 1
+    text = text.replace(prio[0], ' ')
+  }
+  let due: string | undefined
+  if (/\btomorrow\b/i.test(text)) {
+    due = ttAddDays(1)
+    text = text.replace(/\btomorrow\b/i, ' ')
+  } else if (/\btoday\b/i.test(text)) {
+    due = ttToday()
+    text = text.replace(/\btoday\b/i, ' ')
+  }
+  return {
+    title: text.replace(/\s+/g, ' ').trim(),
+    priority,
+    tags: tags.length ? tags : undefined,
+    dueDate: due ? `${due}T00:00:00+0000` : undefined
+  }
+}
 
 const FLUSH_MS = 1200
 const TG_MAX = 3800
+// How many times to auto-reconnect after a 409 "conflict" before giving up and
+// asking the user to close the other instance. Backoff caps at 30s per attempt.
+const MAX_CONFLICT_RETRIES = 6
 
 const ANSI_RE = new RegExp(
   '[\\u001B\\u009B][[\\]()#;?]*' +
@@ -31,6 +82,7 @@ const B_BACK       = '‹ Back'
 const B_EXIT_CHAT  = '🚪 Exit chat'
 const B_DEFAULT_FOLDER = '🏠 Default folder'
 const B_TYPE_PATH      = '✏️ Type a path'
+const B_TASKS      = '✅ Tasks'
 
 // Friendly shell aliases accepted by /run, mapped to a shell binary.
 const SHELL_ALIASES: Record<string, string> = {
@@ -57,12 +109,17 @@ export class TelegramBridge {
   private links = new Map<string, string>()
   private outBuf = new Map<string, string>()
   private flushTimer: NodeJS.Timeout | null = null
+  /** pending 409 auto-reconnect, and how many we've done since the last clean start */
+  private retryTimer: NodeJS.Timeout | null = null
+  private retryCount = 0
   private working = new Map<string, number>()
   private paneRegistry: PaneInfo[] = []
   /** chatId → current interaction mode */
   private userMode = new Map<string, UserMode>()
   /** recently used launch folders (newest first), offered as buttons in /run */
   private recentFolders: string[] = []
+  /** TickTick client for the /tasks agenda + /task quick-add (set after construction) */
+  private tickTick: TickTickClient | null = null
 
   constructor(
     private settings: SettingsStore,
@@ -75,20 +132,42 @@ export class TelegramBridge {
   isRunning(): boolean { return this.status.running }
   getStatus(): TelegramStatus { return this.status }
 
+  /** Wire the TickTick client in after construction (used by /tasks and /task). */
+  setTickTick(client: TickTickClient): void { this.tickTick = client }
+
   async start(): Promise<TelegramStatus> {
+    // An externally-initiated start (boot, token change, user "reconnect")
+    // gets a fresh reconnect budget.
+    this.retryCount = 0
+    return this.startPolling()
+  }
+
+  /**
+   * Open the long-polling loop. Shared by start() and the internal 409
+   * auto-reconnect — the latter must NOT reset retryCount between attempts,
+   * so it calls this directly instead of start().
+   */
+  private async startPolling(): Promise<TelegramStatus> {
+    // Always tear down any previous instance first so only ONE long-polling
+    // loop ever runs (prevents the 409 "terminated by other getUpdates" case
+    // on restart / hot-reload).
     await this.stop()
     const token = this.settings.getTelegramToken()
     if (!token) {
       this.status = { running: false }
       this.emitStatus(this.status)
+      console.log('[TelegramBridge] no token configured — not starting')
       return this.status
     }
+    // "connecting" — not running yet, no error.
+    this.status = { running: false }
     try {
       const bot = new Bot(token)
 
       bot.on('message:text', async (ctx) => {
         const chatId = ctx.chat.id.toString()
         const text = ctx.message.text.trim()
+        console.log(`[TelegramBridge] message-received chat=${chatId} text=${JSON.stringify(text.slice(0, 80))}`)
         if (!this.isAuthorized(chatId)) {
           try { await ctx.reply(`⛔ This chat (${chatId}) is not authorized to control URterminal.`) } catch { /* ignore */ }
           return
@@ -101,16 +180,101 @@ export class TelegramBridge {
         }
       })
 
+      // Middleware (update-processing) errors — keep the poll loop alive.
       bot.catch((err) => this.emitError(err.error ?? err))
+
+      // getMe — validates the token; throws on an invalid token (surfaced below).
       await bot.init()
-      void bot.start({ drop_pending_updates: true })
+      console.log(`[TelegramBridge] connected as @${bot.botInfo.username}`)
+
+      // A previously-set webhook makes getUpdates fail with 409; clearing it (and
+      // dropping the backlog) is the single most common fix for "running but no
+      // messages". Best-effort — continue even if it fails.
+      try {
+        await bot.api.deleteWebhook({ drop_pending_updates: true })
+      } catch (e) {
+        console.warn('[TelegramBridge] deleteWebhook failed (continuing):', e)
+      }
+
       this.bot = bot
-      this.status = { running: true, botUsername: bot.botInfo.username }
+      // bot.start() resolves only when the bot STOPS; onStart fires once the
+      // long-polling loop actually begins, and .catch() surfaces fatal polling
+      // errors (invalid token, persistent 409) so the status never lies.
+      void bot
+        .start({
+          drop_pending_updates: true,
+          onStart: (info) => {
+            this.retryCount = 0
+            this.status = { running: true, botUsername: info.username }
+            this.emitStatus(this.status)
+            console.log('[TelegramBridge] long-polling started')
+          }
+        })
+        .catch((err) => {
+          this.bot = null
+          const code = (err as { error_code?: number })?.error_code
+          const msg = String((err as Error)?.message ?? err)
+          // 409 = something else is long-polling this same bot token (a second
+          // copy of URterminal, or a leftover `npm run dev`). grammy rethrows it,
+          // killing the loop — but it's usually transient (the other poller is
+          // shutting down, or a restart raced its own previous poll), so we
+          // reconnect with backoff instead of dying. 401 is a bad token: fatal.
+          const isConflict =
+            code === 409 || /\b409\b|terminated by other getUpdates|Conflict/i.test(msg)
+          if (isConflict && this.retryCount < MAX_CONFLICT_RETRIES) {
+            this.retryCount++
+            const waitMs = Math.min(30_000, 2_000 * 2 ** (this.retryCount - 1))
+            this.status = {
+              running: false,
+              botUsername: bot.botInfo.username,
+              error: `Another instance is connected to this bot — reconnecting (${this.retryCount}/${MAX_CONFLICT_RETRIES})…`
+            }
+            this.emitStatus(this.status)
+            console.warn(`[TelegramBridge] 409 conflict; retrying in ${waitMs}ms (attempt ${this.retryCount})`)
+            if (this.retryTimer) clearTimeout(this.retryTimer)
+            this.retryTimer = setTimeout(() => {
+              this.retryTimer = null
+              void this.startPolling()
+            }, waitMs)
+            return
+          }
+          this.status = {
+            running: false,
+            error: isConflict
+              ? 'Another instance is already connected to this bot. Close other copies of URterminal (and any running dev build), then reconnect.'
+              : msg
+          }
+          this.emitStatus(this.status)
+          console.error('[TelegramBridge] polling loop stopped with error:', err)
+        })
+
+      // Known bot identity even before the first poll confirms.
+      this.status = { running: false, botUsername: bot.botInfo.username }
     } catch (err) {
+      this.bot = null
       this.status = { running: false, error: (err as Error).message }
+      console.error('[TelegramBridge] start failed:', err)
     }
     this.emitStatus(this.status)
     return this.status
+  }
+
+  /** Send a test message to the default chat (or first allowed chat) to verify the round trip. */
+  async sendTest(): Promise<{ ok: boolean; error?: string }> {
+    if (!this.bot || !this.status.running) return { ok: false, error: 'Bot is not running' }
+    const target =
+      (this.settings.getTelegramDefaultChat() || '').trim() ||
+      (this.settings.getPrefs().telegramChatWhitelist ?? []).map((s) => s.trim()).find(Boolean)
+    if (!target) return { ok: false, error: 'Set a default chat ID first' }
+    try {
+      await this.bot.api.sendMessage(target, '✅ URterminal test message — Telegram is connected.')
+      console.log(`[TelegramBridge] test message sent to ${target}`)
+      return { ok: true }
+    } catch (err) {
+      const error = String((err as Error)?.message ?? err)
+      console.error('[TelegramBridge] test message failed:', error)
+      return { ok: false, error }
+    }
   }
 
   private emitError(err: unknown): void {
@@ -120,7 +284,11 @@ export class TelegramBridge {
   }
 
   async stop(): Promise<void> {
+    // Cancel any pending 409 auto-reconnect so a deliberate stop stays stopped.
+    // retryCount is left alone — start() resets it; startPolling() preserves it.
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
     if (this.bot) {
+      console.log('[TelegramBridge] stopping previous bot instance')
       try { await this.bot.stop() } catch { /* ignore */ }
       this.bot = null
     }
@@ -136,9 +304,17 @@ export class TelegramBridge {
    * are allowed, so the app can be driven from phone + desktop Telegram.
    */
   private isAuthorized(chatId: string): boolean {
-    const wl = this.settings.getPrefs().telegramChatWhitelist ?? []
-    if (!wl.length) return true
-    return wl.includes(chatId) || chatId === this.settings.getTelegramDefaultChat()
+    // Compare as trimmed strings (chat IDs arrive as strings on both sides);
+    // an empty whitelist means open access.
+    const id = chatId.trim()
+    const wl = (this.settings.getPrefs().telegramChatWhitelist ?? []).map((s) => s.trim()).filter(Boolean)
+    const def = (this.settings.getTelegramDefaultChat() ?? '').trim()
+    const allowed = !wl.length || wl.includes(id) || (def !== '' && id === def)
+    console.log(
+      `[TelegramBridge] filter chat=${id} → ${allowed ? 'ALLOWED' : 'DENIED'} ` +
+        `(whitelist=${wl.length ? wl.join(',') : 'open'}${def ? `, default=${def}` : ''})`
+    )
+    return allowed
   }
 
   linkPane(paneId: string, chatId: string | null): void {
@@ -241,7 +417,8 @@ export class TelegramBridge {
     return new Keyboard()
       .text(B_SCREENSHOT).text(B_PANES).row()
       .text(B_SS_PANE).text(B_ZOOM).row()
-      .text(B_CHAT).text(B_RUN)
+      .text(B_CHAT).text(B_RUN).row()
+      .text(B_TASKS)
       .resized().persistent()
   }
 
@@ -323,6 +500,16 @@ export class TelegramBridge {
       return
     }
 
+    // ---- TickTick: /task <text> quick-add, /tasks|/today agenda — any mode ----
+    if (text === '/task' || text.toLowerCase().startsWith('/task ')) {
+      await this.cmdAddTask(chatId, text.replace(/^\/task\s*/i, ''))
+      return
+    }
+    if (text.toLowerCase() === '/tasks' || text.toLowerCase() === '/today') {
+      await this.cmdTasksToday(chatId)
+      return
+    }
+
     // ---- new pane: step 1, pick the program (agent/shell) ----
     if (mode === 'run_agent') {
       if (text === B_BACK) {
@@ -384,6 +571,7 @@ export class TelegramBridge {
         await reply('Main menu:', this.mainKb())
       } else {
         const paneId = mode.slice(5)
+        console.log(`[TelegramBridge] dispatch → pane ${paneId} (chat ${chatId})`)
         this.emitInbound({ paneId, text, chatId })
       }
       return
@@ -443,6 +631,9 @@ export class TelegramBridge {
         this.userMode.set(chatId, 'run_agent')
         await reply('▶️ Choose a program:', this.runAgentKb())
         break
+      case B_TASKS:
+        await this.cmdTasksToday(chatId)
+        break
       default:
         await reply('URterminal — choose an action:', this.mainKb())
     }
@@ -462,6 +653,94 @@ export class TelegramBridge {
       return `${p.number}. ${icon} ${p.title}${detail}${linked}`
     })
     await ctx.reply(`Open panes (${this.paneRegistry.length}):\n${lines.join('\n')}`)
+  }
+
+  /** Send the linked chat its TickTick agenda: tasks due today + overdue. */
+  private async cmdTasksToday(chatId: string): Promise<void> {
+    if (!this.bot) return
+    if (!this.tickTick?.isReady()) {
+      await this.bot.api.sendMessage(
+        chatId,
+        '⚠️ TickTick isn’t connected. Connect it in Settings → Integrations.'
+      )
+      return
+    }
+    try {
+      const projects = await this.tickTick.listProjects()
+      const today = ttToday()
+      const flagOf = (p?: number): string => ((p ?? 0) >= 5 ? '🔴 ' : (p ?? 0) >= 3 ? '🟠 ' : '')
+      const todays: string[] = []
+      const overdue: string[] = []
+      for (const p of projects) {
+        let data
+        try {
+          data = await this.tickTick.getProjectData(p.id)
+        } catch {
+          continue
+        }
+        for (const t of data.tasks ?? []) {
+          if ((t.status ?? 0) !== 0) continue
+          const due = (t.dueDate ?? '').slice(0, 10)
+          if (!due) continue
+          if (due === today) todays.push(`• ${flagOf(t.priority)}${t.title}`)
+          else if (due < today) overdue.push(`• ${flagOf(t.priority)}${t.title} (${due})`)
+        }
+      }
+      let msg = `🗓 Today — ${today}\n` + (todays.length ? todays.join('\n') : '— nothing due today —')
+      if (overdue.length) {
+        msg += `\n\n⚠️ Overdue (${overdue.length})\n` + overdue.slice(0, 15).join('\n')
+        if (overdue.length > 15) msg += `\n…and ${overdue.length - 15} more`
+      }
+      await this.bot.api.sendMessage(chatId, msg)
+    } catch (err) {
+      await this.bot.api.sendMessage(chatId, `❌ Couldn’t load tasks: ${(err as Error).message}`)
+    }
+  }
+
+  /** Create a TickTick task from "/task <text>" (parses #tag / ! / today tokens). */
+  private async cmdAddTask(chatId: string, raw: string): Promise<void> {
+    if (!this.bot) return
+    const text = raw.trim()
+    if (!text) {
+      await this.bot.api.sendMessage(
+        chatId,
+        'Usage: /task <description>\ne.g.  /task Email Sam #work !! tomorrow'
+      )
+      return
+    }
+    if (!this.tickTick?.isReady()) {
+      await this.bot.api.sendMessage(chatId, '⚠️ TickTick isn’t connected.')
+      return
+    }
+    try {
+      const projects = await this.tickTick.listProjects()
+      if (!projects.length) {
+        await this.bot.api.sendMessage(chatId, '❌ No TickTick lists found. Create one in the app first.')
+        return
+      }
+      const parsed = parseTaskText(text)
+      if (!parsed.title) {
+        await this.bot.api.sendMessage(chatId, '❌ Task needs a description.')
+        return
+      }
+      const created = await this.tickTick.createTask({
+        projectId: projects[0].id,
+        title: parsed.title,
+        priority: parsed.priority,
+        tags: parsed.tags,
+        dueDate: parsed.dueDate
+      })
+      const extra: string[] = []
+      if (parsed.dueDate) extra.push(`due ${parsed.dueDate.slice(0, 10)}`)
+      if (parsed.priority) extra.push(parsed.priority >= 5 ? 'high' : parsed.priority >= 3 ? 'medium' : 'low')
+      if (parsed.tags?.length) extra.push(parsed.tags.map((t) => `#${t}`).join(' '))
+      await this.bot.api.sendMessage(
+        chatId,
+        `✅ Added to ${projects[0].name}: ${created.title}${extra.length ? `  (${extra.join(' · ')})` : ''}`
+      )
+    } catch (err) {
+      await this.bot.api.sendMessage(chatId, `❌ Couldn’t add task: ${(err as Error).message}`)
+    }
   }
 
   /** Parse a "<agent|shell> [folder]" string into a create-pane request. */

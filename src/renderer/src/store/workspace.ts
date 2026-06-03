@@ -4,6 +4,8 @@ import type { Pane, PaneType, ProviderId } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal } from '@renderer/lib/terminalPool'
+import { homeDir } from '@renderer/lib/osInfo'
+import { toast } from '@renderer/store/toasts'
 import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
 
 const uid = (): string =>
@@ -22,6 +24,9 @@ function getHome(): string | undefined {
 
 /** how long the pane open/close pop animation runs (keep in sync with workspace.css) */
 export const PANE_ANIM_MS = 180
+
+/** SSH targets with an agent-open request in flight, to dedupe double-clicks. */
+const sshAgentOpening = new Set<string>()
 
 export interface WorkspaceState {
   panes: Record<string, Pane>
@@ -44,6 +49,10 @@ export interface WorkspaceState {
   /** shell binary new shell panes launch by default ("" = OS default) */
   defaultShell: string
   defaultShellArgs: string[]
+  /** working directory new shell panes open in ("" = home) */
+  defaultShellCwd: string
+  /** focus a newly created pane automatically (settings-controlled) */
+  focusNewPane: boolean
 
   addPane: (type: PaneType, direction?: MosaicDirection, init?: PaneInit) => string
   splitPane: (id: string) => void
@@ -78,6 +87,8 @@ export interface WorkspaceState {
     agent: string
     shell: string
     shellArgs: string[]
+    shellCwd?: string
+    focusNewPane?: boolean
   }) => void
   /** replace whole workspace (used by persistence restore) */
   hydrate: (panes: Record<string, Pane>, layout: MosaicNode<string> | null) => void
@@ -88,6 +99,8 @@ export interface WorkspaceState {
 /** Optional seed for a new pane: which agent CLI, or which shell binary + args. */
 export interface PaneInit {
   agentCommand?: string
+  /** working directory the agent CLI should open in (AI panes only) */
+  agentCwd?: string
   shell?: string
   shellArgs?: string[]
   /** title to show instead of the generic "Shell N" / agent command */
@@ -114,6 +127,7 @@ interface PaneDefaults {
   agent: string
   shell: string
   shellArgs: string[]
+  shellCwd: string
 }
 
 function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane {
@@ -124,15 +138,17 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
     // An "AI pane" is a terminal that auto-launches an agent CLI (default: claude).
     const command = init?.agentCommand ?? defaults.agent ?? DEFAULT_AGENT
     base.title = init?.label ?? command
-    base.agent = { command }
+    base.agent = { command, cwd: init?.agentCwd }
   } else if (type === 'shell') {
     base.title = init?.label ?? `Shell ${paneCounter}`
+    const cwd = init?.shell !== undefined ? undefined : defaults.shellCwd || undefined
     if (init?.shell !== undefined) {
       base.shell = { shell: init.shell, args: init.shellArgs }
     } else {
       base.shell = {
         shell: defaults.shell,
-        args: defaults.shellArgs.length ? defaults.shellArgs : undefined
+        args: defaults.shellArgs.length ? defaults.shellArgs : undefined,
+        cwd
       }
     }
   } else {
@@ -143,7 +159,12 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
 
 /** Snapshot of the pane defaults sourced from settings. */
 function paneDefaults(s: WorkspaceState): PaneDefaults {
-  return { agent: s.defaultAgent, shell: s.defaultShell, shellArgs: s.defaultShellArgs }
+  return {
+    agent: s.defaultAgent,
+    shell: s.defaultShell,
+    shellArgs: s.defaultShellArgs,
+    shellCwd: s.defaultShellCwd
+  }
 }
 
 export const useWorkspace = create<WorkspaceState>((set, get) => ({
@@ -159,6 +180,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   defaultAgent: DEFAULT_AGENT,
   defaultShell: '',
   defaultShellArgs: [],
+  defaultShellCwd: '',
+  focusNewPane: true,
 
   addPane: (type, direction, init) => {
     const s0 = get()
@@ -179,7 +202,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       panes: { ...s.panes, [pane.id]: pane },
       layout: nextLayout,
-      activePaneId: pane.id,
+      // "focus new pane on create" (settings-controlled); first pane always focuses
+      activePaneId: s.focusNewPane || !s.activePaneId ? pane.id : s.activePaneId,
       entering: { ...s.entering, [pane.id]: true }
     }))
     scheduleEnterClear(set, pane.id)
@@ -224,6 +248,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => ({ closing: { ...s.closing, [id]: true } }))
     window.setTimeout(() => {
       disposeTerminal(id)
+      // The pane is gone for good — drop its complete-history transcript log so
+      // it isn't carried into the next session restore.
+      void window.api.transcriptRemove(id)
       set((s) => {
         const closed = s.panes[id]
         const panes = { ...s.panes }
@@ -234,6 +261,12 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
             const next = pane.pipeTargets.filter((t) => t !== id)
             panes[pid] = { ...pane, pipeTargets: next.length ? next : undefined }
           }
+        }
+        // If this was an agent-over-SSH pane and no other pane uses the same
+        // target, release its remote resources (unmount drive + close exec conn).
+        const sshTarget = closed?.agent?.sshTarget
+        if (sshTarget && !Object.values(panes).some((p) => p.agent?.sshTarget === sshTarget)) {
+          window.api.sshCloseAgent(sshTarget)
         }
         const layout = removeLeaf(s.layout, id)
         const remaining = getLeaves(layout)
@@ -390,9 +423,59 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const s0 = get()
     const pane = s0.panes[paneId]
     if (!pane || pane.type !== 'shell') return
+    const command = s0.defaultAgent || DEFAULT_AGENT
+    // SSH pane: open a LOCAL agent that operates the remote server with nothing
+    // installed on it — the remote folder is mounted as a local drive (SSHFS) so
+    // the agent edits files normally, and `urssh "<cmd>"` runs commands ON the
+    // server. The pane is created AFTER the mount so it opens in the mounted
+    // folder (cwd) rather than flashing the folder picker.
+    if (pane.shell?.ssh) {
+      const target = pane.shell.ssh.target
+      if (sshAgentOpening.has(target)) return // already opening for this target
+      sshAgentOpening.add(target)
+      void window.api
+        .sshOpenAgent(target)
+        .then((res) => {
+          if (!res.ok || !res.cwd) {
+            toast(`Agent over SSH failed: ${res.error ?? 'unknown error'}`, 'error')
+            return
+          }
+          const np = makePane('ai', paneDefaults(get()))
+          np.agent = { command, cwd: res.cwd || homeDir() || '.', sshTarget: target }
+          np.title = res.mounted ? `${command} ${res.drive}: → ${target}` : `${command} → ${target}`
+          set((s) => {
+            // The source SSH pane may have been closed during the connect/mount
+            // wait — split off it if still present, else off any existing leaf,
+            // so the new agent pane never becomes an orphan missing from layout.
+            const leaves = getLeaves(s.layout)
+            const anchor = leaves.includes(paneId) ? paneId : leaves[leaves.length - 1]
+            const layout =
+              s.layout === null || anchor === undefined
+                ? np.id
+                : splitLeaf(s.layout, anchor, np.id, 'column')
+            return {
+              panes: { ...s.panes, [np.id]: np },
+              layout,
+              activePaneId: np.id,
+              entering: { ...s.entering, [np.id]: true }
+            }
+          })
+          scheduleEnterClear(set, np.id)
+
+          // The agent's instructions are delivered via a CLAUDE.md in its working
+          // dir (read automatically on startup) — no fragile auto-typing needed.
+          if (res.mounted) toast(`Mounted ${target} at ${res.drive}: — editing files there`, 'ok')
+          else if (res.needsSshfs)
+            toast('Install SSHFS-Win to edit remote files directly (run "SSH: Install remote-folder mount"). Running commands works now.', 'info')
+          else if (res.mountError)
+            toast(`Couldn't mount the remote folder: ${res.mountError}. Running commands still works.`, 'error')
+        })
+        .catch((e: Error) => toast(`Agent over SSH failed: ${e.message}`, 'error'))
+        .finally(() => sshAgentOpening.delete(target))
+      return
+    }
     // The shell's launch cwd (live `cd`s aren't tracked); fall back to home.
     const cwd = pane.shell?.cwd ?? getHome()
-    const command = s0.defaultAgent || DEFAULT_AGENT
     const np = makePane('ai', paneDefaults(s0))
     np.agent = { command, cwd }
     np.title = command
@@ -427,7 +510,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       defaultModel: d.model,
       defaultAgent: d.agent || DEFAULT_AGENT,
       defaultShell: d.shell,
-      defaultShellArgs: d.shellArgs
+      defaultShellArgs: d.shellArgs,
+      ...(d.shellCwd !== undefined ? { defaultShellCwd: d.shellCwd } : {}),
+      ...(d.focusNewPane !== undefined ? { focusNewPane: d.focusNewPane } : {})
     }),
 
   applyLayoutPreset: (presetId) => {

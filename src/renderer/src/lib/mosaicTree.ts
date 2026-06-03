@@ -95,3 +95,34 @@ export function removeLeaf(
   if (second === null) return first
   return { ...node, first, second }
 }
+
+export type DropEdge = 'top' | 'right' | 'bottom' | 'left'
+
+/**
+ * Drop one pane next to another within the same layout tree. The dragged leaf
+ * is removed from wherever it lived and reinserted as a sibling of the target
+ * on the requested edge (column split for top/bottom, row split for left/right).
+ */
+export function moveLeafToEdge(
+  layout: MosaicNode<string> | null,
+  draggedId: string,
+  targetId: string,
+  edge: DropEdge
+): MosaicNode<string> | null {
+  if (layout === null || draggedId === targetId) return layout
+  const without = removeLeaf(layout, draggedId)
+  if (without === null) return draggedId
+  const direction: MosaicDirection = edge === 'left' || edge === 'right' ? 'row' : 'column'
+  const draggedFirst = edge === 'left' || edge === 'top'
+
+  function insert(node: MosaicNode<string>): MosaicNode<string> {
+    if (typeof node === 'string') {
+      if (node !== targetId) return node
+      return draggedFirst
+        ? { direction, first: draggedId, second: targetId, splitPercentage: 50 }
+        : { direction, first: targetId, second: draggedId, splitPercentage: 50 }
+    }
+    return { ...node, first: insert(node.first), second: insert(node.second) }
+  }
+  return insert(without)
+}

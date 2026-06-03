@@ -2,6 +2,27 @@
    App-wide themes — applied as class on .app
    ============================================================ */
 
+/* Light theme — overrides the dark token base (terminals stay dark by design). */
+.theme-light {
+  --bg: #f4f6fa;
+  --bg-sunken: #e9edf3;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f1f4f9;
+  --bg-elev-3: #e6ebf2;
+  --border: #d4dae3;
+  --border-strong: #bcc5d1;
+  --border-faint: #e3e8ef;
+  --text: #1a2230;
+  --text-dim: #4f5b6e;
+  --text-faint: #8893a3;
+  --ok: #1a9c3e;
+  --danger: #d83a3a;
+  --warn: #b9791a;
+  --info: #2f74f0;
+  --shadow-md: 0 6px 20px rgba(20, 30, 50, 0.12);
+  --shadow-lg: 0 18px 50px rgba(20, 30, 50, 0.18);
+}
+
 .theme-amoled {
   --bg: #000000;
   --bg-sunken: #000000;

@@ -1,22 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
-import { Plus, X, Layers, Save } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, X, Network, NotebookPen } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import type { WorkspaceEntry } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
-import { useSettings } from '@renderer/store/settings'
-import { spawnTemplate, removeTemplate } from '@renderer/lib/templates'
-import { AGENTS, AGENT_LABELS } from '@shared/providers'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import SessionsMenu from './SessionsMenu'
-import logoPng from '@renderer/assets/logo.png'
-
-function AppLogo(): JSX.Element {
-  return <img src={logoPng} width={16} height={16} className="brand-logo" alt="URterminal" />
-}
 
 /**
  * Hover-to-open dropdown. Uses a short close delay (not pure CSS :hover) so the
@@ -107,7 +99,14 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
 
   return (
     <div
-      className={clsx('ws-tab', active && 'active', canDrop && 'drop-ok', dropOver && 'drop-over')}
+      className={clsx(
+        'ws-tab',
+        active && 'active',
+        !active && badge > 0 && 'has-notif',
+        canDrop && 'drop-ok',
+        dropOver && 'drop-over'
+      )}
+      title={!active && badge > 0 ? `Something finished here (${badge})` : undefined}
       onClick={() => !active && switchTo(ws.id)}
       onAuxClick={(e) => {
         if (e.button === 1) { e.preventDefault(); remove(ws.id) }
@@ -154,11 +153,6 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
           >
             {ws.name}
           </span>
-          {!active && badge > 0 && (
-            <span className="ws-tab-badge" title={`${badge} finished here`}>
-              {badge > 99 ? '99+' : badge}
-            </span>
-          )}
           {canClose && (
             <button
               className="ws-tab-close"
@@ -177,7 +171,8 @@ function WorkspaceTab({ ws, active }: { ws: WorkspaceEntry; active: boolean }): 
 
 export default function TitleBar(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
-  const paneCount = useWorkspace((s) => Object.keys(s.panes).length)
+  const panes = useWorkspace((s) => s.panes)
+  const paneCount = Object.keys(panes).length
   const atMax = paneCount >= 9
   const list = useWorkspaces((s) => s.list)
   const activeId = useWorkspaces((s) => s.activeId)
@@ -190,19 +185,35 @@ export default function TitleBar(): JSX.Element {
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const badges = useWorkspaces((s) => s.badges)
   const canCloseWorkspace = list.length > 1
-  const templates = useSettings((s) => s.settings?.prefs.templates ?? [])
-  const activePaneId = useWorkspace((s) => s.activePaneId)
-  const setSavingTemplatePaneId = useUi((s) => s.setSavingTemplatePaneId)
+  const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
+  const toggleNotes = useUi((s) => s.toggleNotes)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
+  const [agents, setAgents] = useState(getAgents())
   const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
   useEffect(() => {
-    void refreshAgentAvailability().then((s) => setAvailable(new Set(s)))
+    void refreshAgentAvailability().then((s) => {
+      setAgents([...getAgents()])
+      setAvailable(new Set(s))
+    })
     void refreshWslDistros().then(() => setShells(getShellSpecs()))
   }, [])
-  // Show only installed agents in the menu; fall back to all before detection runs.
-  const agentList = available.size ? AGENTS.filter((a) => available.has(a)) : [...AGENTS]
+  // Agent CLIs currently running in a pane (active workspace + background
+  // snapshots) — these stay visible even if their CLI isn't detected on PATH.
+  const activeAgentIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const p of Object.values(panes)) if (p.agent?.command) ids.add(p.agent.command)
+    for (const w of list)
+      for (const p of Object.values(w.panes ?? {})) if (p.agent?.command) ids.add(p.agent.command)
+    return ids
+  }, [panes, list])
+  // Only show agents that are installed or currently in use. Until detection
+  // finishes (available is empty) show all, so the bar never starts out blank.
+  const agentList =
+    available.size === 0
+      ? agents
+      : agents.filter((a) => available.has(a.id) || activeAgentIds.has(a.id))
 
   let visibleList = list.slice(0, MAX_TABS)
   let overflowList = list.slice(MAX_TABS)
@@ -237,25 +248,50 @@ export default function TitleBar(): JSX.Element {
         setDraggingPanes(null)
       }}
     >
-      <div className="titlebar-left" data-nodrag>
+      <div
+        className="titlebar-left"
+        data-nodrag
+        // The buttons group is NOT a new-workspace drop target — swallow drops so
+        // dropping on/near a button doesn't spawn a workspace (the drop zone runs
+        // from after this group to the window controls).
+        onDragOver={(e) => {
+          if (!draggingPaneIds) return
+          e.preventDefault()
+          e.stopPropagation()
+          e.dataTransfer.dropEffect = 'none'
+        }}
+        onDrop={(e) => {
+          if (!draggingPaneIds) return
+          e.preventDefault()
+          e.stopPropagation()
+        }}
+      >
         {/* Brand */}
-        <AppLogo />
         <span className="brand-name">URterminal</span>
 
         <div className="titlebar-sep" />
 
         {/* Installed agents — one icon each, opens a new pane of that agent */}
-        {agentList.map((a) => (
-          <button
-            key={a}
-            className="icon-btn agent-icon-btn"
-            title={atMax ? 'Max 9 panes reached' : `New ${AGENT_LABELS[a]} pane`}
-            disabled={atMax}
-            onClick={() => addPane('ai', undefined, { agentCommand: a, label: AGENT_LABELS[a] })}
-          >
-            <AgentLogo command={a} size={15} />
-          </button>
-        ))}
+        {agentList.map((a) => {
+          const unavailable = available.size > 0 && !available.has(a.id)
+          return (
+            <button
+              key={a.id}
+              className={clsx('icon-btn agent-icon-btn', unavailable && 'unavailable')}
+              title={
+                atMax
+                  ? 'Max 9 panes reached'
+                  : unavailable
+                    ? `${a.label} — not installed (opens setup)`
+                    : `New ${a.label} pane`
+              }
+              disabled={atMax}
+              onClick={() => addPane('ai', undefined, { agentCommand: a.id, label: a.label })}
+            >
+              <AgentLogo command={a.id} size={15} />
+            </button>
+          )
+        })}
 
         <div className="titlebar-sep" />
 
@@ -281,57 +317,26 @@ export default function TitleBar(): JSX.Element {
           </button>
         ))}
 
-        <div className="titlebar-sep" />
-
-        {/* Pane templates — one click to spawn a saved agent/shell config */}
-        <HoverDropdown
-          trigger={
-            <button className="icon-btn agent-icon-btn" title="Pane templates">
-              <Layers size={15} />
-            </button>
-          }
+        {/* SSH — opens a prompt pre-filled with the last host, Enter to connect */}
+        <button
+          className="icon-btn agent-icon-btn"
+          title="SSH connect…"
+          onClick={() => setShowSshPrompt(true)}
         >
-          <>
-            {templates.length === 0 && (
-              <div className="hover-dd-item" style={{ opacity: 0.6, cursor: 'default' }}>
-                No templates yet
-              </div>
-            )}
-            {templates.map((tpl) => (
-              <div
-                key={tpl.id}
-                className="hover-dd-item"
-                onClick={() => spawnTemplate(tpl)}
-                title={tpl.type === 'ai' ? tpl.agentCommand : tpl.shell}
-              >
-                <span className="hover-dd-item-name">
-                  {tpl.type === 'ai' ? '🤖' : '🖥'} {tpl.name}
-                </span>
-                <button
-                  className="hover-dd-item-close"
-                  title="Delete template"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeTemplate(tpl.id)
-                  }}
-                >
-                  <X size={11} />
-                </button>
-              </div>
-            ))}
-            <div className="hover-dd-sep" />
-            <div
-              className={clsx('hover-dd-item', !activePaneId && 'disabled')}
-              onClick={() => activePaneId && setSavingTemplatePaneId(activePaneId)}
-            >
-              <Save size={12} />
-              <span className="hover-dd-item-name">Save active pane…</span>
-            </div>
-          </>
-        </HoverDropdown>
+          <Network size={15} />
+        </button>
+
+        {/* Standalone notes panel (separate from per-pane notes) */}
+        <button
+          className="icon-btn agent-icon-btn"
+          title="Notes"
+          onClick={toggleNotes}
+        >
+          <NotebookPen size={15} />
+        </button>
       </div>
 
-      <div className="titlebar-drag" />
+      <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />
 
       <div className="titlebar-workspaces" data-nodrag>
         {visibleList.map((w) => (
@@ -342,15 +347,14 @@ export default function TitleBar(): JSX.Element {
             align="center"
             trigger={
               <button
-                className={clsx('ws-more-btn', activeInOverflow && 'has-active')}
+                className={clsx(
+                  'ws-more-btn',
+                  activeInOverflow && 'has-active',
+                  overflowBadgeTotal > 0 && 'has-notif'
+                )}
                 title={`${overflowList.length} more workspace${overflowList.length !== 1 ? 's' : ''}`}
               >
                 ···
-                {overflowBadgeTotal > 0 && (
-                  <span className="ws-tab-badge ws-more-badge">
-                    {overflowBadgeTotal > 99 ? '99+' : overflowBadgeTotal}
-                  </span>
-                )}
               </button>
             }
           >
@@ -361,6 +365,7 @@ export default function TitleBar(): JSX.Element {
                   className={clsx(
                     'hover-dd-item',
                     w.id === activeId && 'active',
+                    w.id !== activeId && (badges[w.id] ?? 0) > 0 && 'has-notif',
                     draggingPaneIds && w.id !== activeId && 'drop-ok'
                   )}
                   onClick={() => switchTo(w.id)}
@@ -384,11 +389,6 @@ export default function TitleBar(): JSX.Element {
                   }}
                 >
                   <span className="hover-dd-item-name">{w.name}</span>
-                  {w.id !== activeId && (badges[w.id] ?? 0) > 0 && (
-                    <span className="ws-tab-badge">
-                      {(badges[w.id] ?? 0) > 99 ? '99+' : badges[w.id]}
-                    </span>
-                  )}
                   {canCloseWorkspace && (
                     <button
                       className="hover-dd-item-close"
@@ -433,7 +433,7 @@ export default function TitleBar(): JSX.Element {
         <SessionsMenu />
       </div>
 
-      <div className="titlebar-drag" />
+      <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />
     </header>
   )
 }

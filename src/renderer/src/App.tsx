@@ -11,12 +11,18 @@ import TaskManagerModal from './components/TaskManagerModal'
 import AskAllModal from './components/AskAllModal'
 import SnippetFillModal from './components/SnippetFillModal'
 import TemplateSaveModal from './components/TemplateSaveModal'
+import SshConnectModal from './components/SshConnectModal'
+import NotesModal from './components/NotesModal'
+import ConfirmDialog from './components/ConfirmDialog'
+import UpdateToast from './components/UpdateToast'
 import SearchBar from './components/SearchBar'
 import Toaster from './components/Toaster'
 import CopiedFlash from './components/CopiedFlash'
+import SelectionTranslate from './components/SelectionTranslate'
 import { useSettings } from './store/settings'
 import { useUi } from './store/ui'
 import { startMetricsLoop } from './store/metrics'
+import { startClaudeUsageLoop } from './store/claudeUsage'
 import { useHotkeys } from './hooks/useHotkeys'
 import { usePersistence } from './hooks/usePersistence'
 import { useChainForwarding } from './hooks/useChainForwarding'
@@ -25,10 +31,12 @@ import { usePaneRegistry } from './hooks/usePaneRegistry'
 import { useBroadcast } from './hooks/useBroadcast'
 import { usePaneActivity } from './hooks/usePaneActivity'
 import { useDoneNotifications } from './hooks/useDoneNotifications'
+import { useDoneGlow } from './hooks/useDoneGlow'
 import { useWorkspaceBadges } from './hooks/useWorkspaceBadges'
 import { useActivityLog } from './hooks/useActivityLog'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
+import { primeOsInfo } from './lib/osInfo'
 
 export default function App(): JSX.Element {
   const load = useSettings((s) => s.load)
@@ -42,8 +50,20 @@ export default function App(): JSX.Element {
   useBroadcast()
   usePaneActivity()
   useDoneNotifications()
+  useDoneGlow()
   useWorkspaceBadges()
   useActivityLog()
+
+  // Mirror the theme class onto <body> too, so popovers/menus that portal out
+  // of the .app root (HeaderPopover, etc.) still inherit the themed CSS vars
+  // instead of falling back to the dark :root defaults.
+  useEffect(() => {
+    const cls = appTheme !== 'dark' ? `theme-${appTheme}` : ''
+    for (const c of Array.from(document.body.classList)) {
+      if (c.startsWith('theme-')) document.body.classList.remove(c)
+    }
+    if (cls) document.body.classList.add(cls)
+  }, [appTheme])
 
   useEffect(() => {
     // Expose zoom control so the main process can zoom a pane for screenshots
@@ -56,15 +76,18 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void load()
+    void primeOsInfo() // cache the real home dir from main (renderer env is unreliable)
     void refreshWslDistros() // populate the shell launcher with installed WSL distros
     void refreshAgentAvailability() // flag which agent CLIs are actually installed
     const stopMetrics = startMetricsLoop()
+    const stopClaudeUsage = startClaudeUsageLoop()
     const offSettings = window.api.onSettingsChanged((s) => useSettings.getState().apply(s))
     // Inbound Telegram messages are handled in useTelegramForwarding, which also
     // arms answer-tracking so replies are sent back to the chat.
 
     return () => {
       stopMetrics()
+      stopClaudeUsage()
       offSettings()
     }
   }, [load])
@@ -84,10 +107,15 @@ export default function App(): JSX.Element {
       <AskAllModal />
       <SnippetFillModal />
       <TemplateSaveModal />
+      <SshConnectModal />
+      <NotesModal />
       <SearchBar />
       <ShortcutsModal />
+      <ConfirmDialog />
       <Toaster />
       <CopiedFlash />
+      <UpdateToast />
+      <SelectionTranslate />
     </div>
   )
 }

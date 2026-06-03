@@ -33,9 +33,9 @@
   --info: #58a6ff;
   --magenta: #bc8cff;
 
-  /* Typography */
-  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Typography — 'Segoe UI'/'Tahoma' tail provides Arabic glyph shaping (RTL) */
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Consolas', 'Segoe UI', 'Tahoma', monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Tahoma', sans-serif;
   --fs-body: 13px;
   --fs-sm: 12px;
   --fs-xs: 11px;
@@ -61,6 +61,8 @@
   --statusbar-h: 24px;
   --pane-header-h: 30px;
   --gap: 6px;
+  /* scrollbar thickness (user-configurable via the terminal settings) */
+  --scrollbar-size: 14px;
 
 
   /* Shadows */
@@ -70,6 +72,19 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* ---- RTL (Arabic) ----
+   The UI chrome mirrors via [dir='rtl'] on <html> (set from the language
+   setting). Terminals must stay logically LTR: shell/CLI output and code are
+   not bidi text, so the terminal box and its xterm contents never mirror —
+   only the surrounding UI does. (xterm itself does not shape Arabic; that is a
+   renderer limitation, but at least letters render with a fallback font and the
+   box keeps its correct orientation.) */
+.shell-pane,
+.shell-pane .xterm {
+  direction: ltr;
+  text-align: left;
 }
 
 html,
@@ -101,20 +116,20 @@ select {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-/* default: thumb is a 2px sliver via large transparent border */
+/* default: a visible thumb inset by a 3px transparent border */
 ::-webkit-scrollbar-thumb {
   background: var(--border-faint);
   border-radius: var(--r-pill);
-  border: 4px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
 }
-/* on hover over any scrollable element: expand to 8px */
+/* on hover over any scrollable element: thumb fills nearly the full width */
 *:hover::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-width: 1px;
@@ -388,6 +403,77 @@ select {
 }
 .icon-btn.linked {
   color: var(--accent);
+}
+
+/* ---- selection translate (Google-translate-style floating action) ---- */
+.sel-translate {
+  position: fixed;
+  z-index: 1000;
+  max-width: 340px;
+}
+.sel-translate-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sel-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--accent);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+}
+.sel-translate-btn:hover {
+  background: var(--bg-elev-2);
+  border-color: var(--accent);
+}
+.sel-translate-pop {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 200px;
+  max-width: 340px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+}
+.sel-translate-pop.error {
+  color: var(--danger);
+}
+.sel-translate-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.sel-translate-langs {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.sel-translate-text {
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  max-height: 240px;
+  overflow: auto;
+  /* auto-detect per-line direction so an Arabic/RTL result renders correctly */
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
 /* keyboard hint chip */

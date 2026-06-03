@@ -20,6 +20,148 @@
 .modal.small {
   width: 420px;
 }
+/* Themed confirmation dialog (replaces the OS window.confirm) */
+.confirm-overlay {
+  z-index: 200;
+}
+.confirm-modal {
+  width: 430px;
+  max-width: 92vw;
+  height: auto;
+  max-height: none;
+}
+.confirm-body {
+  display: flex;
+  gap: 14px;
+  padding: 22px 22px 6px;
+}
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.confirm-icon.danger {
+  background: rgba(240, 93, 87, 0.14);
+  color: var(--danger);
+}
+.confirm-text {
+  min-width: 0;
+}
+.confirm-title {
+  margin: 3px 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.confirm-message {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 22px 18px;
+}
+
+.modal.settings {
+  width: 880px;
+  /* Fixed pane size so switching pages never resizes the modal; the content
+     column scrolls when a page is taller. Capped to the viewport on short screens. */
+  height: 680px;
+  max-height: 88vh;
+}
+
+/* ---- settings: two-pane layout (sidebar nav + scrollable content) ---- */
+.settings-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.settings-nav {
+  flex: 0 0 196px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-faint);
+}
+.settings-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.settings-search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  padding: 6px 0;
+}
+.settings-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-nav-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.settings-nav-item:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+}
+.settings-nav-item.active {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
+.settings-nav-item.dim {
+  opacity: 0.35;
+}
+.settings-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 4px 20px 20px;
+}
+.settings-empty {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  padding: 20px 2px;
+}
+[dir='rtl'] .settings-nav {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
 .modal-header {
   display: flex;
   align-items: center;
@@ -36,18 +178,96 @@
   overflow-y: auto;
 }
 
+/* consistent field width so every input/select/textarea + button group aligns */
+.settings-content {
+  --settings-field-w: 380px;
+}
 .settings-section {
-  padding: 12px 0;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
+}
+.settings-section:first-child {
+  padding-top: 6px;
+}
+/* normalize control widths/heights across every section */
+.settings-control > .input,
+.settings-control > .select,
+.settings-control > textarea.input {
+  max-width: var(--settings-field-w);
+}
+.settings-control > textarea.input {
+  width: 100%;
+  resize: vertical;
+}
+.input.mono,
+textarea.input.mono {
+  font-family: var(--mono);
+}
+.settings-block-hint {
+  display: block;
+  margin-bottom: 10px;
+}
+/* section header with an optional per-section reset button */
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.settings-section-head h3 {
+  margin-bottom: 10px;
+}
+.settings-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+.btn.sm {
+  padding: 3px 8px;
+  font-size: var(--fs-2xs);
+}
+.settings-static {
+  font-size: var(--fs-sm);
+  color: var(--text);
+  padding-top: 4px;
+}
+.settings-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* range slider sits inline at the field width */
+.settings-control > input[type='range'].input {
+  padding: 0;
+  height: 22px;
+  accent-color: var(--accent);
+  background: transparent;
+  border: none;
+}
+.settings-control > input[type='number'].input {
+  max-width: 140px;
+}
+/* grouped toggle list (notifications, startup) */
+.settings-toggle-list {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  max-width: 620px;
 }
 .settings-toggle {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
   font-size: var(--fs-sm);
   color: var(--text);
   cursor: pointer;
+}
+.settings-toggle + .settings-toggle {
+  border-top: 1px solid var(--border-faint);
 }
 .settings-toggle input {
   width: 15px;
@@ -59,15 +279,51 @@
 .snippet-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-width: 620px;
 }
-.snippet-row {
+/* a repeatable snippet card: name + kind on top, body preview below */
+.snippet-item {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  background: var(--bg-elev-2);
+}
+.snippet-item:hover {
+  border-color: var(--border-strong);
+}
+.snippet-item-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
+}
+.snippet-del {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+}
+/* the add-new editor */
+.snippet-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  max-width: 620px;
   background: var(--bg-elev-2);
-  border-radius: var(--r-sm);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+}
+.snippet-add-row {
+  display: flex;
+  gap: 8px;
+}
+.snippet-add-row .input {
+  flex: 1;
+}
+.snippet-add-kind {
+  flex: 0 0 110px;
+  width: 110px;
 }
 .snippet-kind {
   flex: 0 0 auto;
@@ -120,6 +376,109 @@
   align-items: start;
   margin-bottom: 10px;
 }
+
+/* ---- learning panel: rows + collapsible groups ---- */
+.learn-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.learn-row .settings-row-text {
+  min-width: 0;
+}
+.learn-row .settings-row-control {
+  justify-self: end;
+}
+.settings-row-label {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.settings-row-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin-top: 2px;
+}
+.settings-section-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+/* on/off switch used in the learning panel rows */
+.toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.toggle .toggle-knob {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transform: translateY(-50%);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.toggle.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle.on .toggle-knob {
+  background: #fff;
+  transform: translate(16px, -50%);
+}
+.toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toggle,
+  .toggle .toggle-knob {
+    transition: none;
+  }
+}
+
+.learn-group {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-faint);
+}
+.learn-group:first-of-type {
+  border-top: none;
+}
+.learn-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.learn-group-caret {
+  font-size: 10px;
+  color: var(--text-dim);
+  width: 12px;
+  flex: 0 0 12px;
+}
+.learn-group-body {
+  margin-top: 12px;
+}
 .settings-label {
   font-size: 12px;
   padding-top: 7px;
@@ -132,7 +491,95 @@
 }
 .settings-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  max-width: var(--settings-field-w);
+}
+/* SSH connect — save-credentials toggle */
+.ssh-save {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.ssh-save input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+.ssh-save input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.ssh-save input:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+/* SSH connect — recent connections listed under the input */
+.ssh-recent {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ssh-recent-head {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+.ssh-recent-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ssh-recent-item:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
+/* status pill sits left; Save/Clear/… group aligns to the right edge */
+.settings-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-faint);
+}
+.settings-status.set {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.settings-status.unset {
+  color: var(--text-faint);
 }
 .hint {
   font-size: 11px;
@@ -421,5 +868,289 @@
 .sp-kill:hover {
   color: var(--danger);
   background: var(--bg-elev-3);
+}
+
+/* ===========================================================================
+   Notifications page — descriptive option cards + nested sound controls
+   =========================================================================== */
+.notif-intro {
+  margin-bottom: 14px;
+}
+/* One option = icon badge + title/description + pill switch */
+.notif-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 620px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.notif-option:hover {
+  border-color: var(--border-strong);
+}
+.notif-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--r-md);
+  background: var(--bg-elev-3);
+  color: var(--accent);
+}
+.notif-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.notif-option-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.notif-option-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+/* Pill switch (snaps instantly — no transitions, per project style) */
+.notif-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+.notif-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: var(--text-dim);
+}
+.notif-switch:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.notif-switch:checked::after {
+  left: 18px;
+  background: #fff;
+}
+
+/* Sound card: header toggle + indented, dependent controls */
+.notif-sound-card {
+  max-width: 620px;
+  margin-bottom: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.notif-sound-head {
+  margin-bottom: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+.notif-sound-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px 14px 58px; /* indent under the icon → reads as nested */
+  border-top: 1px solid var(--border-faint);
+}
+.notif-sound-card.off .notif-sound-controls {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.notif-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.notif-control-label {
+  width: 56px;
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.notif-tone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notif-tone .select {
+  min-width: 130px;
+}
+.notif-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+.notif-volume-icon {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+.notif-range {
+  flex: 1;
+  max-width: 240px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.notif-volume-val {
+  width: 40px;
+  flex: 0 0 auto;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+/* ===========================================================================
+   Shared setting card — used by every settings page (same look as the
+   notification options): icon badge + title/description + control on the
+   right, or stacked full-width below the text for wide controls.
+   =========================================================================== */
+.setting-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 620px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.setting-card.as-label {
+  cursor: pointer;
+}
+.setting-card.as-label:hover {
+  border-color: var(--border-strong);
+}
+.setting-card.stacked {
+  align-items: flex-start;
+}
+.setting-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--r-md);
+  background: var(--bg-elev-3);
+  color: var(--accent);
+}
+.setting-card.stacked .setting-card-icon {
+  margin-top: 2px;
+}
+.setting-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.setting-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.setting-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.setting-card-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+/* Right-hand control (selects, inputs, button groups, the switch) */
+.setting-card-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.setting-card-control > .select,
+.setting-card-control > .input {
+  min-width: 190px;
+  max-width: 240px;
+}
+.setting-card-control > .input.num {
+  min-width: 92px;
+  max-width: 120px;
+  text-align: right;
+}
+/* Stacked control fills the card width below the title/description */
+.setting-card-control.stacked {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.setting-card-control.stacked > .input,
+.setting-card-control.stacked > .select,
+.setting-card-control.stacked > textarea.input {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+.setting-card-control .settings-actions {
+  max-width: none;
+  flex-wrap: wrap;
+}
+
+/* Pill switch (shared; snaps instantly — no transitions, per project style) */
+.settings-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+.settings-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: var(--text-dim);
+}
+.settings-switch:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.settings-switch:checked::after {
+  left: 18px;
+  background: #fff;
 }
 

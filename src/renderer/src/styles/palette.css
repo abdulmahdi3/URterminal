@@ -111,9 +111,8 @@
   font-size: var(--fs-body);
 }
 .palette-item.active {
-  /* faint neutral fill + a bold accent bar on the left edge */
+  /* faint neutral fill only — no accent edge bar */
   background: var(--bg-elev-2);
-  border-left-color: var(--accent);
 }
 .palette-item.active .palette-title {
   color: var(--text);
@@ -307,10 +306,119 @@
   font-size: var(--fs-sm);
   color: var(--text-dim);
 }
+/* label grows; the key/control sits at the right edge */
+.shortcut-row > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
 .shortcut-row kbd {
   flex: 0 0 auto;
   /* keys follow the user-selected accent (theme color) */
   color: color-mix(in srgb, var(--accent) 75%, white);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev-2));
   border-color: var(--accent-soft);
+}
+/* editable rebind control */
+.shortcut-keys {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.shortcut-edit {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: color-mix(in srgb, var(--accent) 75%, white);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev-2));
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.shortcut-edit:hover {
+  border-color: var(--accent);
+}
+.shortcut-edit.unbound {
+  color: var(--text-faint);
+  background: var(--bg-elev-2);
+  border-color: var(--border-faint);
+}
+.shortcut-edit.recording {
+  color: var(--accent);
+  border-color: var(--accent);
+  border-style: dashed;
+  background: var(--accent-soft);
+}
+.shortcut-reset {
+  width: 20px;
+  height: 20px;
+  color: var(--text-faint);
+}
+.shortcuts-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shortcuts-hint {
+  margin: 0 0 6px;
+  padding: 0 2px;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+/* ---- self-update banner (bottom of window, above the status bar) ---- */
+.update-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--statusbar-h) + 12px);
+  z-index: 350;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.update-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.update-toast-text {
+  white-space: nowrap;
+}
+.update-toast-text strong {
+  font-weight: 600;
+}
+.update-toast-btn {
+  margin-left: 4px;
+}
+.update-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+}
+.update-toast-close:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
 }
