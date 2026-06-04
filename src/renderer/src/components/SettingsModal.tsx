@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import {
-  Check, Search, Trash2, RotateCcw, Download, Upload, Keyboard,
+  Check, Search, Trash2, RotateCcw, RotateCw, Download, Upload, Keyboard,
   Volume2, Volume1, VolumeX, Play, Monitor, EyeOff,
   KeyRound, Cpu, Bot, SquareTerminal, Server,
   TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed, GripVertical,
@@ -465,6 +465,7 @@ export default function SettingsModal(): JSX.Element | null {
   const [snipKind, setSnipKind] = useState<'prompt' | 'shell'>('prompt')
   const [snipBody, setSnipBody] = useState('')
   const [appVersion, setAppVersion] = useState('')
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   // two-pane navigation + filtering
   const [query, setQuery] = useState('')
@@ -619,6 +620,24 @@ export default function SettingsModal(): JSX.Element | null {
     window.setTimeout(() => location.reload(), 200)
   }
 
+  // Manual update check. The download (if any) is driven by the main process
+  // and surfaced by <UpdateToast>; here we only report the immediate verdict.
+  const checkForUpdates = async (): Promise<void> => {
+    if (checkingUpdate) return
+    setCheckingUpdate(true)
+    try {
+      const res = await window.api.checkForUpdates()
+      if (res.status === 'available') toast(`Update ${res.version} found — downloading…`, 'ok')
+      else if (res.status === 'not-available') toast("You're on the latest version.", 'info')
+      else if (res.status === 'unsupported') toast('Updates are only available in the installed build.', 'info')
+      else toast(`Update check failed: ${res.message}`, 'error')
+    } catch (e) {
+      toast(`Update check failed: ${e instanceof Error ? e.message : String(e)}`, 'error')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
   // ---- section metadata (sidebar nav + search filtering) ----
   const labels: Record<string, string[]> = {
     providers: [PROVIDER_LABELS.anthropic, PROVIDER_LABELS.openai, PROVIDER_LABELS.gemini, PROVIDER_LABELS.ollama],
@@ -644,7 +663,7 @@ export default function SettingsModal(): JSX.Element | null {
     snippets: ['Snippets'],
     keyboard: ['Keyboard shortcuts'],
     learning: ['Learning', 'Cross-agent learning', 'Distillation', 'Review candidates', 'Brain store', 'Hermes'],
-    about: ['About', 'Version', 'Export settings', 'Import settings', 'Reset all data']
+    about: ['About', 'Version', 'Check for updates', 'Export settings', 'Import settings', 'Reset all data']
   }
   const SECTIONS: { id: string; title: string }[] = [
     { id: 'providers', title: t('settings.providers') },
@@ -1394,7 +1413,16 @@ export default function SettingsModal(): JSX.Element | null {
                 <SettingCard
                   icon={<Info size={16} />}
                   title="Version"
-                  control={<span className="settings-static">URterminal {appVersion || '—'}</span>}
+                  desc="Check GitHub for a newer release. If one is found it downloads in the background and prompts to restart."
+                  control={
+                    <>
+                      <span className="settings-static">URterminal {appVersion || '—'}</span>
+                      <button className="btn" disabled={checkingUpdate} onClick={() => void checkForUpdates()}>
+                        <RotateCw size={13} className={checkingUpdate ? 'spin' : undefined} />
+                        {checkingUpdate ? 'Checking…' : 'Check for updates'}
+                      </button>
+                    </>
+                  }
                 />
                 <SettingCard
                   icon={<Save size={16} />}

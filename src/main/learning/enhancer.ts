@@ -26,7 +26,9 @@ export async function enhancePrompt(opts: { text: string; cwd?: string }): Promi
   }))
 
   const run = getEnhanceRunModel(getLearningConfig())
-  const out = await run(ENHANCE_SYSTEM, buildEnhancePrompt(text, memories, skills))
+  // Pass the project cwd so a CLI-backed model is grounded in THIS project and
+  // can't bleed its own environment's working directory into the rewrite.
+  const out = await run(ENHANCE_SYSTEM, buildEnhancePrompt(text, memories, skills), opts.cwd)
   const trimmed = out.trim()
   if (!trimmed) throw new Error('The enhancer returned nothing')
   return trimmed

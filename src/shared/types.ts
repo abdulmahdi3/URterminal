@@ -270,6 +270,17 @@ export interface UpdaterStatus {
   releaseDate?: string
 }
 
+/** Result of a manual "check for updates" trigger from the renderer. */
+export type UpdaterCheckResult =
+  /** A newer release exists; download has started (watch for updater:downloaded). */
+  | { status: 'available'; version: string }
+  /** Already on the latest release. */
+  | { status: 'not-available'; version: string }
+  /** Auto-update isn't possible in this build (dev run / portable). */
+  | { status: 'unsupported' }
+  /** The check failed (offline, GitHub unreachable, etc.). */
+  | { status: 'error'; message: string }
+
 export interface IntegrationStatus {
   /** true if a credential/token is stored for this service */
   connected: boolean
@@ -694,6 +705,7 @@ export const IPC = {
   notesWrite: 'notes:write',
 
   // app self-update (electron-updater backed by GitHub releases)
+  updaterCheck: 'updater:check', // renderer -> main: check now, returns UpdaterCheckResult
   updaterAvailable: 'updater:available', // main -> renderer (event)
   updaterDownloaded: 'updater:downloaded', // main -> renderer (event)
   updaterError: 'updater:error', // main -> renderer (event)

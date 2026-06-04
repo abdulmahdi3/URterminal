@@ -233,6 +233,10 @@ textarea.input.mono {
   color: var(--text);
   padding-top: 4px;
 }
+/* spinner for the in-place "Check for updates" button */
+.settings-section .btn .spin {
+  animation: pane-spin 1s linear infinite;
+}
 .settings-actions .btn {
   display: inline-flex;
   align-items: center;

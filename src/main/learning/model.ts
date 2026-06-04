@@ -1,4 +1,6 @@
 import { spawn } from 'child_process'
+import { existsSync } from 'fs'
+import { isAbsolute } from 'path'
 import type { RunModel } from './distiller'
 import type { LearningConfig, LearningProvider } from './store'
 
@@ -15,11 +17,17 @@ import type { LearningConfig, LearningProvider } from './store'
  */
 
 /** Run the Claude Code CLI in headless print mode and return its text output. */
-export const runClaudeHeadless: RunModel = (system, prompt) =>
+export const runClaudeHeadless: RunModel = (system, prompt, cwd) =>
   new Promise((resolve, reject) => {
+    // Ground the CLI in the user's project. Without this the child inherits the
+    // Electron main process's directory (the app's install/dev path), and Claude
+    // Code bakes THAT "working directory" into its reply — which is how a prompt
+    // enhanced for one project leaked another project's absolute paths.
+    const safeCwd = cwd && isAbsolute(cwd) && existsSync(cwd) ? cwd : undefined
     let child
     try {
       child = spawn('claude', ['-p', '--output-format', 'json', '--append-system-prompt', system], {
+        cwd: safeCwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
       })

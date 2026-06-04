@@ -19,6 +19,9 @@ export const ENHANCE_SYSTEM = [
   'Use the provided MEMORY (durable facts, conventions and preferences learned from past sessions) to',
   'fill in context, naming and constraints — but do NOT invent requirements the user did not imply,',
   "and keep the user's original intent and scope.",
+  'Refer to the codebase generically as "this project". Do NOT add, guess, or include any absolute',
+  'filesystem paths, drive letters, directory names, or working-directory locations — not even ones from',
+  'your own runtime environment — unless the user wrote them in their request.',
   'Output ONLY the rewritten request as plain text: no preamble, no surrounding quotes, no explanation,',
   'no markdown headers.'
 ].join(' ')

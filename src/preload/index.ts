@@ -29,7 +29,8 @@ import type {
   TickTickTask,
   GoogleTask,
   GoogleTaskList,
-  UpdaterStatus
+  UpdaterStatus,
+  UpdaterCheckResult
 } from '@shared/types'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
@@ -207,6 +208,7 @@ const api = {
     ipcRenderer.invoke(IPC.translateText, { text, targetLang }),
 
   // ---- self-update (electron-updater backed by GitHub releases) ----
+  checkForUpdates: (): Promise<UpdaterCheckResult> => ipcRenderer.invoke(IPC.updaterCheck),
   onUpdateAvailable: (cb: (s: UpdaterStatus) => void): (() => void) =>
     on<UpdaterStatus>(IPC.updaterAvailable, cb),
   onUpdateDownloaded: (cb: (s: UpdaterStatus) => void): (() => void) =>

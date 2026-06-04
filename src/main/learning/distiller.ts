@@ -104,8 +104,13 @@ export function parseDistillResponse(raw: string, scrubExtra: string[] = []): Di
   return out
 }
 
-/** A model runner: prompt in, raw text out. Injected so it can be mocked. */
-export type RunModel = (system: string, prompt: string) => Promise<string>
+/**
+ * A model runner: prompt in, raw text out. Injected so it can be mocked.
+ * `cwd` (optional) grounds CLI-backed runners in the user's project directory so
+ * the model's own environment context (e.g. Claude Code's "working directory"
+ * block) reflects the right project and never leaks the app's install/dev path.
+ */
+export type RunModel = (system: string, prompt: string, cwd?: string) => Promise<string>
 
 /** Run one distillation batch through an injected model and return the ops. */
 export async function distill(
