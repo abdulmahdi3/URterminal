@@ -22,6 +22,7 @@ import { buildAgentInstruction } from '../ssh/ursshHelpers'
 import { SshfsManager, sshfsInstalled, SSHFS_INSTALL, SSHFS_BIN } from '../ssh/sshfs'
 import { PtyManager } from '../pty/manager'
 import { TranscriptStore } from '../pty/transcriptStore'
+import { claudeSessionInfo } from '../claude/sessions'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
@@ -526,6 +527,28 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   )
   ipcMain.handle(IPC.transcriptRemove, (_e, paneId: string): void => transcripts.remove(paneId))
   ipcMain.handle(IPC.transcriptPrune, (_e, keep: string[]): void => transcripts.pruneExcept(keep))
+
+  // ---- Claude's own conversation store (~/.claude/projects) ----
+  // Existence (resume vs re-create on restore) + subject title for the chats list.
+  ipcMain.handle(IPC.claudeSessionInfo, (_e, sessionId: string) => claudeSessionInfo(sessionId))
+
+  // ---- resumable-chat registry surfaced in the sessions menu (chat-sessions.json) ----
+  const chatsFile = (): string => join(app.getPath('userData'), 'chat-sessions.json')
+  ipcMain.handle(IPC.chatsRead, async (): Promise<unknown[]> => {
+    try {
+      const parsed = JSON.parse(await readFile(chatsFile(), 'utf8'))
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return [] // missing/corrupt → no chats yet
+    }
+  })
+  ipcMain.handle(IPC.chatsWrite, async (_e, chats: unknown[]): Promise<void> => {
+    try {
+      await writeFile(chatsFile(), JSON.stringify(chats), 'utf8')
+    } catch {
+      /* disk errors are non-fatal */
+    }
+  })
 
   // ---- TickTick OAuth + Open API proxy (main-process bearer storage) ----
   const tickTick = new TickTickClient(settings)

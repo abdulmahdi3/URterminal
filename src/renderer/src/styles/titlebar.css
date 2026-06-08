@@ -470,3 +470,22 @@
   color: var(--text-faint);
 }
 
+/* section label separating WORKSPACES from CHATS in the sessions menu */
+.sessions-section {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 8px 4px 3px;
+}
+.sessions-section:first-child {
+  padding-top: 2px;
+}
+.sessions-section + .session-row {
+  margin-top: 1px;
+}
+

@@ -120,7 +120,9 @@ export function useTelegramForwarding(): void {
         const command = agentCommand || 'claude'
         const id = ws.addPane('ai', undefined, { agentCommand: command })
         if (!id) return
-        ws.updatePane(id, { agent: { command, cwd }, title: command, telegramChatId: chatId })
+        // preserve the pinned sessionId addPane just created — only add the folder
+        const agent = useWorkspace.getState().panes[id]?.agent
+        ws.updatePane(id, { agent: { ...agent, command, cwd }, title: command, telegramChatId: chatId })
         window.api.linkPaneToTelegram(id, chatId)
       } else {
         const id = ws.addPane('shell', undefined, { shell })

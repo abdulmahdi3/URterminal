@@ -26,6 +26,15 @@ export interface AgentPaneState {
   shell?: string
   /** when this agent was opened over SSH, the target whose mount/conn it owns */
   sshTarget?: string
+  /**
+   * Caller-pinned conversation id for agents that support addressable sessions
+   * (currently Claude, via `--session-id`). Assigned once when the pane is born
+   * so the pane always owns ONE conversation: launched fresh with
+   * `claude --session-id <id>`, and on restore relaunched with
+   * `claude --resume <id>` — which is what lets two panes in the same folder keep
+   * their own chats instead of both resuming the most-recent one.
+   */
+  sessionId?: string
 }
 
 /** A single checkable item in a pane's to-do list. */
@@ -55,6 +64,35 @@ export interface Pane {
 export interface SessionData {
   /** paneId -> serialized terminal buffer (ANSI snapshot produced by addon-serialize) */
   transcripts: Record<string, string>
+}
+
+/** What the main process can tell us about a Claude `--session-id` conversation on disk. */
+export interface ClaudeSessionInfo {
+  /** whether a `<id>.jsonl` transcript exists under ~/.claude/projects (decides resume vs re-create) */
+  exists: boolean
+  /** human-readable subject, from the session's `aiTitle` (falls back to first prompt) */
+  title?: string
+  /** working directory the conversation ran in */
+  cwd?: string
+  /** last-modified time of the transcript file (ms) */
+  updatedAt?: number
+}
+
+/**
+ * A single resumable chat shown in the sessions menu's "Chats" list. Keyed by the
+ * Claude session id so clicking it relaunches `claude --resume <sessionId>`.
+ */
+export interface ChatSession {
+  /** Claude `--session-id` / `--resume` uuid */
+  sessionId: string
+  /** subject line (from the session's aiTitle) shown in the list */
+  title: string
+  /** folder the conversation belongs to */
+  cwd?: string
+  /** agent command that owns it (currently always "claude") */
+  agent: string
+  /** when we last saw/updated this entry (ms) */
+  updatedAt: number
 }
 
 /** One workspace's panes + layout inside an auto-saved snapshot. */
@@ -268,6 +306,13 @@ export interface UpdaterStatus {
   version: string
   releaseNotes?: string
   releaseDate?: string
+}
+
+/** Download-progress tick while a new version is being fetched. */
+export interface UpdaterProgress {
+  /** 0–100 percent of the installer downloaded. */
+  percent: number
+  version?: string
 }
 
 /** Result of a manual "check for updates" trigger from the renderer. */
@@ -699,6 +744,12 @@ export const IPC = {
   transcriptPrime: 'transcript:prime',
   transcriptRemove: 'transcript:remove',
   transcriptPrune: 'transcript:prune',
+  // Claude's own per-conversation transcripts (~/.claude/projects/*/<id>.jsonl):
+  // existence (resume vs re-create) + subject title for the "Chats" list
+  claudeSessionInfo: 'claude:session-info',
+  // resumable-chat registry surfaced in the sessions menu (chat-sessions.json)
+  chatsRead: 'chats:read',
+  chatsWrite: 'chats:write',
 
   // standalone, app-wide notes (separate file under userData, survives close)
   notesRead: 'notes:read',
@@ -707,6 +758,7 @@ export const IPC = {
   // app self-update (electron-updater backed by GitHub releases)
   updaterCheck: 'updater:check', // renderer -> main: check now, returns UpdaterCheckResult
   updaterAvailable: 'updater:available', // main -> renderer (event)
+  updaterProgress: 'updater:progress', // main -> renderer (event): download percent
   updaterDownloaded: 'updater:downloaded', // main -> renderer (event)
   updaterError: 'updater:error', // main -> renderer (event)
   updaterInstall: 'updater:install', // renderer -> main: quit + apply

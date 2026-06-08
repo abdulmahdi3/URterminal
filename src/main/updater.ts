@@ -3,7 +3,7 @@ import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import pkg from 'electron-updater'
 import { IPC } from '@shared/types'
-import type { UpdaterStatus, UpdaterCheckResult } from '@shared/types'
+import type { UpdaterStatus, UpdaterCheckResult, UpdaterProgress } from '@shared/types'
 
 // electron-updater ships as CommonJS; the named export isn't reliable under
 // the ESM/bundler interop, so pull autoUpdater off the default export.
@@ -108,14 +108,26 @@ export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
     send(IPC.updaterError, msg)
   })
 
+  let pendingVersion = ''
   autoUpdater.on('update-available', (info) => {
     updaterLog('info', `update-available ${info.version}`)
+    pendingVersion = info.version
     const payload: UpdaterStatus = {
       version: info.version,
       releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
       releaseDate: info.releaseDate
     }
     send(IPC.updaterAvailable, payload)
+  })
+
+  // Stream download progress so the renderer can show a real loading state
+  // instead of an opaque wait before the "relaunch to update" action appears.
+  autoUpdater.on('download-progress', (p) => {
+    const payload: UpdaterProgress = {
+      percent: Math.max(0, Math.min(100, p.percent)),
+      version: pendingVersion || undefined
+    }
+    send(IPC.updaterProgress, payload)
   })
 
   autoUpdater.on('update-downloaded', (info) => {

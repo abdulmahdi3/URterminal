@@ -4,7 +4,7 @@ import type { Pane, LastSessionPayload, PersistedWorkspace } from '@shared/types
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import { useSettings } from '@renderer/store/settings'
-import { applyRestore, applyLaunchRestore } from '@renderer/store/sessions'
+import { applyRestore, applyLaunchRestore, useSessions } from '@renderer/store/sessions'
 import { capturePaneScroll } from '@renderer/lib/terminalPool'
 import { getLeaves } from '@renderer/lib/mosaicTree'
 import { buildAutoLayout } from '@renderer/lib/layoutPresets'
@@ -24,7 +24,14 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   for (const [id, p] of Object.entries(panes)) {
     const clone: Pane = { ...p } // keeps pipeTargets, telegramChatId, notes, etc.
     if (clone.shell) clone.shell = { shell: clone.shell.shell, args: clone.shell.args }
-    if (clone.agent) clone.agent = { command: clone.agent.command, cwd: clone.agent.cwd }
+    // keep the pinned sessionId (chat resume) + sshTarget; only the runtime ptyId is dropped
+    if (clone.agent)
+      clone.agent = {
+        command: clone.agent.command,
+        cwd: clone.agent.cwd,
+        sessionId: clone.agent.sessionId,
+        sshTarget: clone.agent.sshTarget
+      }
     out[id] = clone
   }
   return out
@@ -106,7 +113,7 @@ export function usePersistence(): void {
             return { ...w, panes: capped.panes, layout: capped.layout }
           })
           const activeId = last.activeWorkspaceId ?? workspaces[0].id
-          applyLaunchRestore(workspaces, activeId, transcripts, last.scroll ?? {})
+          await applyLaunchRestore(workspaces, activeId, transcripts, last.scroll ?? {})
           // Drop transcript logs for panes that no longer exist (crash orphans).
           void window.api.transcriptPrune(workspaces.flatMap((w) => Object.keys(w.panes ?? {})))
           return
@@ -118,7 +125,7 @@ export function usePersistence(): void {
             (last.layout as MosaicNode<string> | null) ?? null,
             max
           )
-          applyRestore(capped.panes, capped.layout, last.transcripts ?? {})
+          await applyRestore(capped.panes, capped.layout, last.transcripts ?? {})
           return
         }
         try {
@@ -127,7 +134,7 @@ export function usePersistence(): void {
           const data = JSON.parse(raw) as Persisted
           if (data.layout && data.panes && Object.keys(data.panes).length) {
             const capped = capPanes(data.panes, data.layout, max)
-            applyRestore(capped.panes, capped.layout, {})
+            await applyRestore(capped.panes, capped.layout, {})
           }
         } catch {
           toast('Workspace state was corrupted and could not be restored.', 'error')
@@ -145,6 +152,9 @@ export function usePersistence(): void {
     let handle = 0
     const save = (): void => {
       void window.api.writeLastSession(snapshot())
+      // keep the resumable-chats list current (titles + new conversations) as
+      // panes are opened, used, and closed — cheap, reads Claude's own titles
+      void useSessions.getState().recordChats()
     }
     const unsub = useWorkspace.subscribe(() => {
       window.clearTimeout(handle)

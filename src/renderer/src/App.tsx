@@ -21,6 +21,7 @@ import CopiedFlash from './components/CopiedFlash'
 import SelectionTranslate from './components/SelectionTranslate'
 import { useSettings } from './store/settings'
 import { useUi } from './store/ui'
+import { wireUpdater } from './store/updater'
 import { startMetricsLoop } from './store/metrics'
 import { startClaudeUsageLoop } from './store/claudeUsage'
 import { useHotkeys } from './hooks/useHotkeys'
@@ -76,6 +77,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void load()
+    wireUpdater() // bind main-process updater events to the shared store (once)
     void primeOsInfo() // cache the real home dir from main (renderer env is unreliable)
     void refreshWslDistros() // populate the shell launcher with installed WSL distros
     void refreshAgentAvailability() // flag which agent CLIs are actually installed

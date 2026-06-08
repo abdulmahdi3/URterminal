@@ -21,7 +21,9 @@ export function spawnTemplate(t: PaneTemplate): void {
       toast('Max 9 panes reached', 'info')
       return
     }
-    ws.updatePane(id, { agent: { command, cwd: t.cwd }, title: t.name })
+    // addPane already minted the pinned sessionId — keep it, just add the folder
+    const agent = useWorkspace.getState().panes[id]?.agent
+    ws.updatePane(id, { agent: { ...agent, command, cwd: t.cwd }, title: t.name })
   } else {
     const id = ws.addPane('shell', undefined, { shell: t.shell, shellArgs: t.shellArgs, label: t.name })
     if (!id) {

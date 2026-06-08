@@ -6,6 +6,8 @@ interface Props {
   paneId: string
   /** spawn this program directly as the pty process (e.g. "claude") */
   command?: string
+  /** pinned conversation id — launches the agent with `--session-id <id>` (Claude) */
+  sessionId?: string
   /** explicit shell executable to spawn (e.g. "powershell.exe"); blank = OS default */
   shell?: string
   /** extra args for the shell binary (e.g. ["-d", "Ubuntu"] for a WSL distro) */
@@ -32,6 +34,7 @@ interface Props {
 export default function TerminalPane({
   paneId,
   command,
+  sessionId,
   shell,
   shellArgs,
   cwd,
@@ -55,6 +58,9 @@ export default function TerminalPane({
 
     mountTerminal(paneId, container, {
       command,
+      // pin the conversation on first spawn (claude --session-id <id>); NOT in the
+      // effect deps below, so changing it never forces a respawn
+      sessionId,
       shell,
       shellArgs,
       cwd,

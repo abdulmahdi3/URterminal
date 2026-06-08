@@ -136,6 +136,12 @@ export function setTerminalTheme(themeName: string): void {
 
 export interface TerminalOpts {
   command?: string
+  /**
+   * Pinned conversation id for agents that support it (Claude). On a FRESH spawn
+   * the pane is launched with `--session-id <sessionId>` so it owns its own chat;
+   * on restore the resume flags ride in via the restore seed instead.
+   */
+  sessionId?: string
   /** explicit shell executable to spawn (e.g. "powershell.exe"); blank = OS default */
   shell?: string
   /** extra args for the shell binary (e.g. ["-d", "Ubuntu"] for a WSL distro) */
@@ -177,6 +183,36 @@ interface Entry {
   dispose: () => void
   lastCols: number
   lastRows: number
+  /**
+   * Whether the viewport should stay glued to the bottom as new output streams.
+   * True while the user is following live output; flips to false when they
+   * deliberately scroll up to read, and back to true when they return to the
+   * bottom. Lets us re-pin after a chunk/refit without yanking a reader around.
+   */
+  followTail: boolean
+  /** Guard so our own scroll-to-bottom calls don't get read back as a user scroll. */
+  suppressScrollSync: boolean
+}
+
+/** Is the viewport currently at the very bottom of the buffer? */
+function viewportAtBottom(term: Terminal): boolean {
+  const b = term.buffer.active
+  return b.viewportY >= b.baseY
+}
+
+/**
+ * Snap a pane's viewport to the bottom, flagging the move as self-initiated so
+ * the onScroll handler doesn't mistake it for the user scrolling and detach the
+ * follow-the-tail behavior.
+ */
+function pinToBottom(entry: Entry): void {
+  entry.suppressScrollSync = true
+  try {
+    entry.term.scrollToBottom()
+  } catch {
+    /* noop */
+  }
+  entry.suppressScrollSync = false
 }
 
 // ---- session restore seeding ---------------------------------------------
@@ -194,6 +230,14 @@ interface RestoreSeed {
   scrollFromBottom?: number
 }
 const restoreSeeds = new Map<string, RestoreSeed>()
+
+/**
+ * Session ids we've already started a conversation for via `--session-id` this
+ * run. Claude errors ("session already in use") if `--session-id` is passed an
+ * id that already exists, so we pin a uuid at most once and skip re-pinning on
+ * any later spawn (which only happens after a teardown — see the spawn builder).
+ */
+const pinnedSessionIds = new Set<string>()
 
 /** Stash restore data for a pane id; consumed when its terminal first spawns. */
 export function seedRestore(paneId: string, seed: RestoreSeed): void {
@@ -426,8 +470,16 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     bytes: 0,
     lastCols: term.cols,
     lastRows: term.rows,
+    followTail: true,
+    suppressScrollSync: false,
     dispose: () => {}
   }
+
+  // Track follow-the-tail intent: any non-self scroll that leaves the bottom
+  // detaches (the user is reading history); returning to the bottom re-attaches.
+  const onScroll = term.onScroll(() => {
+    if (!entry.suppressScrollSync) entry.followTail = viewportAtBottom(term)
+  })
 
   const onData = term.onData((d) => {
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
@@ -477,7 +529,14 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
         entry.onStarted?.()
       }
     }
-    term.write(e.data)
+    // Re-pin to the bottom once this chunk is parsed, but only while the user is
+    // following the tail. xterm stops auto-scrolling the moment the viewport
+    // drifts off the bottom (a reflow, or its own handling of an agent's
+    // in-place redraws), which strands a bottom-pinned input box above the fold
+    // until the next keystroke — this keeps it visible during live output.
+    term.write(e.data, () => {
+      if (entry.followTail && !viewportAtBottom(term)) pinToBottom(entry)
+    })
     noteOutputChars(e.data.length)
     useTokens.getState().note(e.data.length, paneId)
   })
@@ -491,6 +550,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   entry.dispose = (): void => {
     try {
       onData.dispose()
+      onScroll.dispose()
       onSelection.dispose()
       onBell.dispose()
       term.element?.removeEventListener('contextmenu', onContextMenu)
@@ -514,9 +574,18 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   // Translate the agent id into the real program + args. Most agents spawn their
   // own id directly, but host-extension agents (e.g. `gh-copilot`) spawn `gh`
   // with launch args `['copilot']`. Resume args are appended after launch args.
-  const launch = opts.command
-    ? agentLaunch(getAgentDescriptor(opts.command), opts.command)
-    : undefined
+  const desc = opts.command ? getAgentDescriptor(opts.command) : undefined
+  const launch = opts.command ? agentLaunch(desc, opts.command) : undefined
+  // Fresh-launch pinning: a session-capable agent with no restore seed starts
+  // its OWN addressable conversation via `--session-id <uuid>`, so two panes in
+  // the same folder never collide on the most-recent session. Restores carry the
+  // resume flags in `seed.resumeArgs` instead (mutually exclusive with this), and
+  // the guard set stops us re-pinning a uuid claude has already created.
+  const pinArgs =
+    !seed?.resumeArgs?.length && desc?.sessionId && opts.sessionId && !pinnedSessionIds.has(opts.sessionId)
+      ? [desc.sessionId.pin, opts.sessionId]
+      : []
+  if (pinArgs.length && opts.sessionId) pinnedSessionIds.add(opts.sessionId)
   const spawn = opts.ssh
     ? window.api.spawnSsh({
         paneId,
@@ -531,8 +600,9 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
         cols: term.cols,
         rows: term.rows,
         command: launch?.command,
-        // launch args + resume args (e.g. `claude --continue`) when restoring a session
-        commandArgs: launch ? [...launch.args, ...(seed?.resumeArgs ?? [])] : undefined,
+        // launch args + either fresh-pin (`--session-id`) OR resume args
+        // (`--resume <id>` / legacy `--continue`) when restoring a session
+        commandArgs: launch ? [...launch.args, ...pinArgs, ...(seed?.resumeArgs ?? [])] : undefined,
         // a resuming agent reprints its history — reset the log so it isn't duplicated
         freshLog: !!seed?.resumeArgs?.length,
         shell: opts.shell,
@@ -622,12 +692,23 @@ export function fitTerminal(paneId: string): void {
   const entry = pool.get(paneId)
   if (!entry) return
   try {
+    // A row-count change reflows the buffer and can strand the viewport a few
+    // lines above the bottom, after which xterm stops following live output.
+    // Suppress scroll-sync across the reflow so it isn't misread as the user
+    // scrolling, then re-pin to the bottom if we were following the tail.
+    const wasFollowing = entry.followTail
+    entry.suppressScrollSync = true
     entry.fit.fit()
+    entry.suppressScrollSync = false
     const { cols, rows } = entry.term
     if (entry.ptyId && (cols !== entry.lastCols || rows !== entry.lastRows)) {
       entry.lastCols = cols
       entry.lastRows = rows
       window.api.resizePty(entry.ptyId, cols, rows)
+    }
+    if (wasFollowing) {
+      entry.followTail = true
+      pinToBottom(entry)
     }
   } catch {
     /* fit can throw if the element is detached mid-layout */

@@ -59,6 +59,7 @@ function EnhanceFab({ paneId }: { paneId: string }): JSX.Element | null {
 export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
   const updatePane = useWorkspace((s) => s.updatePane)
   const removePane = useWorkspace((s) => s.removePane)
+  const setAgent = useWorkspace((s) => s.setAgent)
   const command = pane.agent?.command ?? DEFAULT_AGENT
   const cwd = pane.agent?.cwd
 
@@ -81,10 +82,12 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
       <AgentLauncher
         command={command}
         defaultCwd={getLastAgentCwd()}
-        onSelectAgent={(c) => updatePane(pane.id, { agent: { command: c }, title: c })}
+        // switching agent mints a fresh pinned session id (new conversation)
+        onSelectAgent={(c) => setAgent(pane.id, c)}
         onOpen={(dir) => {
           setLastAgentCwd(dir)
-          updatePane(pane.id, { agent: { command, cwd: dir }, title: command })
+          // keep the pane's pinned sessionId (and sshTarget) — only add the folder
+          updatePane(pane.id, { agent: { ...pane.agent, command, cwd: dir }, title: command })
         }}
       />
     )
@@ -119,8 +122,9 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
       <TerminalPane
         paneId={pane.id}
         command={command}
+        sessionId={pane.agent?.sessionId}
         cwd={cwd}
-        onReady={(ptyId) => updatePane(pane.id, { agent: { command, cwd, ptyId } })}
+        onReady={(ptyId) => updatePane(pane.id, { agent: { ...pane.agent, command, cwd, ptyId } })}
         onExit={() => removePane(pane.id)}
         onStarted={() => setStarted(true)}
       />

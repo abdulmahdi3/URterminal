@@ -23,6 +23,8 @@ import type {
   PaneInfo,
   SessionData,
   LastSessionPayload,
+  ClaudeSessionInfo,
+  ChatSession,
   NoteDoc,
   TickTickProject,
   TickTickProjectData,
@@ -30,7 +32,8 @@ import type {
   GoogleTask,
   GoogleTaskList,
   UpdaterStatus,
-  UpdaterCheckResult
+  UpdaterCheckResult,
+  UpdaterProgress
 } from '@shared/types'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
@@ -141,6 +144,13 @@ const api = {
     ipcRenderer.invoke(IPC.transcriptRemove, paneId),
   transcriptPrune: (keep: string[]): Promise<void> =>
     ipcRenderer.invoke(IPC.transcriptPrune, keep),
+  // Claude's own per-conversation transcript: existence (resume vs re-create) + subject title
+  claudeSessionInfo: (sessionId: string): Promise<ClaudeSessionInfo | null> =>
+    ipcRenderer.invoke(IPC.claudeSessionInfo, sessionId),
+  // resumable-chat registry surfaced in the sessions menu
+  readChats: (): Promise<ChatSession[]> => ipcRenderer.invoke(IPC.chatsRead),
+  writeChats: (chats: ChatSession[]): Promise<void> =>
+    ipcRenderer.invoke(IPC.chatsWrite, chats),
 
   // ---- standalone notes (app-wide, persisted to userData/notes.json) ----
   readNotes: (): Promise<NoteDoc[]> => ipcRenderer.invoke(IPC.notesRead),
@@ -211,6 +221,8 @@ const api = {
   checkForUpdates: (): Promise<UpdaterCheckResult> => ipcRenderer.invoke(IPC.updaterCheck),
   onUpdateAvailable: (cb: (s: UpdaterStatus) => void): (() => void) =>
     on<UpdaterStatus>(IPC.updaterAvailable, cb),
+  onUpdateProgress: (cb: (p: UpdaterProgress) => void): (() => void) =>
+    on<UpdaterProgress>(IPC.updaterProgress, cb),
   onUpdateDownloaded: (cb: (s: UpdaterStatus) => void): (() => void) =>
     on<UpdaterStatus>(IPC.updaterDownloaded, cb),
   onUpdateError: (cb: (msg: string) => void): (() => void) =>

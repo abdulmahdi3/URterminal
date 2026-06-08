@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { History, Save, RotateCcw, Trash2 } from 'lucide-react'
+import { History, Save, RotateCcw, Trash2, MessageSquare, Layers } from 'lucide-react'
 import clsx from 'clsx'
+import type { ChatSession } from '@shared/types'
 import { useSessions } from '@renderer/store/sessions'
 import { toast } from '@renderer/store/toasts'
 
@@ -14,12 +15,21 @@ function relativeTime(ts: number): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-/** Title-bar dropdown for saving the current workspace and restoring saved ones. */
+/** Last path segment of a folder, for the chat row's secondary line. */
+function folderName(cwd?: string): string {
+  if (!cwd) return ''
+  return cwd.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() ?? cwd
+}
+
+/** Title-bar dropdown: save/restore whole workspaces, and reopen individual chats. */
 export default function SessionsMenu(): JSX.Element {
   const sessions = useSessions((s) => s.sessions)
+  const chats = useSessions((s) => s.chats)
   const save = useSessions((s) => s.save)
   const restore = useSessions((s) => s.restore)
   const remove = useSessions((s) => s.remove)
+  const resumeChat = useSessions((s) => s.resumeChat)
+  const removeChat = useSessions((s) => s.removeChat)
 
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -50,11 +60,17 @@ export default function SessionsMenu(): JSX.Element {
     })
   }
 
+  const doResumeChat = (chat: ChatSession): void => {
+    resumeChat(chat)
+    toast(`Resuming: ${chat.title}`, 'ok')
+    setOpen(false)
+  }
+
   return (
     <div className="sessions-wrap" ref={wrapRef} data-nodrag>
       <button
         className={clsx('icon-btn sessions-btn', open && 'active')}
-        title="Saved sessions"
+        title="Saved sessions & chats"
         onClick={() => setOpen((v) => !v)}
       >
         <History size={13} />
@@ -80,30 +96,70 @@ export default function SessionsMenu(): JSX.Element {
           </div>
 
           <div className="sessions-list">
+            <div className="sessions-section">
+              <Layers size={11} /> Workspaces
+            </div>
             {sessions.length === 0 ? (
-              <p className="sessions-empty">No saved sessions yet.</p>
+              <p className="sessions-empty">No saved workspaces yet.</p>
             ) : (
               [...sessions]
                 .sort((a, b) => b.savedAt - a.savedAt)
                 .map((s) => (
-                <div key={s.id} className={clsx('session-row', s.auto && 'auto')}>
-                  <div className="session-info" onClick={() => doRestore(s.id)} title="Restore">
-                    <span className="session-name">{s.name}</span>
+                  <div key={s.id} className={clsx('session-row', s.auto && 'auto')}>
+                    <div className="session-info" onClick={() => doRestore(s.id)} title="Restore">
+                      <span className="session-name">{s.name}</span>
+                      <span className="session-meta">
+                        {s.paneCount} pane{s.paneCount !== 1 ? 's' : ''} · {relativeTime(s.savedAt)}
+                      </span>
+                    </div>
+                    <button
+                      className="icon-btn"
+                      title="Restore this workspace"
+                      onClick={() => doRestore(s.id)}
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                    <button
+                      className="icon-btn danger"
+                      title="Delete saved workspace"
+                      onClick={() => remove(s.id)}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))
+            )}
+
+            <div className="sessions-section">
+              <MessageSquare size={11} /> Chats
+            </div>
+            {chats.length === 0 ? (
+              <p className="sessions-empty">No chats yet — start one in a Claude pane.</p>
+            ) : (
+              chats.map((c) => (
+                <div key={c.sessionId} className="session-row">
+                  <div
+                    className="session-info"
+                    onClick={() => doResumeChat(c)}
+                    title="Reopen this chat in a new pane"
+                  >
+                    <span className="session-name">{c.title}</span>
                     <span className="session-meta">
-                      {s.paneCount} pane{s.paneCount !== 1 ? 's' : ''} · {relativeTime(s.savedAt)}
+                      {folderName(c.cwd) ? `${folderName(c.cwd)} · ` : ''}
+                      {relativeTime(c.updatedAt)}
                     </span>
                   </div>
                   <button
                     className="icon-btn"
-                    title="Restore this session"
-                    onClick={() => doRestore(s.id)}
+                    title="Reopen this chat in a new pane"
+                    onClick={() => doResumeChat(c)}
                   >
                     <RotateCcw size={12} />
                   </button>
                   <button
                     className="icon-btn danger"
-                    title="Delete session"
-                    onClick={() => remove(s.id)}
+                    title="Remove from this list (keeps the conversation on disk)"
+                    onClick={() => removeChat(c.sessionId)}
                   >
                     <Trash2 size={12} />
                   </button>

@@ -64,6 +64,17 @@ export interface AgentDescriptor {
    * the saved terminal transcript. Only set this once a CLI's flag is confirmed.
    */
   resumeArgs?: string[]
+  /**
+   * For CLIs that support addressable sessions by a caller-chosen id (Claude):
+   * `pin` is the flag that STARTS a conversation with a known id
+   * (`--session-id <id>`), `resume` is the flag that RESUMES that exact
+   * conversation later (`--resume <id>`). This is what lets each pane own one
+   * conversation regardless of how many panes share a folder — unlike
+   * `resumeArgs` (`--continue`), which only resumes the most-recent session.
+   * Pinning is create-only (errors if the id already exists) and resume is
+   * resume-only (errors if it doesn't), so callers must pick the right one.
+   */
+  sessionId?: { pin: string; resume: string }
   /** Shown when the agent is selected but not found on PATH. */
   installHint?: string
   /**
@@ -96,7 +107,16 @@ export function agentLaunch(
 }
 
 export const AGENT_REGISTRY: AgentDescriptor[] = [
-  { id: 'claude', label: 'Claude', resumeArgs: ['--continue'], supports: { streamJson: true } },
+  {
+    id: 'claude',
+    label: 'Claude',
+    // Each pane pins its own conversation via `--session-id` and resumes it with
+    // `--resume`; `--continue` stays as the legacy fallback for panes saved before
+    // session-id pinning existed (no pinned id → resume the most-recent in cwd).
+    resumeArgs: ['--continue'],
+    sessionId: { pin: '--session-id', resume: '--resume' },
+    supports: { streamJson: true }
+  },
   { id: 'codex', label: 'ChatGPT (Codex)' },
   { id: 'gemini', label: 'Gemini' },
   { id: 'aider', label: 'Aider' },
@@ -138,4 +158,15 @@ export const AGENT_RESUME: Partial<Record<string, string[]>> = Object.fromEntrie
 /** Resume args for a launch command, or undefined if the agent has no resume support. */
 export function resumeArgsFor(command: string | undefined): string[] | undefined {
   return agentDescriptor(command)?.resumeArgs
+}
+
+/**
+ * The pin/resume session flags for a launch command, or undefined if the agent
+ * doesn't support caller-pinned session ids. Used to decide whether a pane gets
+ * its own `--session-id` and how to relaunch it on restore.
+ */
+export function sessionFlagsFor(
+  command: string | undefined
+): { pin: string; resume: string } | undefined {
+  return agentDescriptor(command)?.sessionId
 }

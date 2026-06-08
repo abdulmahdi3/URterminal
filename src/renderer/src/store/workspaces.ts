@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { MosaicNode } from 'react-mosaic-component'
 import type { Pane } from '@shared/types'
-import { getLeaves } from '@renderer/lib/mosaicTree'
+import { getLeaves, removeLeaf } from '@renderer/lib/mosaicTree'
 import { buildAutoLayout } from '@renderer/lib/layoutPresets'
 import { repaintTerminal } from '@renderer/lib/terminalPool'
 import { busyAgentCount } from '@renderer/lib/paneClose'
@@ -42,6 +42,32 @@ interface WorkspacesState {
 }
 
 const firstId = uid()
+
+/**
+ * Strip `ids` out of every workspace snapshot in `list` (both its `panes` map and
+ * its `layout` tree), skipping `exceptId` (the active workspace, whose live state
+ * is handled separately). A pane must live in exactly ONE workspace — if a stale
+ * copy lingers in another workspace's snapshot, moving it again can splice the
+ * same leaf into a layout twice, which crashes react-mosaic. Purging here makes
+ * the move idempotent regardless of how the snapshots got out of sync.
+ */
+function purgeFromSnapshots(
+  list: WorkspaceEntry[],
+  ids: string[],
+  exceptId?: string
+): WorkspaceEntry[] {
+  return list.map((w) => {
+    if (w.id === exceptId || !w.panes) return w
+    if (!ids.some((id) => w.panes![id])) return w
+    const panes = { ...w.panes }
+    let layout = w.layout ?? null
+    for (const id of ids) {
+      delete panes[id]
+      layout = removeLeaf(layout, id)
+    }
+    return { ...w, panes, layout }
+  })
+}
 
 export const useWorkspaces = create<WorkspacesState>((set, get) => ({
   list: [{ id: firstId, name: 'Workspace' }],
@@ -143,10 +169,12 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
     // running CLI + scrollback survive the move (the pool is keyed by pane id).
     ws.detachPane(paneId)
     // Append into the target workspace's saved snapshot, rebuilding a balanced
-    // layout (same as adding a pane) so the moved pane gets a sane size.
-    const nextList = list.map((w) => {
+    // layout (same as adding a pane) so the moved pane gets a sane size. Purge
+    // the pane from any other snapshot first, and drop it from the target's
+    // existing leaves, so it can never end up in the layout twice.
+    const nextList = purgeFromSnapshots(list, [paneId], activeId).map((w) => {
       if (w.id !== targetId) return w
-      const ids = [...getLeaves(w.layout ?? null), paneId]
+      const ids = [...getLeaves(w.layout ?? null).filter((id) => id !== paneId), paneId]
       return { ...w, panes: { ...(w.panes ?? {}), [paneId]: pane }, layout: buildAutoLayout(ids) }
     })
     set({ list: nextList })
@@ -161,15 +189,16 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
     const { activeId, list } = get()
     if (targetId === activeId) return
     const ws = useWorkspace.getState()
-    const moving = paneIds.filter((id) => ws.panes[id])
+    const moving = [...new Set(paneIds)].filter((id) => ws.panes[id])
     if (!moving.length) return
     const moved: Record<string, Pane> = {}
     for (const id of moving) moved[id] = ws.panes[id]
     // Detach all from the active workspace WITHOUT disposing their terminals.
     for (const id of moving) ws.detachPane(id)
-    const nextList = list.map((w) => {
+    const movingSet = new Set(moving)
+    const nextList = purgeFromSnapshots(list, moving, activeId).map((w) => {
       if (w.id !== targetId) return w
-      const ids = [...getLeaves(w.layout ?? null), ...moving]
+      const ids = [...getLeaves(w.layout ?? null).filter((id) => !movingSet.has(id)), ...moving]
       return { ...w, panes: { ...(w.panes ?? {}), ...moved }, layout: buildAutoLayout(ids) }
     })
     set({ list: nextList })
@@ -200,7 +229,7 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
 
   movePanesToNew: (paneIds) => {
     const ws = useWorkspace.getState()
-    const moving = paneIds.filter((id) => ws.panes[id])
+    const moving = [...new Set(paneIds)].filter((id) => ws.panes[id])
     if (!moving.length) return
     const moved: Record<string, Pane> = {}
     for (const id of moving) moved[id] = ws.panes[id]
@@ -211,7 +240,10 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
     const layout = buildAutoLayout(moving)
     useWorkspace.getState().hydrate(moved, layout)
     const { activeId, list } = get()
-    set({ list: list.map((w) => (w.id === activeId ? { ...w, panes: moved, layout } : w)) })
+    // Purge the moved panes from every other snapshot so the new workspace is
+    // their only home (guards against a stale duplicate elsewhere).
+    const cleaned = purgeFromSnapshots(list, moving, activeId)
+    set({ list: cleaned.map((w) => (w.id === activeId ? { ...w, panes: moved, layout } : w)) })
     const after = useWorkspace.getState()
     after.setActive(moving[moving.length - 1])
     after.clearPaneSelection()

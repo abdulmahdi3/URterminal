@@ -1,8 +1,8 @@
-import { forwardRef, useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
 import type { MosaicNode } from 'react-mosaic-component'
-import { getLeaves, moveLeafToEdge, type DropEdge } from '@renderer/lib/mosaicTree'
+import { getLeaves, moveLeafToEdge, pruneLayout, type DropEdge } from '@renderer/lib/mosaicTree'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 
 /** Minimum percentage either side of a split may occupy (prevents tiny panes). */
@@ -172,6 +172,8 @@ function HeaderPopover({
 /** A target action set for one section of the connect menu (pipe or broadcast). */
 interface ConnSection {
   label: string
+  /** optional one-line hint shown under the section head (e.g. the send shortcut) */
+  hint?: string
   selected: string[]
   onToggle: (id: string) => void
   onAll: (ids: string[]) => void
@@ -217,6 +219,7 @@ function PaneConnectMenu({
               return (
                 <div className="pane-conn-section" key={sec.label}>
                   <div className="pane-conn-head">{sec.label}</div>
+                  {sec.hint && <div className="pane-conn-hint">{sec.hint}</div>}
                   <button
                     className={clsx('pane-conn-row', allOn && 'on')}
                     onClick={() => (allOn ? sec.onClear() : sec.onAll(others))}
@@ -548,6 +551,7 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
               },
               {
                 label: 'Broadcast input to…',
+                hint: 'Type a prompt, then press Ctrl+Enter to send it to all',
                 selected: broadcastMembers.filter((m) => m !== paneId),
                 onToggle: (id) => {
                   toggleBroadcastMember(id)
@@ -692,9 +696,17 @@ function InPaneDropZones({ paneId }: { paneId: string }): JSX.Element | null {
 }
 
 export default function Workspace(): JSX.Element {
-  const layout = useWorkspace((s) => s.layout)
+  const rawLayout = useWorkspace((s) => s.layout)
   const setLayout = useWorkspace((s) => s.setLayout)
   const panes = useWorkspace((s) => s.panes)
+  // Never hand react-mosaic a layout with a dangling (pane closed/moved) or
+  // duplicate leaf — either corrupts its internal path map and throws during
+  // render, blanking the whole app. Pruning here is the last line of defence on
+  // top of the store keeping panes in exactly one workspace.
+  const layout = useMemo(
+    () => pruneLayout(rawLayout, new Set(Object.keys(panes))),
+    [rawLayout, panes]
+  )
   const addPane = useWorkspace((s) => s.addPane)
   const zoomedPaneId = useUi((s) => s.zoomedPaneId)
   const setZoomedPaneId = useUi((s) => s.setZoomedPaneId)

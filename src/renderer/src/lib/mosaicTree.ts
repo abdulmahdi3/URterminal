@@ -60,6 +60,33 @@ export function getLeaves(node: MosaicNode<string> | null): string[] {
   return [...getLeaves(node.first), ...getLeaves(node.second)]
 }
 
+/**
+ * Drop any leaf not in `valid` (a "ghost" — pane that no longer exists) and any
+ * duplicate leaf (first occurrence wins), promoting siblings so the tree stays
+ * well-formed. react-mosaic builds an internal leaf→path map and uses the leaf
+ * id as a React key, so a duplicate or dangling leaf corrupts its state and
+ * throws during render (blanking the whole app). Running the active layout
+ * through this before handing it to <Mosaic> makes that impossible. `seen` is
+ * threaded through the recursion to enforce the "first wins" dedupe.
+ */
+export function pruneLayout(
+  node: MosaicNode<string> | null,
+  valid: Set<string>,
+  seen: Set<string> = new Set()
+): MosaicNode<string> | null {
+  if (node === null) return null
+  if (typeof node === 'string') {
+    if (!valid.has(node) || seen.has(node)) return null
+    seen.add(node)
+    return node
+  }
+  const first = pruneLayout(node.first, valid, seen)
+  const second = pruneLayout(node.second, valid, seen)
+  if (first === null) return second
+  if (second === null) return first
+  return { ...node, first, second }
+}
+
 /** Replace a single leaf with a split node containing the leaf plus a new pane. */
 export function splitLeaf(
   node: MosaicNode<string> | null,

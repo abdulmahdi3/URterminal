@@ -1,74 +1,66 @@
 import { useEffect, useState } from 'react'
-import { Download, RotateCw, X } from 'lucide-react'
-import type { UpdaterStatus } from '@shared/types'
+import { Download, RotateCw, Loader2, X } from 'lucide-react'
+import { useUpdater } from '@renderer/store/updater'
 
 /**
- * Bottom-of-window banner shown when the auto-updater has fetched a new
- * release. The fire path: main process → `updater:available` (download
- * starts) → `updater:downloaded` (banner shows "Update" button) → user
- * clicks → `updater:install` IPC → main quits + relaunches into the new
- * installer. Dismissible — user can ignore until next restart.
+ * Bottom-of-window banner for a background-detected update (the startup check,
+ * fired when the Settings panel isn't open). Reads the shared updater store, so
+ * it stays in lock-step with the Settings "Version" control: download progress →
+ * "Relaunch to update" → a brief "Updating…" state as the app quits to apply the
+ * silent install. Dismissible; re-appears if a newer phase arrives.
  */
 export default function UpdateToast(): JSX.Element | null {
-  const [status, setStatus] = useState<'idle' | 'downloading' | 'ready'>('idle')
-  const [info, setInfo] = useState<UpdaterStatus | null>(null)
+  const phase = useUpdater((s) => s.phase)
+  const version = useUpdater((s) => s.version)
+  const percent = useUpdater((s) => s.percent)
+  const install = useUpdater((s) => s.install)
   const [dismissed, setDismissed] = useState(false)
-  const [installing, setInstalling] = useState(false)
 
+  // Any move into a fresh download/ready brings the banner back.
   useEffect(() => {
-    const offAvail = window.api.onUpdateAvailable((s) => {
-      setInfo(s)
-      setStatus('downloading')
-      setDismissed(false)
-    })
-    const offReady = window.api.onUpdateDownloaded((s) => {
-      setInfo(s)
-      setStatus('ready')
-      setDismissed(false)
-    })
-    return () => {
-      offAvail()
-      offReady()
-    }
-  }, [])
+    if (phase === 'downloading' || phase === 'ready') setDismissed(false)
+  }, [phase])
 
-  if (status === 'idle' || dismissed || !info) return null
+  const visible = phase === 'downloading' || phase === 'ready' || phase === 'installing'
+  if (!visible || dismissed) return null
 
   return (
     <div className="update-toast">
       <div className="update-toast-icon">
-        {status === 'ready' ? <Download size={16} /> : <RotateCw size={16} />}
+        {phase === 'ready' ? (
+          <Download size={16} />
+        ) : phase === 'installing' ? (
+          <Loader2 size={16} className="spin" />
+        ) : (
+          <RotateCw size={16} className="spin" />
+        )}
       </div>
       <div className="update-toast-text">
-        {status === 'ready' ? (
+        {phase === 'ready' ? (
           <>
-            <strong>URterminal {info.version}</strong> is ready to install.
+            <strong>URterminal {version}</strong> is ready to install.
           </>
+        ) : phase === 'installing' ? (
+          <>Updating — the app will restart…</>
         ) : (
           <>
-            Downloading <strong>URterminal {info.version}</strong>…
+            Downloading <strong>URterminal {version}</strong>… {percent}%
+            <div className="update-toast-bar">
+              <div className="update-toast-bar-fill" style={{ width: `${percent}%` }} />
+            </div>
           </>
         )}
       </div>
-      {status === 'ready' && (
-        <button
-          className="btn primary sm update-toast-btn"
-          disabled={installing}
-          onClick={() => {
-            setInstalling(true)
-            void window.api.installUpdate()
-          }}
-        >
-          {installing ? 'Restarting…' : 'Update'}
+      {phase === 'ready' && (
+        <button className="btn primary sm update-toast-btn" onClick={() => install()}>
+          Relaunch to update
         </button>
       )}
-      <button
-        className="update-toast-close"
-        title="Dismiss"
-        onClick={() => setDismissed(true)}
-      >
-        <X size={13} />
-      </button>
+      {phase !== 'installing' && (
+        <button className="update-toast-close" title="Dismiss" onClick={() => setDismissed(true)}>
+          <X size={13} />
+        </button>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { MosaicDirection, MosaicNode } from 'react-mosaic-component'
-import type { Pane, PaneType, ProviderId } from '@shared/types'
-import { DEFAULT_AGENT } from '@shared/providers'
+import type { AgentPaneState, Pane, PaneType, ProviderId } from '@shared/types'
+import { DEFAULT_AGENT, sessionFlagsFor } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal } from '@renderer/lib/terminalPool'
 import { homeDir } from '@renderer/lib/osInfo'
@@ -12,6 +12,30 @@ const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
+
+/**
+ * A fresh, RFC-4122-valid UUID for a Claude `--session-id`. We can't reuse the
+ * pane `uid()` because its non-crypto fallback isn't UUID-shaped and Claude
+ * rejects a malformed `--session-id`.
+ */
+function newSessionId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
+/**
+ * Stamp a fresh pinned session id onto an agent config when the agent supports
+ * caller-pinned sessions (Claude). Every place a NEW agent pane is born routes
+ * its agent object through this, so each pane owns its own conversation. A fresh
+ * id is always minted (never copied) so a duplicated/reopened pane can't collide
+ * with the one it came from.
+ */
+function withSessionId(agent: AgentPaneState): AgentPaneState {
+  return sessionFlagsFor(agent.command) ? { ...agent, sessionId: newSessionId() } : agent
+}
 
 /** Best-effort home dir (renderer runs with sandbox:false, so env is available). */
 function getHome(): string | undefined {
@@ -138,7 +162,7 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
     // An "AI pane" is a terminal that auto-launches an agent CLI (default: claude).
     const command = init?.agentCommand ?? defaults.agent ?? DEFAULT_AGENT
     base.title = init?.label ?? command
-    base.agent = { command, cwd: init?.agentCwd }
+    base.agent = withSessionId({ command, cwd: init?.agentCwd })
   } else if (type === 'shell') {
     base.title = init?.label ?? `Shell ${paneCounter}`
     const cwd = init?.shell !== undefined ? undefined : defaults.shellCwd || undefined
@@ -222,7 +246,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const np = makePane(src.type, paneDefaults(get()))
     // copy the live session so the new pane opens the same agent in the same folder
     if (src.type === 'ai' && src.agent) {
-      np.agent = { command: src.agent.command, cwd: src.agent.cwd }
+      // a fresh session id (not the source's) so the two panes don't share a chat
+      np.agent = withSessionId({ command: src.agent.command, cwd: src.agent.cwd })
       np.title = src.title
     } else if (src.type === 'shell' && src.shell) {
       np.shell = { shell: src.shell.shell, args: src.shell.args, cwd: src.shell.cwd }
@@ -310,7 +335,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     // give it a fresh id so it can't collide with anything still alive
     const revived = makePane(last.type, paneDefaults(get()))
     revived.title = last.title
-    if (last.agent) revived.agent = { command: last.agent.command, cwd: last.agent.cwd }
+    // reopen = a new conversation; mint a fresh session id rather than reusing the closed one
+    if (last.agent) revived.agent = withSessionId({ command: last.agent.command, cwd: last.agent.cwd })
     set((s) => {
       const leaves = getLeaves(s.layout)
       const target = s.activePaneId && leaves.includes(s.activePaneId) ? s.activePaneId : leaves[0]
@@ -364,7 +390,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined }
       if (type === 'ai') {
         const command = init?.agentCommand ?? DEFAULT_AGENT
-        replacement.agent = { command }
+        replacement.agent = withSessionId({ command })
         replacement.title = init?.label ?? command
       } else if (type === 'shell') {
         replacement.shell = { shell: init?.shell ?? '', args: init?.shellArgs }
@@ -441,7 +467,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
             return
           }
           const np = makePane('ai', paneDefaults(get()))
-          np.agent = { command, cwd: res.cwd || homeDir() || '.', sshTarget: target }
+          np.agent = withSessionId({ command, cwd: res.cwd || homeDir() || '.', sshTarget: target })
           np.title = res.mounted ? `${command} ${res.drive}: → ${target}` : `${command} → ${target}`
           set((s) => {
             // The source SSH pane may have been closed during the connect/mount
@@ -477,7 +503,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     // The shell's launch cwd (live `cd`s aren't tracked); fall back to home.
     const cwd = pane.shell?.cwd ?? getHome()
     const np = makePane('ai', paneDefaults(s0))
-    np.agent = { command, cwd }
+    np.agent = withSessionId({ command, cwd })
     np.title = command
     set((s) => {
       const layout = s.layout === null ? np.id : splitLeaf(s.layout, paneId, np.id, 'column')
@@ -495,11 +521,12 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => {
       const pane = s.panes[id]
       if (!pane || pane.type !== 'ai') return s
-      // keep the folder, drop ptyId so the terminal respawns with the new command
+      // keep the folder, drop ptyId so the terminal respawns with the new command;
+      // a new command is a new conversation, so mint a fresh pinned session id
       return {
         panes: {
           ...s.panes,
-          [id]: { ...pane, title: command, agent: { command, cwd: pane.agent?.cwd } }
+          [id]: { ...pane, title: command, agent: withSessionId({ command, cwd: pane.agent?.cwd }) }
         }
       }
     }),
