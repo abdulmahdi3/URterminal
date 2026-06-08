@@ -192,6 +192,12 @@ interface Entry {
   followTail: boolean
   /** Guard so our own scroll-to-bottom calls don't get read back as a user scroll. */
   suppressScrollSync: boolean
+  /**
+   * Last observed viewport line, so onScroll can tell a genuine user scroll-up
+   * (viewportY decreases) from the buffer simply growing under a pinned viewport
+   * (baseY increases, viewportY unchanged). The latter must NOT detach follow-tail.
+   */
+  lastViewportY: number
 }
 
 /** Is the viewport currently at the very bottom of the buffer? */
@@ -472,13 +478,23 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     lastRows: term.rows,
     followTail: true,
     suppressScrollSync: false,
+    lastViewportY: term.buffer.active.viewportY,
     dispose: () => {}
   }
 
-  // Track follow-the-tail intent: any non-self scroll that leaves the bottom
-  // detaches (the user is reading history); returning to the bottom re-attaches.
+  // Track follow-the-tail intent. Returning to the bottom always re-attaches.
+  // Detaching is reserved for a genuine user scroll-UP (viewportY decreases) —
+  // when Claude streams output the buffer's baseY grows while xterm leaves
+  // viewportY put (it stops auto-following during in-place redraws/reflows),
+  // which fires an off-bottom onScroll that must NOT be misread as the user
+  // scrolling away, or live output would freeze above the fold mid-turn.
   const onScroll = term.onScroll(() => {
-    if (!entry.suppressScrollSync) entry.followTail = viewportAtBottom(term)
+    const vy = term.buffer.active.viewportY
+    if (!entry.suppressScrollSync) {
+      if (viewportAtBottom(term)) entry.followTail = true
+      else if (vy < entry.lastViewportY) entry.followTail = false
+    }
+    entry.lastViewportY = vy
   })
 
   const onData = term.onData((d) => {

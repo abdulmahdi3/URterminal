@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import type { Pane } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
@@ -21,18 +21,35 @@ export default function ShellPane({ pane }: { pane: Pane }): JSX.Element {
   const args = pane.shell?.args
   const ssh = pane.shell?.ssh
 
-  // For SSH panes, show a "Connecting…" loader until the session prints its first
-  // output. Re-mounts after zoom report started=true immediately (no flash).
+  // Show a loader until the session/shell prints its first output — SSH panes
+  // read "Connecting…", local shells (incl. WSL distros like Kali) "Starting…".
+  // Re-mounts after zoom report started=true immediately (no flash).
   const [started, setStarted] = useState(() => isTerminalStarted(pane.id))
-  const connecting = !!ssh && !started
+  const booting = !started
+
+  // Safety net: a silent shell shouldn't leave the loader spinning forever.
+  // SSH can legitimately take a while to connect, so only auto-clear local shells.
+  useEffect(() => {
+    if (started || ssh) return
+    const t = window.setTimeout(() => setStarted(true), 8000)
+    return () => window.clearTimeout(t)
+  }, [started, ssh])
 
   return (
     <div className="agent-pane">
-      {connecting && (
+      {booting && (
         <div className="agent-booting">
           <Loader2 size={26} className="spin" />
           <div className="booting-text">
-            Connecting to <b>{ssh!.target}</b>…
+            {ssh ? (
+              <>
+                Connecting to <b>{ssh.target}</b>…
+              </>
+            ) : (
+              <>
+                Starting <b>{pane.title || pane.shell?.shell || 'shell'}</b>…
+              </>
+            )}
           </div>
         </div>
       )}
