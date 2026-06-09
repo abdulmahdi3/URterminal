@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   getPromptMap,
-  scrollPaneToPrompt,
+  jumpToPrompt,
   onTerminalInput,
   type PromptMark
 } from '@renderer/lib/terminalPool'
@@ -67,7 +67,7 @@ export default function PromptMinimap({ paneId }: { paneId: string }): JSX.Eleme
             className={'pm-item' + (i === activeIdx ? ' active' : '')}
             dir="auto"
             title={m.text}
-            onClick={() => scrollPaneToPrompt(paneId, m.line)}
+            onClick={() => jumpToPrompt(paneId, m)}
           >
             {hover ? <span className="pm-text">{m.text}</span> : <span className="pm-tick" />}
           </button>

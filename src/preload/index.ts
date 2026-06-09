@@ -83,6 +83,10 @@ const api = {
   installAgent: (command: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.agentsInstall, command),
   gitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke(IPC.gitStatus, cwd),
+  promptsGet: (sessionId: string): Promise<string[]> =>
+    ipcRenderer.invoke(IPC.promptsGet, sessionId),
+  promptsAppend: (sessionId: string, text: string): void =>
+    ipcRenderer.send(IPC.promptsAppend, sessionId, text),
 
   // ---- learning layer (local recorder; opt-in) ----
   learning: {

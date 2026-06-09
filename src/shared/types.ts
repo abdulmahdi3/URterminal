@@ -744,6 +744,9 @@ export const IPC = {
   agentsDiscover: 'agents:discover',
   // agents: run an agent's install command (one-click install from the doctor)
   agentsInstall: 'agents:install',
+  // prompts: durable per-chat prompt history (rebuilds the prompt minimap on restore)
+  promptsGet: 'prompts:get',
+  promptsAppend: 'prompts:append',
   // git: working-tree status for a folder (branch / ahead-behind / dirty counts)
   gitStatus: 'git:status',
 

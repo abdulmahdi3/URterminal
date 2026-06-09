@@ -69,9 +69,10 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
         title: 'Prompt minimap',
         demo: 'minimap',
         body:
-          'Every prompt you send an agent now shows as a tick down the pane’s right edge. Hover ' +
-          'the gutter to see the full prompts, and click any one to jump straight to it in the ' +
-          'conversation — a fast map of your whole session.'
+          'Every prompt you send an agent shows as a tick down the pane’s right edge. Hover the ' +
+          'gutter to read the full prompts, and click any one to jump to it in the conversation. ' +
+          'Your prompts are remembered per chat, so the map comes back when you restore a session ' +
+          'or reopen a chat.'
       }
     ]
   },

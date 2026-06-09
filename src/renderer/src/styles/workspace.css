@@ -453,15 +453,15 @@
    by the input line, so the rewrite is triggered right where the user types. */
 .enhance-fab {
   position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 6;
+  /* end of the input line (bottom-right), clear of the prompt-minimap gutter */
+  right: 24px;
+  bottom: 10px;
+  z-index: 7;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -478,7 +478,7 @@
 .enhance-fab:hover {
   opacity: 1;
   border-color: var(--accent);
-  transform: translateY(-50%) scale(1.06);
+  transform: scale(1.08);
 }
 .enhance-fab:disabled {
   cursor: default;
@@ -680,39 +680,51 @@
   border-radius: 6px;
 }
 
-/* ---- prompt minimap (one tick per submitted prompt, right edge) ---- */
+/* ---- prompt minimap (one tick per submitted prompt) ----
+   Centered on the pane's right edge; the block hugs the ticks (so only the ticks
+   are hoverable, not the whole wall) and grows up + down as prompts pile up,
+   capping at half the pane height and scrolling beyond that. */
 .prompt-minimap {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
-  right: 2px;
-  width: 16px;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  max-height: 50%;
+  width: 18px;
   z-index: 6;
   display: flex;
-  transition: width 0.12s ease, background 0.12s ease;
+  flex-direction: column;
+  transition: width 0.13s ease, background 0.13s ease, box-shadow 0.13s ease;
 }
 .prompt-minimap.expanded {
-  width: min(280px, 70%);
-  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  width: min(300px, 72%);
+  background: color-mix(in srgb, var(--bg-elev) 95%, transparent);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 9px;
   box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.45));
 }
 .pm-inner {
   flex: 1;
-  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  justify-content: center;
-  padding: 6px 3px;
+  gap: 3px;
+  align-items: flex-end;
+  padding: 5px 2px;
   overflow-y: auto;
   overflow-x: hidden;
 }
 .prompt-minimap.expanded .pm-inner {
-  justify-content: flex-start;
+  align-items: stretch;
   gap: 1px;
   padding: 6px;
+}
+.pm-inner::-webkit-scrollbar {
+  width: 6px;
+}
+.pm-inner::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
 }
 /* collapsed: a row holding a single right-aligned tick */
 .pm-item {
@@ -722,7 +734,7 @@
   justify-content: flex-end;
   background: transparent;
   border: none;
-  padding: 1px 0;
+  padding: 1px 2px;
   cursor: pointer;
 }
 .pm-tick {
@@ -735,11 +747,11 @@
 }
 .pm-item:hover .pm-tick {
   width: 16px;
-  opacity: 0.9;
+  opacity: 1;
   background: var(--text-dim);
 }
 .pm-item.active .pm-tick {
-  width: 16px;
+  width: 17px;
   height: 3px;
   opacity: 1;
   background: var(--accent);
@@ -748,8 +760,8 @@
 .prompt-minimap.expanded .pm-item {
   width: 100%;
   justify-content: flex-start;
-  padding: 5px 8px;
-  border-radius: 5px;
+  padding: 6px 9px;
+  border-radius: 6px;
 }
 .prompt-minimap.expanded .pm-item:hover {
   background: var(--bg-elev-2);
@@ -768,6 +780,7 @@
   text-overflow: ellipsis;
   text-align: start;
 }
+.prompt-minimap.expanded .pm-item:hover .pm-text,
 .prompt-minimap.expanded .pm-item.active .pm-text {
   color: var(--text);
 }

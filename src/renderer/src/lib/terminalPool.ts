@@ -213,9 +213,6 @@ interface Entry {
   followTail: boolean
   /** Guard so our own scroll-to-bottom calls don't get read back as a user scroll. */
   suppressScrollSync: boolean
-  /** xterm marker + text for each submitted prompt — powers turn-jumping and the
-   *  prompt minimap (a tick per prompt down the pane's right edge). */
-  bookmarks: { marker: IMarker; text: string }[]
   /**
    * Last observed viewport line, so onScroll can tell a genuine user scroll-up
    * (viewportY decreases) from the buffer simply growing under a pinned viewport
@@ -322,40 +319,60 @@ export function onTerminalInput(cb: InputListener): () => void {
 // treated as ONE input chunk — its embedded newlines are folded to spaces so a
 // multi-line paste isn't mis-counted as many separate prompts.
 const inputLines = new Map<string, string>()
-const INPUT_ESC = new RegExp('\\u001B\\[[0-9;]*[~A-Za-z]|\\u001B[O][A-Za-z]?', 'g')
+// Strip escape sequences so shortcut keys never leak their letter into the typed
+// line: CSI (ESC[…), SS3 (ESC O…), and Alt+<key> (a bare ESC + one char — this
+// last one is why Alt+P used to record a phantom "p" prompt). Order matters:
+// the ESC+char catch-all is last so full CSI/SS3 sequences match first.
+const INPUT_ESC = new RegExp(
+  '\\u001B\\[[0-9;]*[~A-Za-z]|\\u001BO[A-Za-z]|\\u001B[\\s\\S]',
+  'g'
+)
 const PASTE_START = '[200~'
 const PASTE_END = '[201~'
 
-// Per-pane history of submitted prompts (for the session summary).
-const promptHistory = new Map<string, string[]>()
+/** One submitted prompt: its text plus a live xterm marker (absent for prompts
+ *  seeded from a restored/resumed chat — those jump by text search instead). */
+interface PromptRec {
+  text: string
+  marker?: IMarker
+}
+// Per-pane prompt records (drives the session summary + the prompt minimap).
+const promptHistory = new Map<string, PromptRec[]>()
+// Pane → pinned agent session id, so submitted prompts persist under the chat
+// and reappear as minimap ticks when that chat is restored or resumed.
+const paneSessionId = new Map<string, string>()
 // Whether a pane is mid bracketed-paste (markers can span data chunks).
 const pasting = new Map<string, boolean>()
 
-/** Record a submitted prompt: turn-tracking, the session summary, and a marker
- *  at the prompt line for jump-to-turn + the prompt minimap. */
+/** Record a submitted prompt: turn-tracking, the summary, a jump marker, and
+ *  durable per-chat persistence (so it survives restore/resume). */
 function recordSubmit(paneId: string, buf: string): void {
   const submitted = buf.trim()
   if (!submitted) return
   // Hand the clean prompt to the learning recorder (no-op unless enabled).
   window.api.learning?.turnMarker(paneId, submitted, Date.now())
-  const hist = promptHistory.get(paneId) ?? []
-  hist.push(submitted)
-  if (hist.length > 200) hist.shift()
-  promptHistory.set(paneId, hist)
   // Register a marker at the current prompt line (cursor is on the input line
-  // at submit time). Bound the list, forgetting markers scrolled out of buffer.
+  // at submit time) so jumps are exact for prompts typed this session.
+  let marker: IMarker | undefined
   const entry = pool.get(paneId)
   if (entry) {
     try {
-      const mk = entry.term.registerMarker(0)
-      if (mk) entry.bookmarks.push({ marker: mk, text: submitted })
+      marker = entry.term.registerMarker(0) ?? undefined
     } catch {
       /* registerMarker can throw if the buffer isn't ready — ignore */
     }
-    if (entry.bookmarks.length > 300) {
-      entry.bookmarks = entry.bookmarks.filter((b) => b.marker.line >= 0).slice(-200)
-    }
   }
+  const recs = promptHistory.get(paneId) ?? []
+  recs.push({ text: submitted, marker })
+  // Bound the list, forgetting records whose marker scrolled out of the buffer.
+  if (recs.length > 400) {
+    promptHistory.set(paneId, recs.filter((r) => !r.marker || r.marker.line >= 0).slice(-300))
+  } else {
+    promptHistory.set(paneId, recs)
+  }
+  // Persist under the pane's chat id so the minimap can be rebuilt on restore.
+  const sid = paneSessionId.get(paneId)
+  if (sid) window.api.promptsAppend?.(sid, submitted)
 }
 
 /** Process a run of real keystrokes (no paste markers): append / backspace / submit. */
@@ -403,7 +420,18 @@ function noteInputLine(paneId: string, data: string): void {
 
 /** Prompts the user has submitted in a pane this session (oldest first). */
 export function getPromptHistory(paneId: string): string[] {
-  return promptHistory.get(paneId) ?? []
+  return (promptHistory.get(paneId) ?? []).map((r) => r.text)
+}
+
+/** Seed a pane's prompt records from persisted text (restored/resumed chats),
+ *  unless live prompts have already been recorded for it. */
+function seedPrompts(paneId: string, texts: string[]): void {
+  if (!texts.length) return
+  if (promptHistory.get(paneId)?.length) return
+  promptHistory.set(
+    paneId,
+    texts.map((t) => ({ text: t }))
+  )
 }
 
 /** The text currently typed (not yet submitted) on a pane's input line. */
@@ -569,7 +597,6 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     lastRows: term.rows,
     followTail: true,
     suppressScrollSync: false,
-    bookmarks: [],
     lastViewportY: term.buffer.active.viewportY,
     dispose: () => {}
   }
@@ -678,6 +705,16 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   }
 
   pool.set(paneId, entry)
+
+  // Map the pane to its pinned chat id so prompts persist under that chat, and
+  // seed the minimap with this chat's previously-saved prompts (restore/resume).
+  if (opts.sessionId) {
+    paneSessionId.set(paneId, opts.sessionId)
+    void window.api
+      .promptsGet?.(opts.sessionId)
+      .then((texts) => seedPrompts(paneId, texts ?? []))
+      .catch(() => {})
+  }
 
   const creds = pendingSshCreds.get(paneId) ?? {}
   pendingSshCreds.delete(paneId)
@@ -940,8 +977,8 @@ export function jumpBookmark(paneId: string, dir: 'prev' | 'next'): boolean {
   const entry = pool.get(paneId)
   if (!entry) return false
   const term = entry.term
-  const lines = entry.bookmarks
-    .map((b) => b.marker.line)
+  const lines = (promptHistory.get(paneId) ?? [])
+    .map((r) => r.marker?.line ?? -1)
     .filter((l) => l >= 0)
     .sort((a, b) => a - b)
   if (!lines.length) return false
@@ -967,16 +1004,17 @@ export function jumpBookmark(paneId: string, dir: 'prev' | 'next'): boolean {
   return true
 }
 
-/** A prompt marker for the minimap: its absolute buffer line + the prompt text. */
+/** A prompt for the minimap: its text + buffer line (-1 = restored, not yet
+ *  located in the live buffer — jumped to by text search instead). */
 export interface PromptMark {
   line: number
   text: string
 }
 
 /**
- * Snapshot of a pane's prompt markers plus the current viewport/buffer extent —
- * everything the prompt minimap needs to place ticks and highlight the one in
- * view. Returns null if the pane isn't mounted.
+ * Snapshot of a pane's prompts plus the current viewport/buffer extent —
+ * everything the prompt minimap needs to draw ticks and highlight the one in
+ * view. Includes restored prompts (line -1). Returns null if not mounted.
  */
 export function getPromptMap(
   paneId: string
@@ -984,9 +1022,10 @@ export function getPromptMap(
   const entry = pool.get(paneId)
   if (!entry) return null
   const buf = entry.term.buffer.active
-  const marks = entry.bookmarks
-    .map((b) => ({ line: b.marker.line, text: b.text }))
-    .filter((m) => m.line >= 0)
+  const marks = (promptHistory.get(paneId) ?? []).map((r) => ({
+    line: r.marker?.line ?? -1,
+    text: r.text
+  }))
   return { marks, viewportY: buf.viewportY, length: buf.length, rows: entry.term.rows }
 }
 
@@ -1000,6 +1039,21 @@ export function scrollPaneToPrompt(paneId: string, line: number): void {
   } catch {
     /* noop */
   }
+}
+
+/**
+ * Jump to a prompt from the minimap. A live prompt has an exact buffer line; a
+ * restored one (line -1) is located by searching the buffer for a prefix of its
+ * text (the rendered line may be wrapped/truncated, so a short needle matches best).
+ */
+export function jumpToPrompt(paneId: string, mark: PromptMark): void {
+  if (mark.line >= 0) {
+    scrollPaneToPrompt(paneId, mark.line)
+    return
+  }
+  const needle = mark.text.replace(/\s+/g, ' ').trim().slice(0, 24)
+  const hit = findMatchesInPane(paneId, needle, 1)[0]
+  if (hit) scrollPaneToPrompt(paneId, hit.line)
 }
 
 /**
@@ -1021,6 +1075,7 @@ export function disposeTerminal(paneId: string): void {
   pool.delete(paneId)
   inputLines.delete(paneId)
   promptHistory.delete(paneId)
+  paneSessionId.delete(paneId)
   pasting.delete(paneId)
   entry.dispose()
   useTokens.getState().clearPane(paneId)
