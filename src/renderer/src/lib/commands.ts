@@ -297,6 +297,12 @@ export function getCommands(): Command[] {
       run: () => ui().setShowShortcuts(true)
     },
     {
+      id: 'app.agentDoctor',
+      title: 'Check agent setup (Agent doctor)',
+      group: 'App',
+      run: () => ui().setShowAgentDoctor(true)
+    },
+    {
       id: 'app.reload',
       title: 'Reload window',
       group: 'App',
@@ -312,7 +318,7 @@ export function getCommands(): Command[] {
           toast('No release notes available yet', 'info')
           return
         }
-        ui().setWhatsNewVersion(notes.version)
+        ui().setWhatsNewVersions([notes.version])
       }
     },
 

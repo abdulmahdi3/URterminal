@@ -15,7 +15,15 @@
  */
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
-export type WhatsNewDemo = 'tour' | 'follow' | 'loader' | 'switch' | 'budget'
+export type WhatsNewDemo =
+  | 'tour'
+  | 'follow'
+  | 'loader'
+  | 'switch'
+  | 'budget'
+  | 'doctor'
+  | 'git'
+  | 'drop'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -45,6 +53,44 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  // 0.3.14 — batch 2 (only THIS version's new features live here, per the
+  // "show new features only" rule; older versions keep their own entries).
+  '0.3.14': {
+    version: '0.3.14',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Agent doctor: one-click setup',
+        demo: 'doctor',
+        body:
+          'A new setup checklist shows which agent CLIs (Claude, Codex, Gemini, …) are installed, ' +
+          'and installs any that are missing with one click — you’re notified when it’s done (and ' +
+          'offered a relaunch if needed). It greets new users automatically and lives under ' +
+          'Ctrl+K → “Check agent setup”.'
+      },
+      {
+        kind: 'feature',
+        title: 'Git status in the status bar',
+        demo: 'git',
+        body:
+          'The status bar now shows the active pane folder’s git branch, how many files have ' +
+          'changed, and whether you’re ahead/behind the remote — so you always know the state ' +
+          'of the repo you’re working in.'
+      },
+      {
+        kind: 'feature',
+        title: 'Drag files in to paste their path',
+        demo: 'drop',
+        body:
+          'Drop one or more files or folders onto any terminal and their full paths are inserted ' +
+          'at the prompt — quoted automatically when they contain spaces. No more typing long ' +
+          'paths or hunting for them.'
+      }
+    ]
+  },
+
   '0.3.13': {
     version: '0.3.13',
     headline: "A quick tour of what changed in this update",
@@ -100,6 +146,30 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
 /** Notes for an exact version, or undefined when there's nothing authored. */
 export function notesFor(version: string): ReleaseNotes | undefined {
   return RELEASE_NOTES[version]
+}
+
+/**
+ * Which release notes to show on launch, oldest → newest:
+ *  • Returning user (has seen `lastSeen`) updating to `current`: EVERY authored
+ *    version in the half-open range (lastSeen, current] — so jumping 0.3.14 →
+ *    0.3.17 surfaces 0.3.15, 0.3.16 and 0.3.17 together.
+ *  • First install (no `lastSeen`): only the latest update's notes (≤ current),
+ *    so a brand-new user isn't shown the whole back-catalogue.
+ * Returns [] when there's nothing new to show.
+ */
+export function notesSince(lastSeen: string, current: string): ReleaseNotes[] {
+  const all = Object.values(RELEASE_NOTES)
+  const upTo = (n: ReleaseNotes): boolean => !current || compareVersions(n.version, current) <= 0
+
+  if (!lastSeen) {
+    const eligible = all.filter(upTo).sort((a, b) => compareVersions(a.version, b.version))
+    const latest = (eligible.length ? eligible : all.sort((a, b) => compareVersions(a.version, b.version))).at(-1)
+    return latest ? [latest] : []
+  }
+
+  return all
+    .filter((n) => compareVersions(n.version, lastSeen) > 0 && upTo(n))
+    .sort((a, b) => compareVersions(a.version, b.version))
 }
 
 /** The highest-versioned notes available (for the manual "What's new" command). */

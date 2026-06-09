@@ -673,6 +673,12 @@
 .shell-pane .xterm {
   height: 100%;
 }
+/* drag a file over a terminal → insert its path (see TerminalPane onDrop) */
+.shell-pane.drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  border-radius: 6px;
+}
 /* "Show pane title bars" off → collapse the per-pane header (drag/rename gone) */
 .hide-pane-headers .mosaic-urterminal .mosaic-window-toolbar {
   display: none !important;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, Bot, Settings, Command as CommandIcon } from 'lucide-react'
+import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, Bot, Settings, Command as CommandIcon, GitBranch } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
@@ -7,6 +7,7 @@ import { useTokens } from '@renderer/store/tokens'
 import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
 import { usePaneStatus } from '@renderer/store/paneStatus'
+import { useGitStatus } from '@renderer/hooks/useGitStatus'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
 import LearningStatus from './LearningStatus'
@@ -63,6 +64,8 @@ export default function StatusBar(): JSX.Element {
   const budget = useSettings((s) => s.settings?.prefs.sessionTokenBudget ?? 0)
   const budgetPct = budget > 0 ? Math.min(999, Math.round((totalTokens / budget) * 100)) : 0
   const budgetLevel = budgetPct >= 100 ? 'over' : budgetPct >= 80 ? 'warn' : 'ok'
+  const git = useGitStatus()
+  const gitChanges = git ? git.staged + git.unstaged + git.untracked : 0
 
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
   const setShowSettings = useUi((s) => s.setShowSettings)
@@ -139,6 +142,25 @@ export default function StatusBar(): JSX.Element {
         <span className={clsx('sb-dot', streaming && 'live', streaming && 'streaming')} />
         {agentsWorking} working
       </span>
+
+      {/* Git status for the active pane's folder */}
+      {git && (
+        <span
+          className={clsx('sb-item sb-git', git.dirty && 'dirty')}
+          title={
+            `${git.branch}` +
+            (git.dirty ? ` · ${gitChanges} change${gitChanges === 1 ? '' : 's'}` : ' · clean') +
+            (git.ahead ? ` · ↑${git.ahead}` : '') +
+            (git.behind ? ` · ↓${git.behind}` : '')
+          }
+        >
+          <GitBranch size={12} />
+          <span className="sb-git-branch">{git.branch}</span>
+          {git.dirty && <span className="sb-git-dirty">●{gitChanges}</span>}
+          {git.ahead > 0 && <span className="sb-git-ab">↑{git.ahead}</span>}
+          {git.behind > 0 && <span className="sb-git-ab">↓{git.behind}</span>}
+        </span>
+      )}
 
       <span className="sb-spacer" />
 

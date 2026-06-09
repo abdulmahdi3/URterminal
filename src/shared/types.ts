@@ -263,6 +263,8 @@ export interface AppPrefs {
   /** soft session token budget (approx output tokens); 0 = off. Drives the
    *  status-bar usage meter and 80%/100% warning toasts. */
   sessionTokenBudget: number
+  /** whether the first-run agent-doctor (install checklist) has been auto-shown */
+  agentSetupSeen: boolean
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -305,7 +307,8 @@ export const DEFAULT_PREFS: AppPrefs = {
   notifySoundName: 'chime',
 
   lastSeenVersion: '',
-  sessionTokenBudget: 0
+  sessionTokenBudget: 0,
+  agentSetupSeen: false
 }
 
 /** External to-do services the user can connect for syncing tasks. */
@@ -687,6 +690,24 @@ export interface FileSaveResult {
   error?: string
 }
 
+/** Git working-tree summary for a folder (null when it isn't a git repo). */
+export interface GitStatus {
+  /** current branch name, or a short SHA when detached */
+  branch: string
+  /** commits ahead of upstream */
+  ahead: number
+  /** commits behind upstream */
+  behind: number
+  /** files with staged changes */
+  staged: number
+  /** tracked files with unstaged changes */
+  unstaged: number
+  /** untracked files */
+  untracked: number
+  /** any uncommitted change at all */
+  dirty: boolean
+}
+
 // ---------------------------------------------------------------------------
 // IPC channel names — single source of truth.
 // ---------------------------------------------------------------------------
@@ -694,6 +715,8 @@ export interface FileSaveResult {
 export const IPC = {
   // app info (version, etc.)
   appInfo: 'app:info',
+  // relaunch the whole app (used after installing an agent so PATH is re-read)
+  appRelaunch: 'app:relaunch',
 
   // settings
   settingsGet: 'settings:get',
@@ -715,6 +738,10 @@ export const IPC = {
   commandsCheck: 'shell:check-commands',
   // agents: discover the merged agent list (built-ins + manifest + gh extensions)
   agentsDiscover: 'agents:discover',
+  // agents: run an agent's install command (one-click install from the doctor)
+  agentsInstall: 'agents:install',
+  // git: working-tree status for a folder (branch / ahead-behind / dirty counts)
+  gitStatus: 'git:status',
 
   // learning layer (local observe -> distill -> inject; opt-in, default off)
   learningTurnMarker: 'learning:turn-marker', // renderer -> main: a submitted user prompt

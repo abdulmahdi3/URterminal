@@ -26,6 +26,8 @@ import { claudeSessionInfo } from '../claude/sessions'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
+import { installAgent } from '../agents/install'
+import { getGitStatus } from '../git/status'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
 import { forgetProject as forgetLearningProject } from '../learning/brain'
@@ -127,6 +129,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
 
   // ---- app info ----
   ipcMain.handle(IPC.appInfo, () => ({ version: app.getVersion(), homeDir: homedir() }))
+  // Relaunch the whole app (so a freshly installed agent is picked up from PATH).
+  ipcMain.handle(IPC.appRelaunch, () => {
+    app.relaunch()
+    app.exit(0)
+  })
 
   // ---- settings ----
   ipcMain.handle(IPC.settingsGet, () => publicSettings())
@@ -384,6 +391,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.shellListWsl, () => listWslDistros())
   ipcMain.handle(IPC.commandsCheck, (_e, names: string[]) => filterAvailable(names))
   ipcMain.handle(IPC.agentsDiscover, () => discoverAgents())
+  ipcMain.handle(IPC.agentsInstall, (_e, command: string) => installAgent(command))
+  ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
 
   // ---- learning layer (local recorder; opt-in, default off) ----
   ipcMain.on(

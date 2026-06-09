@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Sparkles,
   Wrench,
@@ -7,7 +7,10 @@ import {
   Check,
   Rocket,
   Loader2,
-  Search
+  Search,
+  GitBranch,
+  FileText,
+  Download
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -66,6 +69,53 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'drop') {
+    // A file chip dropping into a mini terminal prompt.
+    return (
+      <div className="wn-demo wn-demo-drop">
+        <div className="wn-drop-file">
+          <FileText size={13} /> report.pdf
+        </div>
+        <div className="wn-drop-term">
+          <span className="wn-arrow">❯</span> ./build.sh <span className="wn-drop-path">"C:\My Files\report.pdf"</span>
+          <span className="wn-caret" />
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'git') {
+    // A mock status-bar git chip.
+    return (
+      <div className="wn-demo wn-demo-git">
+        <div className="wn-git-chip">
+          <GitBranch size={13} />
+          <span>main</span>
+          <span className="wn-git-dirty">●3</span>
+          <span className="wn-git-ab">↑1</span>
+        </div>
+        <div className="wn-git-cap">branch · changes · ahead/behind</div>
+      </div>
+    )
+  }
+  if (kind === 'doctor') {
+    // A mini agent checklist: rows resolving to installed/missing.
+    return (
+      <div className="wn-demo wn-demo-doctor">
+        <div className="wn-doc-row wn-doc-ok">
+          <span className="wn-doc-mark">✓</span> claude <span className="wn-doc-tag">installed</span>
+        </div>
+        <div className="wn-doc-row wn-doc-ok">
+          <span className="wn-doc-mark">✓</span> gemini <span className="wn-doc-tag">installed</span>
+        </div>
+        <div className="wn-doc-row wn-doc-miss">
+          <span className="wn-doc-mark">✕</span> codex
+          <span className="wn-doc-cmd">
+            <Download size={11} /> Install
+          </span>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'budget') {
     // A status-bar budget meter filling toward 100%.
     return (
@@ -108,41 +158,66 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
   )
 }
 
+/** A step flattened out of its release, carrying its version + the release kind. */
+interface FlatStep {
+  version: string
+  headline: string
+  releaseKind: 'feature' | 'fix' | 'mixed'
+  step: WhatsNewStep
+}
+
 /**
- * Stepped "What's new" tour. Shown once on the first launch after an update
- * (and on demand from the command palette). The shown version is held in the UI
- * store; dismissing records it as `lastSeenVersion` so it never repeats.
+ * Stepped "What's new" tour. Shows the notes for every version since the user
+ * last looked (oldest→newest), flattened into one walk-through with a per-step
+ * version pill, so a multi-version jump is one combined tour. Dismissing records
+ * the current app version as `lastSeenVersion` so nothing re-shows until the
+ * next update.
  */
 export default function WhatsNewModal(): JSX.Element | null {
-  const version = useUi((s) => s.whatsNewVersion)
-  const setVersion = useUi((s) => s.setWhatsNewVersion)
-  const notes = version ? notesFor(version) : undefined
+  const versions = useUi((s) => s.whatsNewVersions)
+  const setVersions = useUi((s) => s.setWhatsNewVersions)
   const [step, setStep] = useState(0)
+
+  // Flatten every shown version's steps into one ordered sequence.
+  const flat: FlatStep[] = useMemo(() => {
+    if (!versions) return []
+    const out: FlatStep[] = []
+    for (const v of versions) {
+      const n = notesFor(v)
+      if (!n) continue
+      for (const s of n.steps) {
+        out.push({ version: v, headline: n.headline, releaseKind: n.kind, step: s })
+      }
+    }
+    return out
+  }, [versions])
 
   // Reset to the first step whenever a tour opens (the component stays mounted).
   useEffect(() => {
-    if (version) setStep(0)
-  }, [version])
+    if (versions) setStep(0)
+  }, [versions])
 
-  if (!version || !notes) return null
+  if (!versions || !flat.length) return null
 
-  const steps = notes.steps
-  const idx = Math.min(step, steps.length - 1)
-  const cur: WhatsNewStep = steps[idx]
+  const idx = Math.min(step, flat.length - 1)
+  const cur = flat[idx]
   const curKind: 'feature' | 'fix' =
-    cur.kind ?? (notes.kind === 'fix' ? 'fix' : 'feature')
-  const isLast = idx >= steps.length - 1
+    cur.step.kind ?? (cur.releaseKind === 'fix' ? 'fix' : 'feature')
+  const isLast = idx >= flat.length - 1
   const isFirst = idx <= 0
+  const multi = versions.length > 1
 
-  // Mark this version seen and close. Patching is fire-and-forget; the modal
-  // closes immediately so the user isn't blocked on disk I/O.
+  // Record the real app version so nothing re-shows until the next update
+  // (falls back to the newest shown version if the app info call fails).
   const close = (): void => {
-    void useSettings.getState().patch({ prefs: { lastSeenVersion: version } })
-    setVersion(null)
+    void window.api
+      .getAppInfo()
+      .then(({ version }) => useSettings.getState().patch({ prefs: { lastSeenVersion: version } }))
+      .catch(() =>
+        useSettings.getState().patch({ prefs: { lastSeenVersion: versions[versions.length - 1] } })
+      )
+    setVersions(null)
   }
-
-  const headerLabel =
-    notes.kind === 'fix' ? 'Fixes' : notes.kind === 'mixed' ? "What's new & fixed" : "What's new"
 
   return (
     <div className="modal-overlay" onMouseDown={close}>
@@ -151,7 +226,15 @@ export default function WhatsNewModal(): JSX.Element | null {
           <div className="whatsnew-title">
             <Rocket size={16} />
             <span>
-              {headerLabel} <b>·</b> URterminal {version}
+              {multi ? (
+                <>
+                  What&apos;s new <b>·</b> {versions[0]} → {versions[versions.length - 1]}
+                </>
+              ) : (
+                <>
+                  What&apos;s new <b>·</b> URterminal {versions[0]}
+                </>
+              )}
             </span>
           </div>
           <button className="icon-btn" onClick={close} title="Close">
@@ -160,13 +243,16 @@ export default function WhatsNewModal(): JSX.Element | null {
         </div>
 
         <div className="modal-body whatsnew-body">
-          <div className="whatsnew-headline">{notes.headline}</div>
+          <div className="whatsnew-headline">
+            <span className="wn-ver-pill">v{cur.version}</span>
+            {cur.headline}
+          </div>
 
           <div className={`whatsnew-step whatsnew-${curKind}`} key={idx}>
-            {cur.media ? (
-              <img className="whatsnew-media" src={cur.media} alt="" />
-            ) : cur.demo ? (
-              <WhatsNewDemoView kind={cur.demo} />
+            {cur.step.media ? (
+              <img className="whatsnew-media" src={cur.step.media} alt="" />
+            ) : cur.step.demo ? (
+              <WhatsNewDemoView kind={cur.step.demo} />
             ) : null}
             <div className="whatsnew-step-row">
               <div className="whatsnew-step-icon">
@@ -177,22 +263,26 @@ export default function WhatsNewModal(): JSX.Element | null {
                   <span className={`whatsnew-badge whatsnew-badge-${curKind}`}>
                     {curKind === 'fix' ? 'Fixed' : 'New'}
                   </span>
-                  <h3>{cur.title}</h3>
+                  <h3>{cur.step.title}</h3>
                 </div>
-                <p>{cur.body}</p>
+                <p>{cur.step.body}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="whatsnew-footer">
-          {/* Step dots — click to jump */}
+          {/* Step dots — click to jump (version-colored boundaries) */}
           <div className="whatsnew-dots">
-            {steps.map((_, i) => (
+            {flat.map((f, i) => (
               <button
                 key={i}
-                className={`whatsnew-dot ${i === idx ? 'active' : ''}`}
-                aria-label={`Step ${i + 1}`}
+                className={
+                  `whatsnew-dot ${i === idx ? 'active' : ''}` +
+                  (i > 0 && flat[i - 1].version !== f.version ? ' wn-dot-newver' : '')
+                }
+                aria-label={`${f.version}: ${f.step.title}`}
+                title={`v${f.version}`}
                 onClick={() => setStep(i)}
               />
             ))}

@@ -110,6 +110,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
   {
     id: 'claude',
     label: 'Claude',
+    installHint: 'npm i -g @anthropic-ai/claude-code',
     // Each pane pins its own conversation via `--session-id` and resumes it with
     // `--resume`; `--continue` stays as the legacy fallback for panes saved before
     // session-id pinning existed (no pinned id → resume the most-recent in cwd).
@@ -117,10 +118,10 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     sessionId: { pin: '--session-id', resume: '--resume' },
     supports: { streamJson: true }
   },
-  { id: 'codex', label: 'ChatGPT (Codex)' },
-  { id: 'gemini', label: 'Gemini' },
-  { id: 'aider', label: 'Aider' },
-  { id: 'opencode', label: 'OpenCode' },
+  { id: 'codex', label: 'ChatGPT (Codex)', installHint: 'npm i -g @openai/codex' },
+  { id: 'gemini', label: 'Gemini', installHint: 'npm i -g @google/gemini-cli' },
+  { id: 'aider', label: 'Aider', installHint: 'python -m pip install aider-chat' },
+  { id: 'opencode', label: 'OpenCode', installHint: 'npm i -g opencode-ai' },
   {
     id: 'copilot',
     label: 'GitHub Copilot',

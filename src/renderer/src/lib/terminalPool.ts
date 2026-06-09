@@ -837,6 +837,18 @@ export function focusTerminal(paneId: string): void {
   }
 }
 
+/**
+ * Paste literal text into a pane's terminal (honors bracketed-paste, so it isn't
+ * executed). Used by drag-and-drop file insertion; input tracking stays in sync
+ * because the paste flows through the normal onData handler.
+ */
+export function pasteText(paneId: string, text: string): void {
+  const entry = pool.get(paneId)
+  if (!entry || !text) return
+  entry.term.focus()
+  entry.term.paste(text)
+}
+
 /** Permanently tear down a pane's terminal + PTY (called when the pane is closed). */
 export function disposeTerminal(paneId: string): void {
   const entry = pool.get(paneId)

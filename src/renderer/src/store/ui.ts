@@ -13,6 +13,8 @@ interface UiState {
   showAskAll: boolean
   /** pane quick-switcher (Ctrl+P) overlay open */
   showQuickSwitch: boolean
+  /** agent-doctor (install checklist) overlay open */
+  showAgentDoctor: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -32,9 +34,10 @@ interface UiState {
   appTheme: AppTheme
   /** when opening settings, jump to this section id (consumed once by SettingsModal) */
   settingsSection: string | null
-  /** version whose "What's new" tour to show (null = closed); set on first launch
-   *  after an update or by the manual command */
-  whatsNewVersion: string | null
+  /** versions whose "What's new" notes to show, oldest→newest (null = closed).
+   *  Set on first launch after an update (every version since last seen) or by
+   *  the manual command (just the latest). */
+  whatsNewVersions: string[] | null
 
   setShowSettings: (v: boolean) => void
   /** open settings, optionally navigating straight to a section (e.g. 'learning') */
@@ -49,6 +52,7 @@ interface UiState {
   setShowAskAll: (v: boolean) => void
   setShowQuickSwitch: (v: boolean) => void
   toggleQuickSwitch: () => void
+  setShowAgentDoctor: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -61,7 +65,7 @@ interface UiState {
   toggleZoom: (id: string) => void
   setAppTheme: (theme: AppTheme) => void
   cycleAppTheme: () => void
-  setWhatsNewVersion: (v: string | null) => void
+  setWhatsNewVersions: (v: string[] | null) => void
   /** close every transient overlay (used by Escape) */
   closeOverlays: () => void
 }
@@ -75,6 +79,7 @@ const ALL_CLOSED = {
   showTaskManager: false,
   showAskAll: false,
   showQuickSwitch: false,
+  showAgentDoctor: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -88,6 +93,7 @@ export const useUi = create<UiState>((set, get) => ({
   showTaskManager: false,
   showAskAll: false,
   showQuickSwitch: false,
+  showAgentDoctor: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -98,7 +104,7 @@ export const useUi = create<UiState>((set, get) => ({
   showNotes: false,
   appTheme: 'dark',
   settingsSection: null,
-  whatsNewVersion: null,
+  whatsNewVersions: null,
 
   // Overlays are mutually exclusive — opening one closes the rest (so e.g.
   // hitting Ctrl+K while Settings is open swaps to the palette, not stacks).
@@ -129,6 +135,8 @@ export const useUi = create<UiState>((set, get) => ({
     set((s) =>
       s.showQuickSwitch ? { showQuickSwitch: false } : { ...ALL_CLOSED, showQuickSwitch: true }
     ),
+  setShowAgentDoctor: (v) =>
+    set(v ? { ...ALL_CLOSED, showAgentDoctor: true } : { showAgentDoctor: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),
@@ -146,7 +154,7 @@ export const useUi = create<UiState>((set, get) => ({
       const idx = APP_THEMES.indexOf(s.appTheme)
       return { appTheme: APP_THEMES[(idx + 1) % APP_THEMES.length] }
     }),
-  setWhatsNewVersion: (v) => set({ whatsNewVersion: v }),
+  setWhatsNewVersions: (v) => set({ whatsNewVersions: v && v.length ? v : null }),
   closeOverlays: () =>
     set({
       showSettings: false,

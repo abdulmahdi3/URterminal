@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { mountTerminal, fitTerminal, bumpFontSize } from '@renderer/lib/terminalPool'
+import { mountTerminal, fitTerminal, bumpFontSize, pasteText } from '@renderer/lib/terminalPool'
 import { useSettings } from '@renderer/store/settings'
 
 interface Props {
@@ -96,10 +96,50 @@ export default function TerminalPane({
     }
     container.addEventListener('wheel', onWheel, { passive: false })
 
+    // Smart file drop: dragging files/folders onto the pane inserts their paths
+    // (space-separated, quoted when they contain spaces) at the prompt instead of
+    // letting Chromium navigate to the file. Falls back to dropped plain text.
+    const onDragOver = (e: DragEvent): void => {
+      if (e.dataTransfer?.types?.includes('Files')) {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        container.classList.add('drop-target')
+      }
+    }
+    const onDragLeave = (): void => container.classList.remove('drop-target')
+    const onDrop = (e: DragEvent): void => {
+      container.classList.remove('drop-target')
+      const dt = e.dataTransfer
+      if (!dt) return
+      const files = Array.from(dt.files ?? [])
+      // `File.path` is Electron's absolute path for dropped files (renderer is
+      // not sandboxed). Quote any path that contains whitespace.
+      const paths = files
+        .map((f) => (f as File & { path?: string }).path)
+        .filter((p): p is string => !!p)
+        .map((p) => (/\s/.test(p) ? `"${p}"` : p))
+      if (paths.length) {
+        e.preventDefault()
+        pasteText(paneId, paths.join(' '))
+        return
+      }
+      const text = dt.getData('text')
+      if (text) {
+        e.preventDefault()
+        pasteText(paneId, text)
+      }
+    }
+    container.addEventListener('dragover', onDragOver)
+    container.addEventListener('dragleave', onDragLeave)
+    container.addEventListener('drop', onDrop)
+
     return () => {
       window.clearTimeout(t)
       window.clearTimeout(persistT)
       container.removeEventListener('wheel', onWheel)
+      container.removeEventListener('dragover', onDragOver)
+      container.removeEventListener('dragleave', onDragLeave)
+      container.removeEventListener('drop', onDrop)
       ro.disconnect()
       // Terminal stays alive in the pool — only disposed when the pane is closed.
     }

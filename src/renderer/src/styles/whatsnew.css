@@ -29,8 +29,26 @@
   padding: 16px;
 }
 .whatsnew-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-dim);
   font-size: var(--fs-sm, 13px);
+}
+.wn-ver-pill {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+/* a dot that begins a new version group gets a subtle accent ring */
+.whatsnew-dot.wn-dot-newver {
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 /* The single step card */
@@ -135,6 +153,153 @@
   height: 13px;
   background: var(--accent);
   animation: wn-blink 1s steps(1) infinite;
+}
+
+/* "drop" demo — a file chip dropping into a terminal prompt */
+.wn-demo-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 14px;
+}
+.wn-drop-file {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  color: var(--text);
+  animation: wn-drop-fall 3s ease-in-out infinite;
+}
+.wn-drop-file svg {
+  color: var(--accent);
+}
+.wn-drop-term {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-drop-path {
+  color: var(--accent);
+}
+@keyframes wn-drop-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.95);
+  }
+  35%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* "git" demo — a status-bar git chip */
+.wn-demo-git {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.wn-git-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  animation: wn-float 2.8s ease-in-out infinite;
+}
+.wn-git-chip svg {
+  color: var(--text-dim);
+}
+.wn-git-dirty {
+  color: #d29922;
+}
+.wn-git-ab {
+  color: var(--accent);
+}
+.wn-git-cap {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* "doctor" demo — agent install checklist */
+.wn-demo-doctor {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+}
+.wn-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev-2);
+  animation: wn-doc-in 0.5s ease both;
+}
+.wn-doc-row:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.wn-doc-row:nth-child(3) {
+  animation-delay: 0.6s;
+}
+.wn-doc-mark {
+  font-weight: 700;
+}
+.wn-doc-ok .wn-doc-mark {
+  color: var(--ok, #3fb950);
+}
+.wn-doc-miss .wn-doc-mark {
+  color: var(--danger, #f05d57);
+}
+.wn-doc-tag {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--ok, #3fb950);
+}
+.wn-doc-cmd {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  padding: 2px 8px;
+}
+@keyframes wn-doc-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* "budget" demo — a session-budget meter filling toward a warning */
@@ -445,6 +610,9 @@
   .wn-sw-hl,
   .wn-bud-fill,
   .wn-bud-toast,
+  .wn-doc-row,
+  .wn-git-chip,
+  .wn-drop-file,
   .wn-demo-loader .spin {
     animation: none;
   }

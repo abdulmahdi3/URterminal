@@ -20,6 +20,7 @@ import type {
   ClaudeUsage,
   FileSaveRequest,
   FileSaveResult,
+  GitStatus,
   PaneInfo,
   SessionData,
   LastSessionPayload,
@@ -46,6 +47,7 @@ function on<T>(channel: string, cb: (payload: T) => void): () => void {
 const api = {
   // ---- app info ----
   getAppInfo: (): Promise<{ version: string; homeDir: string }> => ipcRenderer.invoke(IPC.appInfo),
+  relaunchApp: (): Promise<void> => ipcRenderer.invoke(IPC.appRelaunch),
 
   // ---- settings ----
   getSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke(IPC.settingsGet),
@@ -78,6 +80,9 @@ const api = {
   checkCommands: (names: string[]): Promise<string[]> =>
     ipcRenderer.invoke(IPC.commandsCheck, names),
   discoverAgents: (): Promise<AgentDiscovery> => ipcRenderer.invoke(IPC.agentsDiscover),
+  installAgent: (command: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.agentsInstall, command),
+  gitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke(IPC.gitStatus, cwd),
 
   // ---- learning layer (local recorder; opt-in) ----
   learning: {
