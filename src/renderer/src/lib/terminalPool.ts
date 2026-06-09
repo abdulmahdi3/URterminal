@@ -828,6 +828,15 @@ export function pasteClipboard(paneId: string): void {
     .catch(() => {})
 }
 
+/** Move keyboard focus into a pane's terminal (used by the quick-switcher). */
+export function focusTerminal(paneId: string): void {
+  try {
+    pool.get(paneId)?.term.focus()
+  } catch {
+    /* noop */
+  }
+}
+
 /** Permanently tear down a pane's terminal + PTY (called when the pane is closed). */
 export function disposeTerminal(paneId: string): void {
   const entry = pool.get(paneId)

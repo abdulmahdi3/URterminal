@@ -1,0 +1,454 @@
+/* "What's new" tour modal — shown on first launch after an update.
+   Reuses .modal-overlay / .modal / .modal-header / .btn from settings.css +
+   global.css; this file only adds the tour-specific layout. */
+
+.modal.whatsnew {
+  width: 480px;
+  max-width: 92vw;
+}
+
+.whatsnew-header {
+  background: linear-gradient(180deg, var(--accent-soft), transparent);
+}
+.whatsnew-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-md, 14px);
+  color: var(--text);
+}
+.whatsnew-title b {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.whatsnew-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+.whatsnew-headline {
+  color: var(--text-dim);
+  font-size: var(--fs-sm, 13px);
+}
+
+/* The single step card */
+.whatsnew-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elev-2);
+  /* gentle entrance each time the step changes (honors reduced-motion below) */
+  animation: whatsnew-in 180ms ease;
+}
+.whatsnew-step-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+/* Recorded preview (gif/png) */
+.whatsnew-media {
+  width: 100%;
+  height: 132px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* ── Built-in animated previews ─────────────────────────────────────────── */
+.wn-demo {
+  height: 132px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+/* loader demo */
+.wn-demo-loader {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: var(--fs-sm, 13px);
+}
+.wn-demo-loader b {
+  color: var(--text);
+}
+.wn-demo-loader .spin {
+  color: var(--accent);
+}
+
+/* "follow live output" demo — output streams up, prompt stays pinned */
+.wn-demo-term {
+  position: relative;
+}
+.wn-term {
+  height: 100%;
+  overflow: hidden;
+  padding: 8px 10px 28px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+.wn-term-stream {
+  animation: wn-scroll 7s linear infinite;
+}
+.wn-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wn-line .ok {
+  color: var(--ok, #3fb950);
+}
+.wn-line .run {
+  color: var(--accent);
+}
+.wn-prompt {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.wn-arrow {
+  color: var(--accent);
+}
+.wn-caret {
+  width: 7px;
+  height: 13px;
+  background: var(--accent);
+  animation: wn-blink 1s steps(1) infinite;
+}
+
+/* "budget" demo — a session-budget meter filling toward a warning */
+.wn-demo-budget {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+}
+.wn-bud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.wn-bud-pct {
+  color: #d29922;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wn-bud-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+}
+.wn-bud-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #d29922;
+  width: 0;
+  animation: wn-bud-fill 3.4s ease-in-out infinite;
+}
+.wn-bud-toast {
+  align-self: flex-start;
+  font-size: 11px;
+  color: #d29922;
+  background: rgba(210, 153, 34, 0.13);
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  border-radius: 6px;
+  padding: 3px 9px;
+  opacity: 0;
+  animation: wn-bud-toast 3.4s ease-in-out infinite;
+}
+@keyframes wn-bud-fill {
+  0% {
+    width: 8%;
+    background: var(--ok, #3fb950);
+  }
+  55%,
+  100% {
+    width: 80%;
+    background: #d29922;
+  }
+}
+@keyframes wn-bud-toast {
+  0%,
+  55% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  70%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* "switch" demo — quick-switcher with a highlight cycling through panes */
+.wn-demo-switch {
+  padding: 10px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wn-sw-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-sw-search svg {
+  color: var(--accent);
+}
+.wn-sw-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.wn-sw-row {
+  position: relative;
+  z-index: 1;
+  height: 23px;
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-sw-hl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 23px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  animation: wn-sw-move 3.2s ease-in-out infinite;
+}
+@keyframes wn-sw-move {
+  0%, 22% {
+    transform: translateY(0);
+  }
+  33%, 55% {
+    transform: translateY(23px);
+  }
+  66%, 88% {
+    transform: translateY(46px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* "tour" demo — floating rocket + pulsing sparkles */
+.wn-demo-tour {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 42%, var(--accent-soft), transparent 70%);
+}
+.wn-rocket {
+  color: var(--accent);
+  animation: wn-float 2.6s ease-in-out infinite;
+}
+.wn-spark {
+  position: absolute;
+  color: var(--accent);
+  animation: wn-pulse 1.9s ease-in-out infinite;
+}
+.wn-spark-1 {
+  top: 26px;
+  left: 38%;
+  animation-delay: 0s;
+}
+.wn-spark-2 {
+  top: 78px;
+  left: 58%;
+  animation-delay: 0.5s;
+}
+.wn-spark-3 {
+  top: 40px;
+  left: 62%;
+  animation-delay: 1s;
+}
+
+@keyframes wn-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+@keyframes wn-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes wn-float {
+  0%,
+  100% {
+    transform: translateY(3px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes wn-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1);
+  }
+}
+.whatsnew-step-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.whatsnew-fix .whatsnew-step-icon {
+  background: rgba(210, 153, 34, 0.15);
+  color: #d29922;
+}
+.whatsnew-step-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.whatsnew-step-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.whatsnew-step-text h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.whatsnew-step-text p {
+  margin: 0;
+  font-size: var(--fs-sm, 13px);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.whatsnew-badge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.whatsnew-badge-feature {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.whatsnew-badge-fix {
+  background: rgba(210, 153, 34, 0.15);
+  color: #d29922;
+}
+
+/* Footer: step dots + nav buttons */
+.whatsnew-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.whatsnew-dots {
+  display: flex;
+  gap: 7px;
+}
+.whatsnew-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--border-strong, #2a3140);
+  transition: background 120ms ease, transform 120ms ease;
+}
+.whatsnew-dot:hover {
+  background: var(--text-dim);
+}
+.whatsnew-dot.active {
+  background: var(--accent);
+  transform: scale(1.25);
+}
+.whatsnew-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes whatsnew-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whatsnew-step,
+  .wn-term-stream,
+  .wn-rocket,
+  .wn-spark,
+  .wn-caret,
+  .wn-sw-hl,
+  .wn-bud-fill,
+  .wn-bud-toast,
+  .wn-demo-loader .spin {
+    animation: none;
+  }
+  .whatsnew-dot {
+    transition: none;
+  }
+}

@@ -13,6 +13,8 @@ import SnippetFillModal from './components/SnippetFillModal'
 import TemplateSaveModal from './components/TemplateSaveModal'
 import SshConnectModal from './components/SshConnectModal'
 import NotesModal from './components/NotesModal'
+import QuickSwitcher from './components/QuickSwitcher'
+import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
 import SearchBar from './components/SearchBar'
@@ -35,6 +37,8 @@ import { useDoneNotifications } from './hooks/useDoneNotifications'
 import { useDoneGlow } from './hooks/useDoneGlow'
 import { useWorkspaceBadges } from './hooks/useWorkspaceBadges'
 import { useActivityLog } from './hooks/useActivityLog'
+import { useWhatsNew } from './hooks/useWhatsNew'
+import { useBudgetWarnings } from './hooks/useBudgetWarnings'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
 import { primeOsInfo } from './lib/osInfo'
@@ -54,6 +58,8 @@ export default function App(): JSX.Element {
   useDoneGlow()
   useWorkspaceBadges()
   useActivityLog()
+  useWhatsNew()
+  useBudgetWarnings()
 
   // Mirror the theme class onto <body> too, so popovers/menus that portal out
   // of the .app root (HeaderPopover, etc.) still inherit the themed CSS vars
@@ -111,6 +117,8 @@ export default function App(): JSX.Element {
       <TemplateSaveModal />
       <SshConnectModal />
       <NotesModal />
+      <QuickSwitcher />
+      <WhatsNewModal />
       <SearchBar />
       <ShortcutsModal />
       <ConfirmDialog />

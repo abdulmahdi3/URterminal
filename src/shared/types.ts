@@ -255,6 +255,14 @@ export interface AppPrefs {
   notifyVolume: number
   /** which built-in notification sound to play */
   notifySoundName: NotifySound
+
+  // ---- app lifecycle ----
+  /** last app version whose "What's new" tour the user has seen (drives the
+   *  first-launch-after-update preview). Empty until the tour first records one. */
+  lastSeenVersion: string
+  /** soft session token budget (approx output tokens); 0 = off. Drives the
+   *  status-bar usage meter and 80%/100% warning toasts. */
+  sessionTokenBudget: number
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -294,7 +302,10 @@ export const DEFAULT_PREFS: AppPrefs = {
 
   notifyOnlyUnfocused: false,
   notifyVolume: 60,
-  notifySoundName: 'chime'
+  notifySoundName: 'chime',
+
+  lastSeenVersion: '',
+  sessionTokenBudget: 0
 }
 
 /** External to-do services the user can connect for syncing tasks. */

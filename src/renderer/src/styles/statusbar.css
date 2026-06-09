@@ -18,6 +18,41 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* session token budget meter */
+.sb-budget {
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.sb-budget-bar {
+  width: 42px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+}
+.sb-budget-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--ok, #3fb950);
+  transition: width 0.4s ease;
+}
+.sb-budget.warn {
+  color: #d29922;
+}
+.sb-budget.warn .sb-budget-fill {
+  background: #d29922;
+}
+.sb-budget.over {
+  color: var(--danger, #f05d57);
+}
+.sb-budget.over .sb-budget-fill {
+  background: var(--danger, #f05d57);
+}
 /* clickable icon buttons in the status bar (settings, command palette) */
 .sb-icon-btn {
   background: transparent;

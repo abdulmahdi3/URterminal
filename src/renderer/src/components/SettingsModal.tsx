@@ -9,7 +9,7 @@ import {
   Bell, Copy, ClipboardPaste, PanelTop,
   Palette, Type, CaseSensitive, Droplet,
   FolderOpen, Save, Layers, Focus, History, Eraser, Languages,
-  Send, MessageSquare, Users, Info
+  Send, MessageSquare, Users, Info, Gauge
 } from 'lucide-react'
 import type { ProviderId, AppPrefs, SettingsPatch, IntegrationId, IntegrationStatus } from '@shared/types'
 import { DEFAULT_PREFS } from '@shared/types'
@@ -71,7 +71,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
     'copyOnSelect', 'pasteOnRightClick'
   ],
   behavior: [
-    'defaultShellCwd', 'autoSaveSeconds', 'maxRestorePanes',
+    'defaultShellCwd', 'autoSaveSeconds', 'maxRestorePanes', 'sessionTokenBudget',
     'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore', 'defaultLanguage', 'sshAgentMount'
   ],
   notifications: [
@@ -649,7 +649,7 @@ export default function SettingsModal(): JSX.Element | null {
     ],
     appearance: ['Theme', 'Terminal font', 'Font size', 'Accent Color'],
     behavior: [
-      'Default shell folder', 'Auto-save interval', 'Max restored panes',
+      'Default shell folder', 'Auto-save interval', 'Max restored panes', 'Session token budget',
       'Focus new pane on create',
       'Reopen last workspace on launch', 'Clear workspace on exit',
       'Default language', 'Translate', 'Mount remote folder for SSH agents', 'SSHFS'
@@ -1046,6 +1046,12 @@ export default function SettingsModal(): JSX.Element | null {
                   <SettingCard icon={<Layers size={16} />} title="Max restored panes" desc="0 = no limit." control={
                     <input className="input num" type="number" min={0} max={9} step={1} value={prefs.maxRestorePanes}
                       onChange={(e) => setPref({ maxRestorePanes: Math.max(0, Number(e.target.value) || 0) })} />
+                  } />
+                )}
+                {match('Session token budget') && (
+                  <SettingCard icon={<Gauge size={16} />} title="Session token budget" desc="Warn at 80% and 100% of this many output tokens. 0 = off." control={
+                    <input className="input num" type="number" min={0} max={100000000} step={50000} value={prefs.sessionTokenBudget ?? 0}
+                      onChange={(e) => setPref({ sessionTokenBudget: Math.max(0, Number(e.target.value) || 0) })} />
                   } />
                 )}
                 {match('Focus new pane on create') && (

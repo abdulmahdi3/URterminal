@@ -13,6 +13,7 @@ import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { injectText } from '@renderer/lib/inject'
 import { enhanceActivePrompt } from '@renderer/lib/enhance'
+import { latestNotes } from '@renderer/lib/whatsNew'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -71,6 +72,13 @@ export function getCommands(): Command[] {
       group: 'Panes',
       shortcut: 'Ctrl+Shift+5',
       run: () => ws().addPane('shell')
+    },
+    {
+      id: 'nav.quickSwitch',
+      title: 'Switch to pane…',
+      group: 'Panes',
+      shortcut: 'Ctrl+P',
+      run: () => ui().toggleQuickSwitch()
     },
     {
       id: 'ssh.connect',
@@ -293,6 +301,19 @@ export function getCommands(): Command[] {
       title: 'Reload window',
       group: 'App',
       run: () => location.reload()
+    },
+    {
+      id: 'app.whatsNew',
+      title: "What's new",
+      group: 'App',
+      run: () => {
+        const notes = latestNotes()
+        if (!notes) {
+          toast('No release notes available yet', 'info')
+          return
+        }
+        ui().setWhatsNewVersion(notes.version)
+      }
     },
 
     // ---- session activity log ----

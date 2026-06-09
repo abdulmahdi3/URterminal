@@ -73,6 +73,7 @@ export function useHotkeys(): void {
           ui.showSettings ||
           ui.showShortcuts ||
           ui.showAskAll ||
+          ui.showQuickSwitch ||
           ui.linkingPaneId
         ) {
           ui.closeOverlays()

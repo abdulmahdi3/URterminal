@@ -16,6 +16,7 @@ import './styles/statusbar.css'
 import './styles/palette.css'
 import './styles/settings.css'
 import './styles/notes.css'
+import './styles/whatsnew.css'
 import './styles/themes.css'
 
 // Debug handles for the scripted smoke harness (see src/main/smoke.ts).

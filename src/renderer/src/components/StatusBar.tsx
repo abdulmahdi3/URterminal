@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
 import { useTokens } from '@renderer/store/tokens'
+import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
@@ -59,9 +60,13 @@ export default function StatusBar(): JSX.Element {
   const cpu = useMetrics((s) => s.cpuPercent)
   const tok = useMetrics((s) => s.tokPerSec)
   const totalTokens = useTokens((s) => s.total)
+  const budget = useSettings((s) => s.settings?.prefs.sessionTokenBudget ?? 0)
+  const budgetPct = budget > 0 ? Math.min(999, Math.round((totalTokens / budget) * 100)) : 0
+  const budgetLevel = budgetPct >= 100 ? 'over' : budgetPct >= 80 ? 'warn' : 'ok'
 
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
   const setShowSettings = useUi((s) => s.setShowSettings)
+  const openSettings = useUi((s) => s.openSettings)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
 
   const [clock, setClock] = useState(() =>
@@ -156,6 +161,20 @@ export default function StatusBar(): JSX.Element {
         <Bot size={12} />
         <span>{formatChars(totalTokens * 4)}</span>
       </span>
+
+      {/* Session token budget meter (only when a budget is set) */}
+      {budget > 0 && (
+        <button
+          className={clsx('sb-item sb-budget', budgetLevel)}
+          title={`Session token budget: ${formatChars(totalTokens)} / ${formatChars(budget)} (${budgetPct}%) — click to change`}
+          onClick={() => openSettings('behavior')}
+        >
+          <span className="sb-budget-bar">
+            <span className="sb-budget-fill" style={{ width: `${Math.min(100, budgetPct)}%` }} />
+          </span>
+          {budgetPct}%
+        </button>
+      )}
 
       <span className="sb-item">
         <Clock size={12} /> {clock}
