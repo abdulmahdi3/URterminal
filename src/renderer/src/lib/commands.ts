@@ -9,7 +9,13 @@ import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
 import { getAgents } from '@renderer/lib/agents'
-import { copySelection, pasteClipboard, jumpBookmark } from '@renderer/lib/terminalPool'
+import {
+  copySelection,
+  pasteClipboard,
+  jumpBookmark,
+  exportPaneHtml,
+  getFullText
+} from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { injectText } from '@renderer/lib/inject'
 import { enhanceActivePrompt } from '@renderer/lib/enhance'
@@ -43,6 +49,35 @@ function switchWorkspaceBy(offset: number): void {
   const idx = list.findIndex((w) => w.id === activeId)
   if (idx < 0) return
   switchTo(list[(idx + offset + list.length) % list.length].id)
+}
+
+/** Nudge the whole-app UI zoom by `delta` (clamped), persisting it. */
+function adjustZoom(delta: number): void {
+  const cur = useSettings.getState().settings?.prefs.uiZoom ?? 1
+  const next = Math.max(0.6, Math.min(2, Math.round((cur + delta) * 10) / 10))
+  void useSettings.getState().patch({ prefs: { uiZoom: next } })
+}
+
+/** Save the active pane's buffer to an HTML or plain-text file. */
+function exportActivePane(fmt: 'html' | 'text'): void {
+  const p = activePane()
+  if (!p) {
+    toast('Focus a pane first', 'info')
+    return
+  }
+  const title = (p.title || p.agent?.command || p.shell?.shell || 'session').replace(/[^\w.-]+/g, '_')
+  const contents = fmt === 'html' ? exportPaneHtml(p.id) : getFullText(p.id)
+  if (!contents.trim()) {
+    toast('Nothing to export yet', 'info')
+    return
+  }
+  void window.api
+    .saveFile({ defaultName: `${title}.${fmt === 'html' ? 'html' : 'txt'}`, contents })
+    .then((r) => {
+      if (r.ok) toast(`Exported to ${r.path}`, 'ok')
+      else if (!r.canceled) toast(`Export failed: ${r.error ?? ''}`, 'error')
+    })
+    .catch(() => {})
 }
 
 /** Run `command` in the active AI pane, or spin up a new one. */
@@ -328,6 +363,39 @@ export function getCommands(): Command[] {
       title: 'Check agent setup (Agent doctor)',
       group: 'App',
       run: () => ui().setShowAgentDoctor(true)
+    },
+    {
+      id: 'app.zoomIn',
+      title: 'Zoom in (app UI)',
+      group: 'App',
+      shortcut: 'Ctrl+=',
+      run: () => adjustZoom(0.1)
+    },
+    {
+      id: 'app.zoomOut',
+      title: 'Zoom out (app UI)',
+      group: 'App',
+      shortcut: 'Ctrl+-',
+      run: () => adjustZoom(-0.1)
+    },
+    {
+      id: 'app.zoomReset',
+      title: 'Reset UI zoom',
+      group: 'App',
+      shortcut: 'Ctrl+0',
+      run: () => void useSettings.getState().patch({ prefs: { uiZoom: 1 } })
+    },
+    {
+      id: 'pane.exportHtml',
+      title: 'Export this pane as HTML…',
+      group: 'App',
+      run: () => exportActivePane('html')
+    },
+    {
+      id: 'pane.exportText',
+      title: 'Export this pane as text…',
+      group: 'App',
+      run: () => exportActivePane('text')
     },
     {
       id: 'app.reload',

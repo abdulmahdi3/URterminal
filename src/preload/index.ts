@@ -275,6 +275,7 @@ const api = {
     on<boolean>(IPC.windowMaximizedChanged, cb),
   setWindowOverlay: (color: string, symbolColor: string): void =>
     ipcRenderer.send(IPC.windowSetOverlay, { color, symbolColor }),
+  setZoom: (factor: number): void => ipcRenderer.send(IPC.windowSetZoom, factor),
   /** Open a new, independent URterminal window on the current desktop. */
   openNewWindow: (): void => ipcRenderer.send(IPC.windowOpenNew),
 

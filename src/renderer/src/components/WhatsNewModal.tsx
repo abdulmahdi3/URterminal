@@ -74,6 +74,31 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'zoom') {
+    // "Aa" growing/shrinking with zoom key hints.
+    return (
+      <div className="wn-demo wn-demo-zoom">
+        <span className="wn-zoom-aa">Aa</span>
+        <div className="wn-zoom-keys">
+          <span>Ctrl +</span>
+          <span>Ctrl −</span>
+          <span>Ctrl 0</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'export') {
+    // A page with a download arrow.
+    return (
+      <div className="wn-demo wn-demo-export">
+        <div className="wn-export-doc">
+          <FileText size={26} />
+          <span>.html</span>
+        </div>
+        <Download size={18} className="wn-export-arrow" />
+      </div>
+    )
+  }
   if (kind === 'minimap') {
     // A pane edge with prompt ticks; one highlighted, with a hovered label.
     return (

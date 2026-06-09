@@ -210,6 +210,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     else win.maximize()
   })
   ipcMain.on(IPC.windowClose, (e) => senderWindow(e)?.close())
+  ipcMain.on(IPC.windowSetZoom, (e, factor: number) => {
+    const wc = senderWindow(e)?.webContents
+    if (wc && !wc.isDestroyed()) wc.setZoomFactor(Math.max(0.5, Math.min(2.5, factor || 1)))
+  })
   ipcMain.handle(IPC.windowIsMaximized, (e) => senderWindow(e)?.isMaximized() ?? false)
   // Recolor the native caption-button overlay so min/max/close match the theme.
   ipcMain.on(

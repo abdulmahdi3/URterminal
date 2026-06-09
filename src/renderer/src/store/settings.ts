@@ -148,6 +148,8 @@ function applySideEffects(s: SettingsPublic): void {
   useUi.getState().setAppTheme(resolved as AppTheme)
   // Recolor the native window caption buttons to match the active theme.
   window.api.setWindowOverlay(ov.color, ov.symbol)
+  // Whole-app UI zoom (Chromium zoom factor); terminals re-fit via ResizeObserver.
+  window.api.setZoom?.(s.prefs.uiZoom || 1)
 }
 
 /** Native caption-overlay colors per theme — color = --bg-elev, symbol = --text-dim. */

@@ -959,6 +959,17 @@ export function pasteClipboard(paneId: string): void {
     .catch(() => {})
 }
 
+/** Serialize a pane's buffer (scrollback + screen) to standalone styled HTML. */
+export function exportPaneHtml(paneId: string): string {
+  const entry = pool.get(paneId)
+  if (!entry) return ''
+  try {
+    return entry.serialize.serializeAsHTML()
+  } catch {
+    return ''
+  }
+}
+
 /** Move keyboard focus into a pane's terminal (used by the quick-switcher). */
 export function focusTerminal(paneId: string): void {
   try {

@@ -155,6 +155,83 @@
   animation: wn-blink 1s steps(1) infinite;
 }
 
+/* "zoom" demo — "Aa" scaling with key hints */
+.wn-demo-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.wn-zoom-aa {
+  font-weight: 700;
+  color: var(--accent);
+  animation: wn-zoom-aa 2.8s ease-in-out infinite;
+}
+.wn-zoom-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wn-zoom-keys span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 8px;
+  text-align: center;
+}
+@keyframes wn-zoom-aa {
+  0%, 100% {
+    font-size: 22px;
+  }
+  50% {
+    font-size: 40px;
+  }
+}
+
+/* "export" demo — a document with a download arrow */
+.wn-demo-export {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.wn-export-doc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  padding: 12px 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+}
+.wn-export-doc svg {
+  color: var(--accent);
+}
+.wn-export-doc span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.wn-export-arrow {
+  color: var(--ok, #3fb950);
+  animation: wn-export-arrow 1.8s ease-in-out infinite;
+}
+@keyframes wn-export-arrow {
+  0%, 100% {
+    transform: translateY(-3px);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(3px);
+    opacity: 1;
+  }
+}
+
 /* "minimap" demo — prompt ticks down a pane edge with a hovered label */
 .wn-demo-minimap {
   position: relative;
@@ -932,6 +1009,8 @@
   .wn-digest-card,
   .wn-studio-pulse,
   .wn-mm-label,
+  .wn-zoom-aa,
+  .wn-export-arrow,
   .wn-demo-loader .spin {
     animation: none;
   }

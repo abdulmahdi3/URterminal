@@ -268,6 +268,8 @@ export interface AppPrefs {
   /** user-defined theme (applied when appTheme === 'custom') — a base surface,
    *  text, and accent from which the rest of the palette is derived */
   customTheme: { bg: string; text: string; accent: string }
+  /** whole-app UI zoom factor (Chromium zoom); 1 = 100%. Ctrl +/-/0 adjust it. */
+  uiZoom: number
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -312,7 +314,8 @@ export const DEFAULT_PREFS: AppPrefs = {
   lastSeenVersion: '',
   sessionTokenBudget: 0,
   agentSetupSeen: false,
-  customTheme: { bg: '#0b0d12', text: '#e7ecf3', accent: '#4c8dff' }
+  customTheme: { bg: '#0b0d12', text: '#e7ecf3', accent: '#4c8dff' },
+  uiZoom: 1
 }
 
 /** External to-do services the user can connect for syncing tasks. */
@@ -867,6 +870,7 @@ export const IPC = {
   windowIsMaximized: 'window:is-maximized',
   windowMaximizedChanged: 'window:maximized-changed', // main -> renderer (event)
   windowSetOverlay: 'window:set-overlay', // recolor the native caption-button overlay (theme)
+  windowSetZoom: 'window:set-zoom', // scale the whole app UI (Chromium zoom factor)
   windowOpenNew: 'window:open-new', // open a fresh, independent window (current desktop)
 
   // file save dialog

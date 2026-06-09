@@ -22,6 +22,8 @@ export function eventToCombo(e: KeyLike): string | null {
   else if (code === 'Comma') key = ','
   else if (code === 'Period') key = '.'
   else if (code === 'Slash') key = '/'
+  else if (code === 'Equal') key = '='
+  else if (code === 'Minus') key = '-'
   else if (code === 'Enter') key = 'Enter'
   else if (code === 'Space') key = 'Space'
   else if (code === 'Tab') key = 'Tab'

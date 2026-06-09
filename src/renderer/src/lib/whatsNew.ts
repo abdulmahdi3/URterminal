@@ -30,6 +30,8 @@ export type WhatsNewDemo =
   | 'digest'
   | 'studio'
   | 'minimap'
+  | 'zoom'
+  | 'export'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -59,6 +61,32 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.17': {
+    version: '0.3.17',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Zoom the whole app',
+        demo: 'zoom',
+        body:
+          'Press Ctrl + and Ctrl − to scale the entire interface up or down, and Ctrl 0 to reset. ' +
+          'Great for high-DPI screens or sharing your screen — terminals re-fit automatically and ' +
+          'the zoom is remembered.'
+      },
+      {
+        kind: 'feature',
+        title: 'Export a pane',
+        demo: 'export',
+        body:
+          'Ctrl+K → “Export this pane as HTML” saves the whole conversation as a styled, shareable ' +
+          'HTML file (colors and all), or export plain text — a clean record of a session for a ' +
+          'ticket or a teammate.'
+      }
+    ]
+  },
+
   '0.3.16': {
     version: '0.3.16',
     headline: 'New in this update',
