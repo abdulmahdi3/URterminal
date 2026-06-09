@@ -213,8 +213,9 @@ interface Entry {
   followTail: boolean
   /** Guard so our own scroll-to-bottom calls don't get read back as a user scroll. */
   suppressScrollSync: boolean
-  /** xterm markers registered at each submitted prompt — used to jump between turns. */
-  bookmarks: IMarker[]
+  /** xterm marker + text for each submitted prompt — powers turn-jumping and the
+   *  prompt minimap (a tick per prompt down the pane's right edge). */
+  bookmarks: { marker: IMarker; text: string }[]
   /**
    * Last observed viewport line, so onScroll can tell a genuine user scroll-up
    * (viewportY decreases) from the buffer simply growing under a pinned viewport
@@ -330,7 +331,8 @@ const promptHistory = new Map<string, string[]>()
 // Whether a pane is mid bracketed-paste (markers can span data chunks).
 const pasting = new Map<string, boolean>()
 
-/** Record a submitted prompt for turn-tracking + the session summary. */
+/** Record a submitted prompt: turn-tracking, the session summary, and a marker
+ *  at the prompt line for jump-to-turn + the prompt minimap. */
 function recordSubmit(paneId: string, buf: string): void {
   const submitted = buf.trim()
   if (!submitted) return
@@ -340,6 +342,20 @@ function recordSubmit(paneId: string, buf: string): void {
   hist.push(submitted)
   if (hist.length > 200) hist.shift()
   promptHistory.set(paneId, hist)
+  // Register a marker at the current prompt line (cursor is on the input line
+  // at submit time). Bound the list, forgetting markers scrolled out of buffer.
+  const entry = pool.get(paneId)
+  if (entry) {
+    try {
+      const mk = entry.term.registerMarker(0)
+      if (mk) entry.bookmarks.push({ marker: mk, text: submitted })
+    } catch {
+      /* registerMarker can throw if the buffer isn't ready — ignore */
+    }
+    if (entry.bookmarks.length > 300) {
+      entry.bookmarks = entry.bookmarks.filter((b) => b.marker.line >= 0).slice(-200)
+    }
+  }
 }
 
 /** Process a run of real keystrokes (no paste markers): append / backspace / submit. */
@@ -575,19 +591,8 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   const onData = term.onData((d) => {
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
-    // Drop a jump marker at each submitted prompt (Enter) so the user can hop
-    // between turns. Bound the list and forget markers scrolled out of buffer.
-    if (d.includes('\r')) {
-      try {
-        const mk = term.registerMarker(0)
-        if (mk) entry.bookmarks.push(mk)
-      } catch {
-        /* registerMarker can throw if the buffer isn't ready — ignore */
-      }
-      if (entry.bookmarks.length > 300) {
-        entry.bookmarks = entry.bookmarks.filter((m) => m.line >= 0).slice(-200)
-      }
-    }
+    // noteInputLine reconstructs the typed line and, on submit, records the
+    // prompt marker (see recordSubmit) so jumps + the minimap stay accurate.
     noteInputLine(paneId, d)
     inputListeners.forEach((cb) => cb(paneId, d))
   })
@@ -936,7 +941,7 @@ export function jumpBookmark(paneId: string, dir: 'prev' | 'next'): boolean {
   if (!entry) return false
   const term = entry.term
   const lines = entry.bookmarks
-    .map((m) => m.line)
+    .map((b) => b.marker.line)
     .filter((l) => l >= 0)
     .sort((a, b) => a - b)
   if (!lines.length) return false
@@ -960,6 +965,41 @@ export function jumpBookmark(paneId: string, dir: 'prev' | 'next'): boolean {
     /* noop */
   }
   return true
+}
+
+/** A prompt marker for the minimap: its absolute buffer line + the prompt text. */
+export interface PromptMark {
+  line: number
+  text: string
+}
+
+/**
+ * Snapshot of a pane's prompt markers plus the current viewport/buffer extent —
+ * everything the prompt minimap needs to place ticks and highlight the one in
+ * view. Returns null if the pane isn't mounted.
+ */
+export function getPromptMap(
+  paneId: string
+): { marks: PromptMark[]; viewportY: number; length: number; rows: number } | null {
+  const entry = pool.get(paneId)
+  if (!entry) return null
+  const buf = entry.term.buffer.active
+  const marks = entry.bookmarks
+    .map((b) => ({ line: b.marker.line, text: b.text }))
+    .filter((m) => m.line >= 0)
+  return { marks, viewportY: buf.viewportY, length: buf.length, rows: entry.term.rows }
+}
+
+/** Scroll a pane so the given buffer line sits near the top of the viewport. */
+export function scrollPaneToPrompt(paneId: string, line: number): void {
+  const entry = pool.get(paneId)
+  if (!entry) return
+  entry.followTail = false
+  try {
+    entry.term.scrollToLine(Math.max(0, line - 1))
+  } catch {
+    /* noop */
+  }
 }
 
 /**

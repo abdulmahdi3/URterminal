@@ -8,6 +8,7 @@ import { isTerminalStarted, getInputLine, onTerminalInput } from '@renderer/lib/
 import { enhancePromptFor } from '@renderer/lib/enhance'
 import TerminalPane from './TerminalPane'
 import AgentLauncher from './AgentLauncher'
+import PromptMinimap from './PromptMinimap'
 
 /**
  * Floating "enhance prompt" action: sits inside the pane at the center-right,
@@ -129,6 +130,7 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
         onStarted={() => setStarted(true)}
       />
       {started && <EnhanceFab paneId={pane.id} />}
+      {started && <PromptMinimap paneId={pane.id} />}
     </div>
   )
 }

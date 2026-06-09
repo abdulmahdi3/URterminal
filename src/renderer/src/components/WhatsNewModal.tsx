@@ -74,6 +74,19 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'minimap') {
+    // A pane edge with prompt ticks; one highlighted, with a hovered label.
+    return (
+      <div className="wn-demo wn-demo-minimap">
+        <div className="wn-mm-label">refactor the parser →</div>
+        <div className="wn-mm-gutter">
+          {Array.from({ length: 11 }).map((_, i) => (
+            <span key={i} className={'wn-mm-tick' + (i === 6 ? ' active' : '')} />
+          ))}
+        </div>
+      </div>
+    )
+  }
   if (kind === 'studio') {
     // Three color swatches blending into a themed preview chip.
     return (

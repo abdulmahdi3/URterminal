@@ -29,6 +29,7 @@ export type WhatsNewDemo =
   | 'jump'
   | 'digest'
   | 'studio'
+  | 'minimap'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -58,6 +59,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.16': {
+    version: '0.3.16',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Prompt minimap',
+        demo: 'minimap',
+        body:
+          'Every prompt you send an agent now shows as a tick down the pane’s right edge. Hover ' +
+          'the gutter to see the full prompts, and click any one to jump straight to it in the ' +
+          'conversation — a fast map of your whole session.'
+      }
+    ]
+  },
+
   '0.3.15': {
     version: '0.3.15',
     headline: 'New in this update',

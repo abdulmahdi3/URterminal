@@ -155,6 +155,54 @@
   animation: wn-blink 1s steps(1) infinite;
 }
 
+/* "minimap" demo — prompt ticks down a pane edge with a hovered label */
+.wn-demo-minimap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 16px;
+}
+.wn-mm-label {
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 4px 9px;
+  animation: wn-mm-label 3.2s ease-in-out infinite;
+}
+.wn-mm-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.wn-mm-tick {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-faint);
+  opacity: 0.5;
+}
+.wn-mm-tick.active {
+  width: 17px;
+  height: 3px;
+  opacity: 1;
+  background: var(--accent);
+}
+@keyframes wn-mm-label {
+  0%, 100% {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  35%, 75% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* "studio" demo — color swatches → themed preview chip */
 .wn-demo-studio {
   display: flex;
@@ -883,6 +931,7 @@
   .wn-jump-mark,
   .wn-digest-card,
   .wn-studio-pulse,
+  .wn-mm-label,
   .wn-demo-loader .spin {
     animation: none;
   }

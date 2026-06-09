@@ -679,6 +679,104 @@
   outline-offset: -4px;
   border-radius: 6px;
 }
+
+/* ---- prompt minimap (one tick per submitted prompt, right edge) ---- */
+.prompt-minimap {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 2px;
+  width: 16px;
+  z-index: 6;
+  display: flex;
+  transition: width 0.12s ease, background 0.12s ease;
+}
+.prompt-minimap.expanded {
+  width: min(280px, 70%);
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.45));
+}
+.pm-inner {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+  padding: 6px 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.prompt-minimap.expanded .pm-inner {
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 6px;
+}
+/* collapsed: a row holding a single right-aligned tick */
+.pm-item {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  background: transparent;
+  border: none;
+  padding: 1px 0;
+  cursor: pointer;
+}
+.pm-tick {
+  width: 13px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-faint);
+  opacity: 0.5;
+  transition: width 0.1s ease, background 0.1s ease, opacity 0.1s ease;
+}
+.pm-item:hover .pm-tick {
+  width: 16px;
+  opacity: 0.9;
+  background: var(--text-dim);
+}
+.pm-item.active .pm-tick {
+  width: 16px;
+  height: 3px;
+  opacity: 1;
+  background: var(--accent);
+}
+/* expanded: full-width text rows */
+.prompt-minimap.expanded .pm-item {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+.prompt-minimap.expanded .pm-item:hover {
+  background: var(--bg-elev-2);
+}
+.prompt-minimap.expanded .pm-item.active {
+  background: var(--accent-soft);
+}
+.pm-text {
+  display: block;
+  width: 100%;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: start;
+}
+.prompt-minimap.expanded .pm-item.active .pm-text {
+  color: var(--text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .prompt-minimap,
+  .pm-tick {
+    transition: none;
+  }
+}
 /* "Show pane title bars" off → collapse the per-pane header (drag/rename gone) */
 .hide-pane-headers .mosaic-urterminal .mosaic-window-toolbar {
   display: none !important;
