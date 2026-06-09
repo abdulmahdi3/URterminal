@@ -8,6 +8,7 @@ import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import { useGitStatus } from '@renderer/hooks/useGitStatus'
+import NotificationBell from './NotificationBell'
 import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
 import type { LayoutPreset } from '@renderer/lib/layoutPresets'
 import LearningStatus from './LearningStatus'
@@ -197,6 +198,8 @@ export default function StatusBar(): JSX.Element {
           {budgetPct}%
         </button>
       )}
+
+      <NotificationBell />
 
       <span className="sb-item">
         <Clock size={12} /> {clock}

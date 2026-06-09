@@ -265,6 +265,9 @@ export interface AppPrefs {
   sessionTokenBudget: number
   /** whether the first-run agent-doctor (install checklist) has been auto-shown */
   agentSetupSeen: boolean
+  /** user-defined theme (applied when appTheme === 'custom') — a base surface,
+   *  text, and accent from which the rest of the palette is derived */
+  customTheme: { bg: string; text: string; accent: string }
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -308,7 +311,8 @@ export const DEFAULT_PREFS: AppPrefs = {
 
   lastSeenVersion: '',
   sessionTokenBudget: 0,
-  agentSetupSeen: false
+  agentSetupSeen: false,
+  customTheme: { bg: '#0b0d12', text: '#e7ecf3', accent: '#4c8dff' }
 }
 
 /** External to-do services the user can connect for syncing tasks. */

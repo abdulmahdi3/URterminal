@@ -1,6 +1,11 @@
 import { create } from 'zustand'
-import type { SettingsPublic, SettingsPatch } from '@shared/types'
-import { setTerminalFont, setTerminalConfig, setTerminalTheme } from '@renderer/lib/terminalPool'
+import { DEFAULT_PREFS, type SettingsPublic, type SettingsPatch } from '@shared/types'
+import {
+  setTerminalFont,
+  setTerminalConfig,
+  setTerminalTheme,
+  setTerminalSurface
+} from '@renderer/lib/terminalPool'
 import { useWorkspace } from './workspace'
 import { useUi, type AppTheme } from './ui'
 
@@ -32,6 +37,54 @@ function applyAccentColor(hex: string): void {
   el.style.setProperty('--accent-glow', hexToRgba(hex, 0.35))
 }
 
+const clampByte = (n: number): number => Math.max(0, Math.min(255, Math.round(n)))
+const toHex = (r: number, g: number, b: number): string =>
+  '#' + [r, g, b].map((v) => clampByte(v).toString(16).padStart(2, '0')).join('')
+
+/** Lighten (or darken, with negative amt) a hex color by a flat RGB step. */
+function shade(hex: string, amt: number): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return toHex(((n >> 16) & 255) + amt, ((n >> 8) & 255) + amt, (n & 255) + amt)
+}
+/** Blend `t` (0–1) of `b` into `a`. */
+function mixHex(a: string, b: string, t: number): string {
+  const na = parseInt(a.replace('#', ''), 16)
+  const nb = parseInt(b.replace('#', ''), 16)
+  return toHex(
+    ((na >> 16) & 255) * (1 - t) + ((nb >> 16) & 255) * t,
+    ((na >> 8) & 255) * (1 - t) + ((nb >> 8) & 255) * t,
+    (na & 255) * (1 - t) + (nb & 255) * t
+  )
+}
+
+/** CSS surface/text/border vars set by the custom theme (cleared otherwise). */
+const CUSTOM_VARS = [
+  '--bg', '--bg-elev', '--bg-elev-2', '--bg-elev-3', '--bg-sunken',
+  '--text', '--text-dim', '--text-faint', '--border', '--border-strong'
+]
+
+/** Apply a user custom theme: derive an elevation/text/border ramp from 3 colors. */
+function applyCustomTheme(c: { bg: string; text: string; accent: string }): void {
+  const el = document.documentElement
+  el.style.setProperty('--bg', c.bg)
+  el.style.setProperty('--bg-elev', shade(c.bg, 9))
+  el.style.setProperty('--bg-elev-2', shade(c.bg, 17))
+  el.style.setProperty('--bg-elev-3', shade(c.bg, 25))
+  el.style.setProperty('--bg-sunken', shade(c.bg, -7))
+  el.style.setProperty('--text', c.text)
+  el.style.setProperty('--text-dim', mixHex(c.text, c.bg, 0.42))
+  el.style.setProperty('--text-faint', mixHex(c.text, c.bg, 0.62))
+  el.style.setProperty('--border', shade(c.bg, 16))
+  el.style.setProperty('--border-strong', shade(c.bg, 26))
+  applyAccentColor(c.accent)
+}
+
+/** Remove the custom-theme inline vars so a built-in theme class takes over. */
+function clearCustomTheme(): void {
+  const el = document.documentElement
+  for (const v of CUSTOM_VARS) el.style.removeProperty(v)
+}
+
 function applySideEffects(s: SettingsPublic): void {
   // Mirror auto-restore to localStorage so usePersistence can read it
   // synchronously at startup, before this async settings load resolves.
@@ -57,7 +110,6 @@ function applySideEffects(s: SettingsPublic): void {
     '--scrollbar-size',
     `${Math.max(6, s.prefs.scrollbarWidth || 14)}px`
   )
-  applyAccentColor(s.accentColor || '#4c8dff')
   setTerminalFont(s.prefs.fontFamily || '', s.prefs.fontSize || 13)
   setTerminalConfig({
     cursorStyle: s.prefs.cursorStyle,
@@ -72,7 +124,8 @@ function applySideEffects(s: SettingsPublic): void {
     padding: s.prefs.terminalPadding
   })
   // App color theme: 'system' resolves to light/dark via the OS preference;
-  // every other value is a concrete theme class applied on .app (see App.tsx).
+  // 'custom' applies the user's Theme Studio colors; every other value is a
+  // concrete theme class applied on .app (see App.tsx).
   const themePref = s.prefs.appTheme || 'dark'
   const resolved =
     themePref === 'system'
@@ -80,11 +133,20 @@ function applySideEffects(s: SettingsPublic): void {
         ? 'light'
         : 'dark'
       : themePref
+  let ov: { color: string; symbol: string }
+  if (resolved === 'custom') {
+    const c = s.prefs.customTheme ?? DEFAULT_PREFS.customTheme
+    applyCustomTheme(c)
+    setTerminalSurface({ background: c.bg, foreground: c.text, cursor: c.accent })
+    ov = { color: shade(c.bg, 9), symbol: mixHex(c.text, c.bg, 0.42) }
+  } else {
+    clearCustomTheme()
+    applyAccentColor(s.accentColor || '#4c8dff')
+    setTerminalTheme(resolved) // agent/shell terminal background follows the theme
+    ov = OVERLAY_COLORS[resolved] ?? OVERLAY_COLORS.dark
+  }
   useUi.getState().setAppTheme(resolved as AppTheme)
-  setTerminalTheme(resolved) // agent/shell terminal background follows the theme
-  // Recolor the native window caption buttons to match the theme's title-bar
-  // (--bg-elev) and dim text (--text-dim).
-  const ov = OVERLAY_COLORS[resolved] ?? OVERLAY_COLORS.dark
+  // Recolor the native window caption buttons to match the active theme.
   window.api.setWindowOverlay(ov.color, ov.symbol)
 }
 

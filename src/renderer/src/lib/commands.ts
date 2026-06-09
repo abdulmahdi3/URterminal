@@ -9,10 +9,11 @@ import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
 import { getShellSpecs } from '@renderer/lib/shells'
 import { getAgents } from '@renderer/lib/agents'
-import { copySelection, pasteClipboard } from '@renderer/lib/terminalPool'
+import { copySelection, pasteClipboard, jumpBookmark } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { injectText } from '@renderer/lib/inject'
 import { enhanceActivePrompt } from '@renderer/lib/enhance'
+import { summarizeActiveSession } from '@renderer/lib/summarize'
 import { latestNotes } from '@renderer/lib/whatsNew'
 import { toast } from '@renderer/store/toasts'
 
@@ -79,6 +80,32 @@ export function getCommands(): Command[] {
       group: 'Panes',
       shortcut: 'Ctrl+P',
       run: () => ui().toggleQuickSwitch()
+    },
+    {
+      id: 'nav.prevPrompt',
+      title: 'Jump to previous prompt',
+      group: 'Panes',
+      shortcut: 'Alt+Up',
+      run: () => {
+        const p = activePane()
+        if (p) jumpBookmark(p.id, 'prev')
+      }
+    },
+    {
+      id: 'nav.nextPrompt',
+      title: 'Jump to next prompt',
+      group: 'Panes',
+      shortcut: 'Alt+Down',
+      run: () => {
+        const p = activePane()
+        if (p) jumpBookmark(p.id, 'next')
+      }
+    },
+    {
+      id: 'pane.runInShells',
+      title: 'Run a command in all shells…',
+      group: 'Panes',
+      run: () => ui().setShowRunCommand(true)
     },
     {
       id: 'ssh.connect',
@@ -307,6 +334,12 @@ export function getCommands(): Command[] {
       title: 'Reload window',
       group: 'App',
       run: () => location.reload()
+    },
+    {
+      id: 'agent.summarize',
+      title: 'Summarize this session (copy digest)',
+      group: 'App',
+      run: () => summarizeActiveSession()
     },
     {
       id: 'app.whatsNew',

@@ -98,6 +98,85 @@
   align-items: center;
   gap: 6px;
 }
+
+/* ---- theme studio (custom theme) ---- */
+.theme-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+.ts-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ts-field {
+  flex: 1 1 130px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+.ts-swatch {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+}
+.ts-field input[type='color'] {
+  margin-left: auto;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.ts-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- run-in-all-shells prompt ---- */
+.modal.runcmd {
+  width: 480px;
+}
+.runcmd-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-md, 14px);
+}
+.runcmd-count {
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+.runcmd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.runcmd-input {
+  width: 100%;
+  font-size: 14px;
+  padding: 9px 11px;
+}
+.runcmd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .doctor-cmd {
   position: relative;
   flex: 0 0 auto;

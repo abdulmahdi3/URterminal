@@ -26,7 +26,8 @@ export function eventToCombo(e: KeyLike): string | null {
   else if (code === 'Space') key = 'Space'
   else if (code === 'Tab') key = 'Tab'
   else if (code === 'Backquote') key = '`'
-  else return null // lone modifier, arrows, etc. — not bindable
+  else if ((m = /^Arrow(Up|Down|Left|Right)$/.exec(code))) key = m[1]
+  else return null // lone modifier, etc. — not bindable
 
   const parts: string[] = []
   if (e.ctrlKey || e.metaKey) parts.push('Ctrl')

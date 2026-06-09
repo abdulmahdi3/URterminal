@@ -155,6 +155,271 @@
   animation: wn-blink 1s steps(1) infinite;
 }
 
+/* "studio" demo — color swatches → themed preview chip */
+.wn-demo-studio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.wn-studio-swatches {
+  display: flex;
+  gap: 6px;
+}
+.wn-studio-sw {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+}
+.wn-studio-pulse {
+  animation: wn-studio-pulse 2.2s ease-in-out infinite;
+}
+.wn-studio-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 12px;
+}
+.wn-studio-preview svg {
+  color: var(--accent);
+}
+@keyframes wn-studio-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(188, 140, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(188, 140, 255, 0.35);
+  }
+}
+
+/* "digest" demo — a markdown summary card being copied */
+.wn-demo-digest {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wn-digest-card {
+  width: 75%;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.8;
+  color: var(--text);
+  animation: wn-drop-fall 3.4s ease-in-out infinite;
+}
+.wn-digest-h {
+  color: var(--accent);
+  font-weight: 700;
+}
+.wn-digest-l {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wn-digest-dim {
+  color: var(--text-faint);
+}
+.wn-digest-copied {
+  position: absolute;
+  right: 24px;
+  top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* "jump" demo — prompt rows with a marker hopping between them */
+.wn-demo-jump {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+}
+.wn-jump-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-jump-mark {
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--border-strong, #2a3140);
+}
+.wn-jump-row:nth-child(1) .wn-jump-mark {
+  animation: wn-jump-hl 3s ease-in-out infinite;
+}
+.wn-jump-row:nth-child(2) .wn-jump-mark {
+  animation: wn-jump-hl 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
+.wn-jump-row:nth-child(3) .wn-jump-mark {
+  animation: wn-jump-hl 3s ease-in-out infinite;
+  animation-delay: 2s;
+}
+.wn-jump-keys {
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.wn-jump-keys span {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+@keyframes wn-jump-hl {
+  0%, 25%, 100% {
+    background: var(--border-strong, #2a3140);
+  }
+  8%, 17% {
+    background: var(--accent);
+  }
+}
+
+/* "runall" demo — one command fanning out to shells */
+.wn-demo-runall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.wn-run-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  padding: 5px 12px;
+}
+.wn-run-cmd svg {
+  color: var(--accent);
+}
+.wn-run-fan {
+  display: flex;
+  gap: 10px;
+}
+.wn-run-sh {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  animation: wn-run-pop 2.4s ease-in-out infinite;
+}
+.wn-run-fan .wn-run-sh:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.wn-run-fan .wn-run-sh:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes wn-run-pop {
+  0%, 60%, 100% {
+    border-color: var(--border);
+    color: var(--text-dim);
+  }
+  20%, 40% {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* "notif" demo — bell with badge + stacked notification rows */
+.wn-demo-notif {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.wn-notif-bell {
+  position: relative;
+  color: var(--accent);
+  animation: wn-bell 2.6s ease-in-out infinite;
+  transform-origin: top center;
+}
+.wn-notif-badge {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 8px;
+  background: var(--danger, #f05d57);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+.wn-notif-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wn-notif-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+}
+.wn-notif-line svg {
+  color: var(--accent);
+}
+@keyframes wn-bell {
+  0%, 70%, 100% {
+    transform: rotate(0);
+  }
+  76% {
+    transform: rotate(14deg);
+  }
+  82% {
+    transform: rotate(-12deg);
+  }
+  88% {
+    transform: rotate(8deg);
+  }
+  94% {
+    transform: rotate(-4deg);
+  }
+}
+
 /* "drop" demo — a file chip dropping into a terminal prompt */
 .wn-demo-drop {
   position: relative;
@@ -613,6 +878,11 @@
   .wn-doc-row,
   .wn-git-chip,
   .wn-drop-file,
+  .wn-notif-bell,
+  .wn-run-sh,
+  .wn-jump-mark,
+  .wn-digest-card,
+  .wn-studio-pulse,
   .wn-demo-loader .spin {
     animation: none;
   }

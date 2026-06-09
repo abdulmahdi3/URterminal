@@ -15,6 +15,7 @@ import SshConnectModal from './components/SshConnectModal'
 import NotesModal from './components/NotesModal'
 import QuickSwitcher from './components/QuickSwitcher'
 import AgentDoctorModal from './components/AgentDoctorModal'
+import RunCommandModal from './components/RunCommandModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
@@ -41,6 +42,7 @@ import { useActivityLog } from './hooks/useActivityLog'
 import { useWhatsNew } from './hooks/useWhatsNew'
 import { useBudgetWarnings } from './hooks/useBudgetWarnings'
 import { useAgentDoctor } from './hooks/useAgentDoctor'
+import { useNotificationFeed } from './hooks/useNotificationFeed'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
 import { primeOsInfo } from './lib/osInfo'
@@ -63,6 +65,7 @@ export default function App(): JSX.Element {
   useWhatsNew()
   useBudgetWarnings()
   useAgentDoctor()
+  useNotificationFeed()
 
   // Mirror the theme class onto <body> too, so popovers/menus that portal out
   // of the .app root (HeaderPopover, etc.) still inherit the themed CSS vars
@@ -122,6 +125,7 @@ export default function App(): JSX.Element {
       <NotesModal />
       <QuickSwitcher />
       <AgentDoctorModal />
+      <RunCommandModal />
       <WhatsNewModal />
       <SearchBar />
       <ShortcutsModal />

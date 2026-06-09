@@ -1,4 +1,4 @@
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type IMarker } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { SerializeAddon } from '@xterm/addon-serialize'
@@ -134,6 +134,27 @@ export function setTerminalTheme(themeName: string): void {
   }
 }
 
+/**
+ * Apply a custom surface (background/foreground/cursor) to every terminal,
+ * keeping the dark ANSI palette. Used by the Theme Studio's custom theme.
+ */
+export function setTerminalSurface(c: {
+  background?: string
+  foreground?: string
+  cursor?: string
+}): void {
+  currentTheme = {
+    ...darkTheme,
+    ...(c.background ? { background: c.background } : {}),
+    ...(c.foreground ? { foreground: c.foreground } : {}),
+    ...(c.cursor ? { cursor: c.cursor } : {})
+  }
+  for (const [, entry] of pool) {
+    entry.term.options.theme = currentTheme
+    entry.term.refresh(0, entry.term.rows - 1)
+  }
+}
+
 export interface TerminalOpts {
   command?: string
   /**
@@ -192,6 +213,8 @@ interface Entry {
   followTail: boolean
   /** Guard so our own scroll-to-bottom calls don't get read back as a user scroll. */
   suppressScrollSync: boolean
+  /** xterm markers registered at each submitted prompt — used to jump between turns. */
+  bookmarks: IMarker[]
   /**
    * Last observed viewport line, so onScroll can tell a genuine user scroll-up
    * (viewportY decreases) from the buffer simply growing under a pinned viewport
@@ -294,25 +317,77 @@ export function onTerminalInput(cb: InputListener): () => void {
 
 // ---- per-pane current input line (used by broadcast mode to grab what was typed) ----
 // Reconstructed from raw keystrokes: printable chars append, backspace pops,
-// Enter clears. Escape sequences (arrows, bracketed paste) are ignored.
+// Enter submits + clears. Pasted text (bracketed-paste, ESC[200~ … ESC[201~) is
+// treated as ONE input chunk — its embedded newlines are folded to spaces so a
+// multi-line paste isn't mis-counted as many separate prompts.
 const inputLines = new Map<string, string>()
 const INPUT_ESC = new RegExp('\\u001B\\[[0-9;]*[~A-Za-z]|\\u001B[O][A-Za-z]?', 'g')
+const PASTE_START = '[200~'
+const PASTE_END = '[201~'
 
-function noteInputLine(paneId: string, data: string): void {
-  let buf = inputLines.get(paneId) ?? ''
-  for (const ch of data.replace(INPUT_ESC, '')) {
+// Per-pane history of submitted prompts (for the session summary).
+const promptHistory = new Map<string, string[]>()
+// Whether a pane is mid bracketed-paste (markers can span data chunks).
+const pasting = new Map<string, boolean>()
+
+/** Record a submitted prompt for turn-tracking + the session summary. */
+function recordSubmit(paneId: string, buf: string): void {
+  const submitted = buf.trim()
+  if (!submitted) return
+  // Hand the clean prompt to the learning recorder (no-op unless enabled).
+  window.api.learning?.turnMarker(paneId, submitted, Date.now())
+  const hist = promptHistory.get(paneId) ?? []
+  hist.push(submitted)
+  if (hist.length > 200) hist.shift()
+  promptHistory.set(paneId, hist)
+}
+
+/** Process a run of real keystrokes (no paste markers): append / backspace / submit. */
+function typeKeystrokes(paneId: string, buf: string, seg: string): string {
+  for (const ch of seg.replace(INPUT_ESC, '')) {
     const code = ch.charCodeAt(0)
     if (code === 13 || code === 10) {
-      // Enter submits the line — hand the clean, reconstructed prompt to the
-      // learning recorder as an authoritative turn boundary (no-op in main
-      // unless the learning layer is enabled).
-      const submitted = buf.trim()
-      if (submitted) window.api.learning?.turnMarker(paneId, submitted, Date.now())
+      recordSubmit(paneId, buf)
       buf = ''
     } else if (code === 127 || code === 8) buf = buf.slice(0, -1)
     else if (code >= 32) buf += ch
   }
+  return buf
+}
+
+function noteInputLine(paneId: string, data: string): void {
+  let buf = inputLines.get(paneId) ?? ''
+  let inPaste = pasting.get(paneId) ?? false
+  let rest = data
+  while (rest.length) {
+    if (!inPaste) {
+      const i = rest.indexOf(PASTE_START)
+      if (i === -1) {
+        buf = typeKeystrokes(paneId, buf, rest)
+        rest = ''
+      } else {
+        buf = typeKeystrokes(paneId, buf, rest.slice(0, i))
+        inPaste = true
+        rest = rest.slice(i + PASTE_START.length)
+      }
+    } else {
+      const i = rest.indexOf(PASTE_END)
+      const seg = i === -1 ? rest : rest.slice(0, i)
+      buf += seg.replace(/\r?\n/g, ' ') // fold pasted newlines — don't submit
+      if (i === -1) rest = ''
+      else {
+        inPaste = false
+        rest = rest.slice(i + PASTE_END.length)
+      }
+    }
+  }
+  pasting.set(paneId, inPaste)
   inputLines.set(paneId, buf)
+}
+
+/** Prompts the user has submitted in a pane this session (oldest first). */
+export function getPromptHistory(paneId: string): string[] {
+  return promptHistory.get(paneId) ?? []
 }
 
 /** The text currently typed (not yet submitted) on a pane's input line. */
@@ -478,6 +553,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     lastRows: term.rows,
     followTail: true,
     suppressScrollSync: false,
+    bookmarks: [],
     lastViewportY: term.buffer.active.viewportY,
     dispose: () => {}
   }
@@ -499,6 +575,19 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
 
   const onData = term.onData((d) => {
     if (entry.ptyId) window.api.writePty(entry.ptyId, d)
+    // Drop a jump marker at each submitted prompt (Enter) so the user can hop
+    // between turns. Bound the list and forget markers scrolled out of buffer.
+    if (d.includes('\r')) {
+      try {
+        const mk = term.registerMarker(0)
+        if (mk) entry.bookmarks.push(mk)
+      } catch {
+        /* registerMarker can throw if the buffer isn't ready — ignore */
+      }
+      if (entry.bookmarks.length > 300) {
+        entry.bookmarks = entry.bookmarks.filter((m) => m.line >= 0).slice(-200)
+      }
+    }
     noteInputLine(paneId, d)
     inputListeners.forEach((cb) => cb(paneId, d))
   })
@@ -838,6 +927,42 @@ export function focusTerminal(paneId: string): void {
 }
 
 /**
+ * Scroll a pane to the previous/next submitted-prompt marker (turn jumping).
+ * Detaches follow-tail so a jump-up isn't immediately yanked back to the bottom.
+ * Returns false when there's no marker to move to in that direction.
+ */
+export function jumpBookmark(paneId: string, dir: 'prev' | 'next'): boolean {
+  const entry = pool.get(paneId)
+  if (!entry) return false
+  const term = entry.term
+  const lines = entry.bookmarks
+    .map((m) => m.line)
+    .filter((l) => l >= 0)
+    .sort((a, b) => a - b)
+  if (!lines.length) return false
+  const cur = term.buffer.active.viewportY
+  let target: number | undefined
+  if (dir === 'prev') {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i] < cur - 1) {
+        target = lines[i]
+        break
+      }
+    }
+  } else {
+    target = lines.find((l) => l > cur + 1)
+  }
+  if (target == null) return false
+  entry.followTail = false
+  try {
+    term.scrollToLine(target)
+  } catch {
+    /* noop */
+  }
+  return true
+}
+
+/**
  * Paste literal text into a pane's terminal (honors bracketed-paste, so it isn't
  * executed). Used by drag-and-drop file insertion; input tracking stays in sync
  * because the paste flows through the normal onData handler.
@@ -855,6 +980,8 @@ export function disposeTerminal(paneId: string): void {
   if (!entry) return
   pool.delete(paneId)
   inputLines.delete(paneId)
+  promptHistory.delete(paneId)
+  pasting.delete(paneId)
   entry.dispose()
   useTokens.getState().clearPane(paneId)
   usePaneStatus.getState().remove(paneId)

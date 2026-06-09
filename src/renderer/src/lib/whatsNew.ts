@@ -24,6 +24,11 @@ export type WhatsNewDemo =
   | 'doctor'
   | 'git'
   | 'drop'
+  | 'notif'
+  | 'runall'
+  | 'jump'
+  | 'digest'
+  | 'studio'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -53,6 +58,58 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.15': {
+    version: '0.3.15',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'A notification center',
+        demo: 'notif',
+        body:
+          'A new bell in the status bar collects everything in one place — agents finishing their ' +
+          'turn, available updates, and alerts — with an unread badge. Open it to catch up, then ' +
+          'clear the lot.'
+      },
+      {
+        kind: 'feature',
+        title: 'Run a command in every shell',
+        demo: 'runall',
+        body:
+          'Ctrl+K → “Run a command in all shells” fires one command (git pull, npm test, …) into ' +
+          'every shell pane in the workspace at once — handy when you’re juggling a row of repos.'
+      },
+      {
+        kind: 'feature',
+        title: 'Jump between your prompts',
+        demo: 'jump',
+        body:
+          'Every command you submit drops an invisible bookmark. Press Alt+↑ / Alt+↓ to hop back ' +
+          'and forth between turns in long scrollback — no more scroll-wheel hunting for that ' +
+          'earlier command.'
+      },
+      {
+        kind: 'feature',
+        title: 'Recap a session',
+        demo: 'digest',
+        body:
+          'Ctrl+K → “Summarize this session” drops a clean recap of everything you’ve asked this ' +
+          'session straight into the prompt — typed in full (no “[Pasted text]” placeholder) so ' +
+          'you can review and send, or feed it to another agent. Offline, no API key.'
+      },
+      {
+        kind: 'feature',
+        title: 'Make your own theme',
+        demo: 'studio',
+        body:
+          'Settings → Appearance → Theme → “Custom…” opens a theme studio: pick a background, text, ' +
+          'and accent colour and the whole palette — app and terminals — is derived to match. ' +
+          'Export or import a theme as JSON to share it.'
+      }
+    ]
+  },
+
   // 0.3.14 — batch 2 (only THIS version's new features live here, per the
   // "show new features only" rule; older versions keep their own entries).
   '0.3.14': {

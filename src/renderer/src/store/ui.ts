@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SnippetItem } from '@shared/types'
 
-export const APP_THEMES = ['dark', 'light', 'amoled', 'ocean', 'forest', 'dusk'] as const
+export const APP_THEMES = ['dark', 'light', 'amoled', 'ocean', 'forest', 'dusk', 'custom'] as const
 export type AppTheme = (typeof APP_THEMES)[number]
 
 interface UiState {
@@ -15,6 +15,8 @@ interface UiState {
   showQuickSwitch: boolean
   /** agent-doctor (install checklist) overlay open */
   showAgentDoctor: boolean
+  /** "run a command in all shells" prompt open */
+  showRunCommand: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -53,6 +55,7 @@ interface UiState {
   setShowQuickSwitch: (v: boolean) => void
   toggleQuickSwitch: () => void
   setShowAgentDoctor: (v: boolean) => void
+  setShowRunCommand: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -80,6 +83,7 @@ const ALL_CLOSED = {
   showAskAll: false,
   showQuickSwitch: false,
   showAgentDoctor: false,
+  showRunCommand: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -94,6 +98,7 @@ export const useUi = create<UiState>((set, get) => ({
   showAskAll: false,
   showQuickSwitch: false,
   showAgentDoctor: false,
+  showRunCommand: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -137,6 +142,8 @@ export const useUi = create<UiState>((set, get) => ({
     ),
   setShowAgentDoctor: (v) =>
     set(v ? { ...ALL_CLOSED, showAgentDoctor: true } : { showAgentDoctor: false }),
+  setShowRunCommand: (v) =>
+    set(v ? { ...ALL_CLOSED, showRunCommand: true } : { showRunCommand: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),

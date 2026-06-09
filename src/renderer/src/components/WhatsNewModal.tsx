@@ -10,7 +10,12 @@ import {
   Search,
   GitBranch,
   FileText,
-  Download
+  Download,
+  Bell,
+  Bot,
+  DownloadCloud,
+  Play,
+  Palette
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -65,6 +70,91 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
         </div>
         <div className="wn-prompt">
           <span className="wn-arrow">❯</span> <span className="wn-caret" />
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'studio') {
+    // Three color swatches blending into a themed preview chip.
+    return (
+      <div className="wn-demo wn-demo-studio">
+        <div className="wn-studio-swatches">
+          <span className="wn-studio-sw" style={{ background: '#0b0d12' }} />
+          <span className="wn-studio-sw" style={{ background: '#e7ecf3' }} />
+          <span className="wn-studio-sw wn-studio-pulse" style={{ background: '#bc8cff' }} />
+        </div>
+        <div className="wn-studio-preview">
+          <Palette size={16} /> your theme
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'digest') {
+    // A little markdown summary card being copied.
+    return (
+      <div className="wn-demo wn-demo-digest">
+        <div className="wn-digest-card">
+          <div className="wn-digest-h"># session summary</div>
+          <div className="wn-digest-l wn-digest-dim">## What you asked (3)</div>
+          <div className="wn-digest-l">1. refactor the parser</div>
+          <div className="wn-digest-l wn-digest-dim">## Key outputs (2)</div>
+          <div className="wn-digest-l">- edited 4 files, tests pass</div>
+        </div>
+        <div className="wn-digest-copied">
+          <FileText size={11} /> copied
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'jump') {
+    // Prompt rows with a marker hopping between them.
+    return (
+      <div className="wn-demo wn-demo-jump">
+        <div className="wn-jump-row">
+          <span className="wn-jump-mark" /> <span className="wn-arrow">❯</span> npm run build
+        </div>
+        <div className="wn-jump-row">
+          <span className="wn-jump-mark" /> <span className="wn-arrow">❯</span> git commit -m fix
+        </div>
+        <div className="wn-jump-row">
+          <span className="wn-jump-mark" /> <span className="wn-arrow">❯</span> git push
+        </div>
+        <div className="wn-jump-keys">
+          Alt<span>↑</span> / Alt<span>↓</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'runall') {
+    // One command fanning out to several shells.
+    return (
+      <div className="wn-demo wn-demo-runall">
+        <div className="wn-run-cmd">
+          <Play size={11} /> npm&nbsp;test
+        </div>
+        <div className="wn-run-fan">
+          <span className="wn-run-sh">sh 1</span>
+          <span className="wn-run-sh">sh 2</span>
+          <span className="wn-run-sh">sh 3</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'notif') {
+    // A bell with a badge over a couple of stacked notification rows.
+    return (
+      <div className="wn-demo wn-demo-notif">
+        <div className="wn-notif-bell">
+          <Bell size={20} />
+          <span className="wn-notif-badge">3</span>
+        </div>
+        <div className="wn-notif-rows">
+          <div className="wn-notif-line">
+            <Bot size={11} /> Claude finished
+          </div>
+          <div className="wn-notif-line">
+            <DownloadCloud size={11} /> Update 0.3.15 ready
+          </div>
         </div>
       </div>
     )

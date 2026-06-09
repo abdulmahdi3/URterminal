@@ -57,7 +57,8 @@ const THEME_OPTIONS = [
   { value: 'amoled', label: 'AMOLED' },
   { value: 'ocean', label: 'Ocean' },
   { value: 'forest', label: 'Forest' },
-  { value: 'dusk', label: 'Dusk' }
+  { value: 'dusk', label: 'Dusk' },
+  { value: 'custom', label: 'Custom…' }
 ]
 
 type KeyProvider = 'anthropic' | 'openai' | 'gemini'
@@ -77,7 +78,7 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
   notifications: [
     'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName'
   ],
-  appearance: ['appTheme', 'fontFamily', 'fontSize']
+  appearance: ['appTheme', 'fontFamily', 'fontSize', 'customTheme']
 }
 
 /** Small "Key set" / "Not set" status pill used by the key + token fields. */
@@ -530,6 +531,32 @@ export default function SettingsModal(): JSX.Element | null {
   }
   const clearKey = (provider: ProviderId): void => void patch({ providerKey: { provider, key: null } })
 
+  // Theme Studio custom-theme colors + clipboard export/import.
+  const customTheme = prefs.customTheme ?? { bg: '#0b0d12', text: '#e7ecf3', accent: '#4c8dff' }
+  const setCustomTheme = (patchColors: Partial<typeof customTheme>): void =>
+    void patch({ prefs: { customTheme: { ...customTheme, ...patchColors } } })
+  const exportTheme = (): void => {
+    void navigator.clipboard
+      .writeText(JSON.stringify(customTheme))
+      .then(() => toast('Theme copied to clipboard', 'ok'))
+      .catch(() => toast('Could not copy theme', 'error'))
+  }
+  const importTheme = (): void => {
+    void navigator.clipboard
+      .readText()
+      .then((txt) => {
+        const obj = JSON.parse(txt) as Record<string, unknown>
+        const hex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
+        if (!hex(obj.bg) || !hex(obj.text) || !hex(obj.accent)) {
+          toast('Clipboard is not a valid theme', 'error')
+          return
+        }
+        setCustomTheme({ bg: obj.bg, text: obj.text, accent: obj.accent })
+        toast('Theme imported', 'ok')
+      })
+      .catch(() => toast('Could not read a theme from the clipboard', 'error'))
+  }
+
   const snippets = prefs.snippets ?? []
   const addSnippet = (): void => {
     if (!snipName.trim() || !snipBody.trim()) return
@@ -647,7 +674,7 @@ export default function SettingsModal(): JSX.Element | null {
       'Terminal padding', 'Scroll sensitivity', 'Scrollbar width', 'Terminal bell sound', 'Copy on select',
       'Paste on right-click', 'Show pane title bars'
     ],
-    appearance: ['Theme', 'Terminal font', 'Font size', 'Accent Color'],
+    appearance: ['Theme', 'Theme studio', 'Terminal font', 'Font size', 'Accent Color'],
     behavior: [
       'Default shell folder', 'Auto-save interval', 'Max restored panes', 'Session token budget',
       'Focus new pane on create',
@@ -982,10 +1009,37 @@ export default function SettingsModal(): JSX.Element | null {
               <section className="settings-section" ref={sectionRef('appearance')}>
                 <Head id="appearance" title={t('settings.appearance')} />
                 {match('Theme') && (
-                  <SettingCard icon={<Palette size={16} />} title="Theme" desc="Terminals stay dark; “System” follows your OS." control={
+                  <SettingCard icon={<Palette size={16} />} title="Theme" desc="“System” follows your OS; “Custom…” opens the theme studio." control={
                     <select className="select" value={prefs.appTheme} onChange={(e) => setPref({ appTheme: e.target.value })}>
                       {THEME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
+                  } />
+                )}
+                {prefs.appTheme === 'custom' && match('Theme studio') && (
+                  <SettingCard stacked icon={<Palette size={16} />} title="Theme studio" desc="Pick three colors — the rest of the palette is derived. Export/import as JSON to share." control={
+                    <div className="theme-studio">
+                      <div className="ts-fields">
+                        <label className="ts-field">
+                          <span className="ts-swatch" style={{ background: customTheme.bg }} />
+                          Background
+                          <input type="color" value={customTheme.bg} onChange={(e) => setCustomTheme({ bg: e.target.value })} />
+                        </label>
+                        <label className="ts-field">
+                          <span className="ts-swatch" style={{ background: customTheme.text }} />
+                          Text
+                          <input type="color" value={customTheme.text} onChange={(e) => setCustomTheme({ text: e.target.value })} />
+                        </label>
+                        <label className="ts-field">
+                          <span className="ts-swatch" style={{ background: customTheme.accent }} />
+                          Accent
+                          <input type="color" value={customTheme.accent} onChange={(e) => setCustomTheme({ accent: e.target.value })} />
+                        </label>
+                      </div>
+                      <div className="ts-actions">
+                        <button className="btn" onClick={exportTheme}><Download size={13} /> Copy</button>
+                        <button className="btn" onClick={importTheme}><Upload size={13} /> Paste</button>
+                      </div>
+                    </div>
                   } />
                 )}
                 {match('Terminal font') && (
