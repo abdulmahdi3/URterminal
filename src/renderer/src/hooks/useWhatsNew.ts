@@ -21,7 +21,20 @@ export function useWhatsNew(): void {
     done.current = true
     void (async () => {
       const { version } = await window.api.getAppInfo()
-      const versions = notesSince(settings.prefs.lastSeenVersion, version).map((n) => n.version)
+      const lastSeen = settings.prefs.lastSeenVersion
+      // With no recorded lastSeen we can't tell a brand-new install from someone
+      // upgrading off a pre-tour version (both look empty). If a prior workspace
+      // exists, treat them as a returning user and show the whole backlog.
+      let returning = false
+      if (!lastSeen) {
+        try {
+          const last = await window.api.readLastSession()
+          returning = !!last?.workspaces?.some((w) => Object.keys(w.panes ?? {}).length > 0)
+        } catch {
+          /* no prior session → treat as a fresh install */
+        }
+      }
+      const versions = notesSince(lastSeen, version, returning).map((n) => n.version)
       if (versions.length) useUi.getState().setWhatsNewVersions(versions)
     })()
   }, [settings])

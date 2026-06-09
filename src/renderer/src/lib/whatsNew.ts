@@ -61,6 +61,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.18': {
+    version: '0.3.18',
+    headline: 'New in this update',
+    kind: 'fix',
+    steps: [
+      {
+        kind: 'fix',
+        title: 'See every update you missed',
+        demo: 'tour',
+        body:
+          'After updating across several versions at once, What’s New now walks you through all of ' +
+          'them — each step tagged with its version — instead of only the latest. You can also open ' +
+          'the full changelog any time from Ctrl+K → “What’s new”.'
+      }
+    ]
+  },
+
   '0.3.17': {
     version: '0.3.17',
     headline: 'New in this update',
@@ -261,19 +278,30 @@ export function notesFor(version: string): ReleaseNotes | undefined {
  *    so a brand-new user isn't shown the whole back-catalogue.
  * Returns [] when there's nothing new to show.
  */
-export function notesSince(lastSeen: string, current: string): ReleaseNotes[] {
+export function notesSince(
+  lastSeen: string,
+  current: string,
+  firstRunShowsAll = false
+): ReleaseNotes[] {
   const all = Object.values(RELEASE_NOTES)
+  const byVer = (a: ReleaseNotes, b: ReleaseNotes): number => compareVersions(a.version, b.version)
   const upTo = (n: ReleaseNotes): boolean => !current || compareVersions(n.version, current) <= 0
 
   if (!lastSeen) {
-    const eligible = all.filter(upTo).sort((a, b) => compareVersions(a.version, b.version))
-    const latest = (eligible.length ? eligible : all.sort((a, b) => compareVersions(a.version, b.version))).at(-1)
+    const eligible = all.filter(upTo).sort(byVer)
+    // Returning user upgrading from a pre-tour version (no recorded lastSeen):
+    // show EVERY authored version up to the current one, not just the latest.
+    if (firstRunShowsAll) return eligible
+    const latest = (eligible.length ? eligible : all.sort(byVer)).at(-1)
     return latest ? [latest] : []
   }
 
-  return all
-    .filter((n) => compareVersions(n.version, lastSeen) > 0 && upTo(n))
-    .sort((a, b) => compareVersions(a.version, b.version))
+  return all.filter((n) => compareVersions(n.version, lastSeen) > 0 && upTo(n)).sort(byVer)
+}
+
+/** Every authored release's notes, oldest → newest (the full changelog). */
+export function allNotes(): ReleaseNotes[] {
+  return Object.values(RELEASE_NOTES).sort((a, b) => compareVersions(a.version, b.version))
 }
 
 /** The highest-versioned notes available (for the manual "What's new" command). */

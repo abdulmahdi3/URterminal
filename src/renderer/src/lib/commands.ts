@@ -20,7 +20,7 @@ import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { injectText } from '@renderer/lib/inject'
 import { enhanceActivePrompt } from '@renderer/lib/enhance'
 import { summarizeActiveSession } from '@renderer/lib/summarize'
-import { latestNotes } from '@renderer/lib/whatsNew'
+import { allNotes } from '@renderer/lib/whatsNew'
 import { toast } from '@renderer/store/toasts'
 
 export interface Command {
@@ -414,12 +414,13 @@ export function getCommands(): Command[] {
       title: "What's new",
       group: 'App',
       run: () => {
-        const notes = latestNotes()
-        if (!notes) {
+        const all = allNotes()
+        if (!all.length) {
           toast('No release notes available yet', 'info')
           return
         }
-        ui().setWhatsNewVersions([notes.version])
+        // Full changelog: every version, oldest → newest.
+        ui().setWhatsNewVersions(all.map((n) => n.version))
       }
     },
 
