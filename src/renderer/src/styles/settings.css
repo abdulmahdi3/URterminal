@@ -271,6 +271,14 @@
   gap: 8px;
 }
 
+/* MCP server add-row */
+.mcp-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 /* @-reference suggestion chips */
 .ref-suggest {
   display: flex;

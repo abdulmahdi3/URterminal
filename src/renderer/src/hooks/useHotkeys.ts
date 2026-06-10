@@ -78,6 +78,8 @@ export function useHotkeys(): void {
           ui.showRunCommand ||
           ui.showSessionSearch ||
           ui.showInsertReference ||
+          ui.showMcp ||
+          ui.showDelegate ||
           ui.linkingPaneId
         ) {
           ui.closeOverlays()

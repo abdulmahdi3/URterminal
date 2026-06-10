@@ -664,6 +664,20 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
       if (entry.bytes >= START_BYTES) {
         entry.started = true
         entry.onStarted?.()
+        // A delegated subagent gets its task typed in once it's booted (the user
+        // reviews + sends), so the agent's UI has settled before we paste.
+        const seeded = pendingPrompts.get(paneId)
+        if (seeded) {
+          pendingPrompts.delete(paneId)
+          window.setTimeout(() => {
+            try {
+              entry.term.focus()
+              entry.term.paste(seeded)
+            } catch {
+              /* noop */
+            }
+          }, 1500)
+        }
       }
     }
     // Re-pin to the bottom once this chunk is parsed, but only while the user is
@@ -970,6 +984,13 @@ export function exportPaneHtml(paneId: string): string {
   }
 }
 
+// A task to type into a pane once its agent has booted (delegated subagents).
+const pendingPrompts = new Map<string, string>()
+/** Queue text to be typed into a pane the moment its process starts. */
+export function seedPrompt(paneId: string, text: string): void {
+  if (text.trim()) pendingPrompts.set(paneId, text)
+}
+
 /** Move keyboard focus into a pane's terminal (used by the quick-switcher). */
 export function focusTerminal(paneId: string): void {
   try {
@@ -1087,6 +1108,7 @@ export function disposeTerminal(paneId: string): void {
   inputLines.delete(paneId)
   promptHistory.delete(paneId)
   paneSessionId.delete(paneId)
+  pendingPrompts.delete(paneId)
   pasting.delete(paneId)
   entry.dispose()
   useTokens.getState().clearPane(paneId)

@@ -3,6 +3,7 @@ import { useWorkspace } from '@renderer/store/workspace'
 import { onPaneTurnComplete } from '@renderer/store/paneStatus'
 import { useNotifications } from '@renderer/store/notifications'
 import { useUpdater } from '@renderer/store/updater'
+import { useSettings } from '@renderer/store/settings'
 
 /**
  * Funnels the app's scattered signals into the unified notification center:
@@ -19,6 +20,11 @@ export function useNotificationFeed(): void {
         if (!pane || pane.type !== 'ai') return
         const name = pane.title || pane.agent?.command || 'Agent'
         useNotifications.getState().push({ kind: 'agent', title: `${name} finished`, body: 'Idle and ready.' })
+        // Mirror to Discord/Slack if a webhook is configured.
+        const prefs = useSettings.getState().settings?.prefs
+        const msg = `✅ ${name} finished a turn${pane.agent?.cwd ? ` in ${pane.agent.cwd}` : ''}.`
+        if (prefs?.discordWebhook) window.api.postWebhook(prefs.discordWebhook, msg)
+        if (prefs?.slackWebhook) window.api.postWebhook(prefs.slackWebhook, msg)
       }),
     []
   )

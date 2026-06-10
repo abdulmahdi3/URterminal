@@ -22,6 +22,7 @@ import type {
   FileSaveResult,
   GitStatus,
   SessionHit,
+  McpServer,
   PaneInfo,
   SessionData,
   LastSessionPayload,
@@ -88,6 +89,10 @@ const api = {
     ipcRenderer.invoke(IPC.sessionsSearch, query),
   expandReference: (ref: string, cwd: string): Promise<{ ok: boolean; content?: string; error?: string }> =>
     ipcRenderer.invoke(IPC.referenceExpand, ref, cwd),
+  readMcp: (cwd: string): Promise<McpServer[]> => ipcRenderer.invoke(IPC.mcpRead, cwd),
+  writeMcp: (cwd: string, servers: McpServer[]): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.mcpWrite, cwd, servers),
+  postWebhook: (url: string, text: string): void => ipcRenderer.send(IPC.webhookPost, url, text),
   promptsGet: (sessionId: string): Promise<string[]> =>
     ipcRenderer.invoke(IPC.promptsGet, sessionId),
   promptsAppend: (sessionId: string, text: string): void =>
@@ -126,6 +131,8 @@ const api = {
     deleteMemory: (scopeKey: string, slug: string): Promise<boolean> =>
       ipcRenderer.invoke(IPC.learningMemoryDelete, scopeKey, slug),
     tidySkills: (): Promise<{ archived: number }> => ipcRenderer.invoke(IPC.learningTidySkills),
+    installSkill: (url: string): Promise<{ ok: boolean; name?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC.learningInstallSkill, url),
     getProfile: (doc: 'user' | 'persona'): Promise<string> =>
       ipcRenderer.invoke(IPC.learningGetProfile, doc),
     setProfile: (doc: 'user' | 'persona', text: string): Promise<boolean> =>

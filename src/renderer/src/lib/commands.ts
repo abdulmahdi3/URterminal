@@ -156,6 +156,18 @@ export function getCommands(): Command[] {
       run: () => ui().setShowInsertReference(true)
     },
     {
+      id: 'pane.delegate',
+      title: 'Delegate a task to a subagent…',
+      group: 'Panes',
+      run: () => ui().setShowDelegate(true)
+    },
+    {
+      id: 'app.mcp',
+      title: 'Configure MCP servers (this folder)…',
+      group: 'App',
+      run: () => ui().setShowMcp(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'Connect to SSH server…',
       group: 'Panes',

@@ -255,6 +255,10 @@ export interface AppPrefs {
   notifyVolume: number
   /** which built-in notification sound to play */
   notifySoundName: NotifySound
+  /** Discord incoming-webhook URL — agent-finished notices are posted here */
+  discordWebhook: string
+  /** Slack incoming-webhook URL — agent-finished notices are posted here */
+  slackWebhook: string
 
   // ---- app lifecycle ----
   /** last app version whose "What's new" tour the user has seen (drives the
@@ -310,6 +314,8 @@ export const DEFAULT_PREFS: AppPrefs = {
   notifyOnlyUnfocused: false,
   notifyVolume: 60,
   notifySoundName: 'chime',
+  discordWebhook: '',
+  slackWebhook: '',
 
   lastSeenVersion: '',
   sessionTokenBudget: 0,
@@ -711,6 +717,13 @@ export interface SessionHit {
   snippet: string
 }
 
+/** An MCP server entry in a project's .mcp.json. */
+export interface McpServer {
+  name: string
+  command: string
+  args: string[]
+}
+
 /** Git working-tree summary for a folder (null when it isn't a git repo). */
 export interface GitStatus {
   /** current branch name, or a short SHA when detached */
@@ -770,6 +783,11 @@ export const IPC = {
   sessionsSearch: 'sessions:search',
   // references: expand a @diff / @url / @file / @git reference into prompt context
   referenceExpand: 'reference:expand',
+  // mcp: read/write the project .mcp.json that agents load
+  mcpRead: 'mcp:read',
+  mcpWrite: 'mcp:write',
+  // webhook: post a message to a Discord/Slack incoming webhook (from main, no CORS)
+  webhookPost: 'webhook:post',
 
   // learning layer (local observe -> distill -> inject; opt-in, default off)
   learningTurnMarker: 'learning:turn-marker', // renderer -> main: a submitted user prompt
@@ -786,6 +804,7 @@ export const IPC = {
   learningSkillAction: 'learning:skill-action', // pin/unpin/archive/unarchive/delete a skill
   learningMemoryDelete: 'learning:memory-delete', // delete a learned memory
   learningTidySkills: 'learning:tidy-skills', // archive stale, unpinned skills
+  learningInstallSkill: 'learning:install-skill', // install a skill from a URL (agentskills.io / GitHub)
   learningListPendingOps: 'learning:list-pending-ops', // renderer -> main: distilled ops awaiting review
   learningApproveOp: 'learning:approve-op', // renderer -> main: write a pending op into the brain
   learningRejectOp: 'learning:reject-op', // renderer -> main: discard a pending op

@@ -64,6 +64,46 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.25': {
+    version: '0.3.25',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Install community skills',
+        demo: 'learn',
+        body:
+          'Settings → Learning → Install a skill: paste an agentskills.io / GitHub SKILL.md URL and ' +
+          'it’s added to your brain (pinned), so every agent gains that skill.'
+      },
+      {
+        kind: 'feature',
+        title: 'Configure MCP servers',
+        demo: 'ref',
+        body:
+          'Ctrl+K → “Configure MCP servers” edits the active folder’s .mcp.json — add the MCP ' +
+          'servers your agents (Claude Code, etc.) should load, right from URterminal.'
+      },
+      {
+        kind: 'feature',
+        title: 'Delegate to a subagent',
+        demo: 'runall',
+        body:
+          'Ctrl+K → “Delegate a task to a subagent” spins up a new agent in the same folder and ' +
+          'drops your subtask into it — a parallel workstream in one step.'
+      },
+      {
+        kind: 'feature',
+        title: 'Discord & Slack notifications',
+        demo: 'notif',
+        body:
+          'Settings → Notifications: paste a Discord or Slack webhook URL and you’ll get an ' +
+          '“agent finished” message there — your agents can reach you off your laptop.'
+      }
+    ]
+  },
+
   '0.3.24': {
     version: '0.3.24',
     headline: 'New in this update',

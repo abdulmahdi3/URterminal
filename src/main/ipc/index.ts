@@ -31,6 +31,8 @@ import { getGitStatus } from '../git/status'
 import { getPrompts, appendPrompt } from '../prompts/store'
 import { searchSessions, warmSessionIndex } from '../sessions/recall'
 import { expandReference } from '../references/expand'
+import { readMcp, writeMcp, type McpServer } from '../mcp/config'
+import { postWebhook } from '../webhook/post'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
 import {
@@ -42,6 +44,7 @@ import {
 } from '../learning/brain'
 import { readProfileDoc, writeProfileDoc, type ProfileDoc } from '../learning/profile'
 import { getSkillFlags, setSkillFlags, clearSkillFlags } from '../learning/skillState'
+import { installSkillFromUrl } from '../learning/skillInstall'
 import { enhancePrompt } from '../learning/enhancer'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
@@ -410,6 +413,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
   ipcMain.handle(IPC.sessionsSearch, (_e, query: string) => searchSessions(query))
   ipcMain.handle(IPC.referenceExpand, (_e, ref: string, cwd: string) => expandReference(ref, cwd))
+  ipcMain.handle(IPC.mcpRead, (_e, cwd: string) => readMcp(cwd))
+  ipcMain.handle(IPC.mcpWrite, (_e, cwd: string, servers: McpServer[]) => writeMcp(cwd, servers))
+  ipcMain.on(IPC.webhookPost, (_e, url: string, text: string) => void postWebhook(url, text))
   warmSessionIndex() // start indexing past conversations in the background
   ipcMain.handle(IPC.promptsGet, (_e, sessionId: string) => getPrompts(sessionId))
   ipcMain.on(IPC.promptsAppend, (_e, sessionId: string, text: string) =>
@@ -491,6 +497,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     deleteMemoryEntry(scopeKey === 'global' ? null : scopeKey, slug)
     return true
   })
+  ipcMain.handle(IPC.learningInstallSkill, (_e, url: string) => installSkillFromUrl(url))
   ipcMain.handle(IPC.learningTidySkills, () => {
     const daysSince = (d: string): number => {
       const t = Date.parse(d)

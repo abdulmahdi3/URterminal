@@ -76,7 +76,8 @@ const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
     'focusNewPane', 'clearWorkspaceOnExit', 'autoRestore', 'defaultLanguage', 'sshAgentMount'
   ],
   notifications: [
-    'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName'
+    'notifyOnDone', 'notifySound', 'notifyOnlyUnfocused', 'notifyVolume', 'notifySoundName',
+    'discordWebhook', 'slackWebhook'
   ],
   appearance: ['appTheme', 'fontFamily', 'fontSize', 'customTheme']
 }
@@ -683,7 +684,8 @@ export default function SettingsModal(): JSX.Element | null {
     ],
     notifications: [
       'Desktop notification when an agent finishes', 'Play a sound when an agent finishes',
-      'Only notify when window is unfocused', 'Notification sound', 'Notification volume'
+      'Only notify when window is unfocused', 'Notification sound', 'Notification volume',
+      'Discord webhook', 'Slack webhook'
     ],
     telegram: [t('settings.telegramToken'), t('settings.telegramDefaultChat'), 'Allowed chats'],
     integrations: ['Integrations', 'Todoist', 'TickTick', 'Microsoft To Do', 'Google Tasks', 'Notion'],
@@ -1241,6 +1243,20 @@ export default function SettingsModal(): JSX.Element | null {
                       </div>
                     </div>
                   </div>
+                )}
+                {match('Discord webhook') && (
+                  <SettingCard stacked icon={<Send size={16} />} title="Discord webhook" desc="Paste a Discord channel webhook URL to get an “agent finished” message there." control={
+                    <input className="input mono" type="password" placeholder="https://discord.com/api/webhooks/…"
+                      defaultValue={prefs.discordWebhook}
+                      onBlur={(e) => setPref({ discordWebhook: e.target.value.trim() })} />
+                  } />
+                )}
+                {match('Slack webhook') && (
+                  <SettingCard stacked icon={<Send size={16} />} title="Slack webhook" desc="Paste a Slack incoming-webhook URL to get an “agent finished” message there." control={
+                    <input className="input mono" type="password" placeholder="https://hooks.slack.com/services/…"
+                      defaultValue={prefs.slackWebhook}
+                      onBlur={(e) => setPref({ slackWebhook: e.target.value.trim() })} />
+                  } />
                 )}
               </section>
             )}

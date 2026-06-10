@@ -18,6 +18,8 @@ import AgentDoctorModal from './components/AgentDoctorModal'
 import RunCommandModal from './components/RunCommandModal'
 import SessionSearchModal from './components/SessionSearchModal'
 import InsertReferenceModal from './components/InsertReferenceModal'
+import McpModal from './components/McpModal'
+import DelegateModal from './components/DelegateModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
@@ -130,6 +132,8 @@ export default function App(): JSX.Element {
       <RunCommandModal />
       <SessionSearchModal />
       <InsertReferenceModal />
+      <McpModal />
+      <DelegateModal />
       <WhatsNewModal />
       <SearchBar />
       <ShortcutsModal />

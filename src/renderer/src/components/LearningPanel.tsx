@@ -156,6 +156,8 @@ export default function LearningPanel(): JSX.Element {
     }[]
   } | null>(null)
   const [brainOpen, setBrainOpen] = useState(false)
+  const [skillUrl, setSkillUrl] = useState('')
+  const [installing, setInstalling] = useState(false)
   const [userDoc, setUserDoc] = useState('')
   const [personaDoc, setPersonaDoc] = useState('')
 
@@ -241,6 +243,24 @@ export default function LearningPanel(): JSX.Element {
       'ok'
     )
     loadBrain()
+  }
+  const installSkill = async (): Promise<void> => {
+    const url = skillUrl.trim()
+    if (!url || installing) return
+    setInstalling(true)
+    try {
+      const r = await api?.installSkill?.(url)
+      if (r?.ok) {
+        toast(`Installed skill: ${r.name}`, 'ok')
+        setSkillUrl('')
+        setBrainOpen(true)
+        loadBrain()
+      } else {
+        toast(r?.error ?? 'Install failed', 'error')
+      }
+    } finally {
+      setInstalling(false)
+    }
   }
 
   // ---- AI provider helpers ----
@@ -347,6 +367,24 @@ export default function LearningPanel(): JSX.Element {
             </div>
           }
         />
+        <div className="learn-doc" style={{ marginTop: 10 }}>
+          <div className="settings-row-label">Install a skill (agentskills.io / GitHub)</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              className="input mono"
+              placeholder="https://raw.githubusercontent.com/…/SKILL.md"
+              value={skillUrl}
+              onChange={(e) => setSkillUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void installSkill()
+              }}
+              style={{ flex: 1 }}
+            />
+            <button className="btn primary" onClick={installSkill} disabled={!skillUrl.trim() || installing}>
+              {installing ? 'Installing…' : 'Install'}
+            </button>
+          </div>
+        </div>
         {brainOpen && brain && (
           <div className="learn-brain">
             {brain.memories.length === 0 && brain.skills.length === 0 && (
