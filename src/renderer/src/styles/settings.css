@@ -99,6 +99,50 @@
   gap: 6px;
 }
 
+/* ---- learning: "what we've learned about you" viewer ---- */
+.learn-brain {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.learn-brain-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+  padding: 9px 11px;
+}
+.learn-brain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.learn-brain-title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+.learn-brain-scope {
+  flex: 0 0 auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  background: var(--bg-elev-3, var(--bg-elev));
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+.learn-brain-body {
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---- theme studio (custom theme) ---- */
 .theme-studio {
   display: flex;

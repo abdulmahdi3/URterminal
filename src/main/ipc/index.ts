@@ -31,7 +31,7 @@ import { getGitStatus } from '../git/status'
 import { getPrompts, appendPrompt } from '../prompts/store'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
-import { forgetProject as forgetLearningProject } from '../learning/brain'
+import { forgetProject as forgetLearningProject, readAllMemories, readAllSkills } from '../learning/brain'
 import { enhancePrompt } from '../learning/enhancer'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
@@ -428,6 +428,20 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.learningListMemory, (_e, projectHash?: string | null) =>
     capture.brain(projectHash ?? null)
   )
+  // Full brain content (with bodies) across every scope — for the "what URterminal
+  // has learned about you" viewer.
+  ipcMain.handle(IPC.learningBrainView, () => ({
+    memories: readAllMemories()
+      .map((m) => ({
+        title: m.title,
+        body: m.body,
+        scope: m.scope,
+        confidence: m.confidence,
+        updated: m.updated
+      }))
+      .sort((a, b) => b.confidence - a.confidence),
+    skills: readAllSkills().map((s) => ({ name: s.name, description: s.description, scope: s.scope }))
+  }))
   ipcMain.handle(IPC.learningListPendingOps, () => capture.listPendingOps())
   ipcMain.handle(IPC.learningApproveOp, (_e, id: string) => capture.approveOp(id))
   ipcMain.handle(IPC.learningRejectOp, (_e, id: string) => capture.rejectOp(id))

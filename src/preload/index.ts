@@ -105,6 +105,10 @@ const api = {
       ipcRenderer.invoke(IPC.learningDistill, projectHash),
     listMemory: (projectHash?: string | null): Promise<unknown> =>
       ipcRenderer.invoke(IPC.learningListMemory, projectHash),
+    viewBrain: (): Promise<{
+      memories: { title: string; body: string; scope: string; confidence: number; updated: string }[]
+      skills: { name: string; description: string; scope: string }[]
+    }> => ipcRenderer.invoke(IPC.learningBrainView),
     listPendingOps: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListPendingOps),
     approveOp: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.learningApproveOp, id),
     rejectOp: (id: string): Promise<void> => ipcRenderer.invoke(IPC.learningRejectOp, id),

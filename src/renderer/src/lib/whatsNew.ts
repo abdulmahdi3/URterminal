@@ -32,6 +32,7 @@ export type WhatsNewDemo =
   | 'minimap'
   | 'zoom'
   | 'export'
+  | 'learn'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -61,6 +62,31 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.19': {
+    version: '0.3.19',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Learning runs itself',
+        demo: 'learn',
+        body:
+          'Flip the new “Automatic” switch in Settings → Learning and URterminal records, distils, ' +
+          'and feeds memory back to your agents on its own — no more manual “distill” clicks or ' +
+          'approving every learning by hand.'
+      },
+      {
+        kind: 'feature',
+        title: 'See what it knows about you',
+        demo: 'learn',
+        body:
+          'A new “What URterminal has learned about you” view in Settings → Learning shows every ' +
+          'memory and skill it has distilled, so the learning is transparent — nothing hidden.'
+      }
+    ]
+  },
+
   '0.3.18': {
     version: '0.3.18',
     headline: 'New in this update',

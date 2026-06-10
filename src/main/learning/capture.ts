@@ -61,11 +61,43 @@ export class CaptureService implements CaptureSink {
   // Set by the IPC layer so active injection can write into a live pty.
   private writer: PtyWriter | null = null
 
+  // Background auto-distillation: a low-frequency tick that, in automatic mode
+  // (enabled + egress + autoDistill), distils the gated backlog on its own —
+  // paired with autoApprove the learnings then apply with no manual click.
+  private autoTimer: ReturnType<typeof setInterval> | null = null
+  private autoDistilling = false
+
   /**
    * @param onCandidates Called with any NEW gate candidates a completed turn
    *   produced, so the IPC layer can broadcast them to the review UI.
    */
-  constructor(private readonly onCandidates?: (c: Candidate[]) => void) {}
+  constructor(private readonly onCandidates?: (c: Candidate[]) => void) {
+    this.autoTimer = setInterval(() => void this.maybeAutoDistill(), 120000)
+    this.autoTimer.unref?.() // don't keep the process alive just for this tick
+  }
+
+  /** Automatic-mode tick: distil the gated backlog once enough has accumulated. */
+  private async maybeAutoDistill(): Promise<void> {
+    const cfg = this.cfg()
+    if (!cfg.enabled || !cfg.egressAllowed || !cfg.autoDistill || this.autoDistilling) return
+    let pending: Candidate[]
+    try {
+      pending = this.ensureGate().pending()
+    } catch {
+      return
+    }
+    // Batch a little so we don't spend a model call per single turn.
+    if (pending.length < Math.max(3, cfg.minTurns || 6)) return
+    this.autoDistilling = true
+    try {
+      await this.distill()
+      this.onCandidates?.(this.listCandidates())
+    } catch {
+      /* automatic distillation must never crash the app */
+    } finally {
+      this.autoDistilling = false
+    }
+  }
 
   /** Wire the pty writer used for active injection. */
   setWriter(writer: PtyWriter): void {

@@ -762,6 +762,7 @@ export const IPC = {
   learningCandidates: 'learning:candidates', // main -> renderer (event): new gate candidates
   learningDistill: 'learning:distill', // renderer -> main: run a distillation pass (model call)
   learningListMemory: 'learning:list-memory', // renderer -> main: current brain (memories+skills)
+  learningBrainView: 'learning:brain-view', // renderer -> main: full memories + skills (with bodies)
   learningListPendingOps: 'learning:list-pending-ops', // renderer -> main: distilled ops awaiting review
   learningApproveOp: 'learning:approve-op', // renderer -> main: write a pending op into the brain
   learningRejectOp: 'learning:reject-op', // renderer -> main: discard a pending op

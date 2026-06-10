@@ -15,7 +15,8 @@ import {
   Bot,
   DownloadCloud,
   Play,
-  Palette
+  Palette,
+  Brain
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -71,6 +72,17 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
         <div className="wn-prompt">
           <span className="wn-arrow">❯</span> <span className="wn-caret" />
         </div>
+      </div>
+    )
+  }
+  if (kind === 'learn') {
+    // A brain with orbiting auto-sparkles.
+    return (
+      <div className="wn-demo wn-demo-learn">
+        <Sparkles size={13} className="wn-spark wn-spark-1" />
+        <Brain size={30} className="wn-learn-brain" />
+        <Sparkles size={11} className="wn-spark wn-spark-2" />
+        <Sparkles size={12} className="wn-spark wn-spark-3" />
       </div>
     )
   }

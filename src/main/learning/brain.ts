@@ -74,6 +74,31 @@ export function readMemories(projectHash: string | null): MemoryEntry[] {
   return out
 }
 
+/** Project hashes that have a brain folder on disk. */
+export function listProjectHashes(): string[] {
+  try {
+    return readdirSync(join(learningRoot(), 'projects'), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+  } catch {
+    return []
+  }
+}
+
+/** Every memory across global + all projects (for the "what we've learned" view). */
+export function readAllMemories(): MemoryEntry[] {
+  const out = readMemories(null)
+  for (const ph of listProjectHashes()) out.push(...readMemories(ph))
+  return out
+}
+
+/** Every skill across global + all projects. */
+export function readAllSkills(): SkillEntry[] {
+  const out = readSkills(null)
+  for (const ph of listProjectHashes()) out.push(...readSkills(ph))
+  return out
+}
+
 /** Read all skill entries for a scope (null = global). */
 export function readSkills(projectHash: string | null): SkillEntry[] {
   const dir = skillsDir(projectHash)

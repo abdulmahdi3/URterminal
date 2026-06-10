@@ -44,6 +44,9 @@ export interface LearningConfig {
   autoApprove: boolean
   /** When autoApprove is on, only ops at/above this confidence skip review. */
   autoApproveMinConfidence: number
+  /** Automatic mode: a background scheduler distills gated candidates on its own
+   *  (paired with autoApprove, learnings then apply with no manual click). */
+  autoDistill: boolean
   injectionPassive: boolean
   injectionActive: boolean
   /**
@@ -76,6 +79,7 @@ export const DEFAULT_LEARNING_CONFIG: LearningConfig = {
   egressAllowed: false,
   autoApprove: false,
   autoApproveMinConfidence: 0.75,
+  autoDistill: true,
   injectionPassive: true,
   injectionActive: false,
   provider: 'claude-cli',

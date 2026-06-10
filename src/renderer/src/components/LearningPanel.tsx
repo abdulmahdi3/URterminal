@@ -16,6 +16,7 @@ interface LearningCfg {
   aiOnly: boolean
   egressAllowed: boolean
   autoApprove: boolean
+  autoDistill: boolean
   injectionPassive: boolean
   injectionActive: boolean
   provider: LearnProvider
@@ -139,6 +140,11 @@ export default function LearningPanel(): JSX.Element {
   const [pending, setPending] = useState<PendingOp[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [brain, setBrain] = useState<{
+    memories: { title: string; body: string; scope: string; confidence: number }[]
+    skills: { name: string; description: string; scope: string }[]
+  } | null>(null)
+  const [brainOpen, setBrainOpen] = useState(false)
 
   const api = window.api.learning
 
@@ -186,6 +192,22 @@ export default function LearningPanel(): JSX.Element {
     refresh()
   }
 
+  // ---- automatic mode (one switch = record + distill + apply, no manual click) ----
+  const isAuto = !!cfg.autoDistill && !!cfg.autoApprove && !!cfg.egressAllowed
+  const setAuto = (on: boolean): void => {
+    if (on) patch({ enabled: true, capture: true, egressAllowed: true, autoDistill: true, autoApprove: true })
+    else patch({ autoDistill: false, autoApprove: false })
+  }
+
+  // ---- "what URterminal has learned about you" viewer ----
+  const loadBrain = (): void => {
+    void api?.viewBrain?.().then((b) => setBrain(b))
+  }
+  const showBrain = (): void => {
+    setBrainOpen(true)
+    loadBrain()
+  }
+
   // ---- AI provider helpers ----
   const meta = PROVIDERS.find((p) => p.id === cfg.provider) ?? PROVIDERS[0]
   const isApi = cfg.provider !== 'claude-cli'
@@ -223,6 +245,11 @@ export default function LearningPanel(): JSX.Element {
           control={<Toggle on={cfg.enabled} onClick={() => patch({ enabled: !cfg.enabled })} />}
         />
         <Row
+          label="Automatic"
+          desc="Record, distil into memory, and feed it back to your agents on its own — no manual review. Distillation uses the AI provider below."
+          control={<Toggle on={isAuto} onClick={() => setAuto(!isAuto)} />}
+        />
+        <Row
           label="Record sessions"
           desc="Capture scrubbed transcripts to a local store (no model calls)."
           control={<Toggle on={cfg.capture} onClick={() => patch({ capture: !cfg.capture })} />}
@@ -232,6 +259,45 @@ export default function LearningPanel(): JSX.Element {
           desc="Skip plain shells/SSH; record only agent panes."
           control={<Toggle on={cfg.aiOnly} onClick={() => patch({ aiOnly: !cfg.aiOnly })} />}
         />
+      </Group>
+
+      <Group title="What URterminal has learned about you" defaultOpen={false}>
+        <Row
+          label="Your learning profile"
+          desc="Everything distilled into memory + skills, across all your projects."
+          control={
+            <button className="btn" onClick={showBrain}>
+              {brainOpen ? 'Refresh' : 'Show'}
+            </button>
+          }
+        />
+        {brainOpen && brain && (
+          <div className="learn-brain">
+            {brain.memories.length === 0 && brain.skills.length === 0 && (
+              <div className="settings-row-desc">
+                Nothing learned yet — it fills in as you use agents with learning on.
+              </div>
+            )}
+            {brain.skills.map((s, i) => (
+              <div className="learn-brain-item" key={`s${i}`}>
+                <div className="learn-brain-head">
+                  <span className="learn-brain-title">🛠 {s.name}</span>
+                  <span className="learn-brain-scope">{s.scope}</span>
+                </div>
+                {s.description && <div className="learn-brain-body">{s.description}</div>}
+              </div>
+            ))}
+            {brain.memories.map((m, i) => (
+              <div className="learn-brain-item" key={`m${i}`}>
+                <div className="learn-brain-head">
+                  <span className="learn-brain-title">{m.title}</span>
+                  <span className="learn-brain-scope">{m.scope}</span>
+                </div>
+                <div className="learn-brain-body">{m.body}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </Group>
 
       <Group
