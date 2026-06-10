@@ -131,6 +131,25 @@ export function writeMemory(projectHash: string | null, e: MemoryEntry): void {
   }
 }
 
+/** Delete one skill (its whole <slug>/ folder). */
+export function deleteSkillEntry(projectHash: string | null, slug: string): void {
+  try {
+    rmSync(join(skillsDir(projectHash), safeSlug(slug)), { recursive: true, force: true })
+  } catch {
+    /* non-fatal */
+  }
+}
+
+/** Delete one memory file and regenerate the scope's MEMORY.md index. */
+export function deleteMemoryEntry(projectHash: string | null, slug: string): void {
+  try {
+    rmSync(join(memoryDir(projectHash), `${safeSlug(slug)}.md`), { force: true })
+    regenerateIndex(projectHash)
+  } catch {
+    /* non-fatal */
+  }
+}
+
 /** Write one skill entry as skills/<slug>/SKILL.md (atomic). */
 export function writeSkill(projectHash: string | null, e: SkillEntry): void {
   try {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Pin, PinOff, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import type { ProviderId } from '@shared/types'
 import { DEFAULT_MODELS, latestModel } from '@shared/providers'
+import { toast } from '@renderer/store/toasts'
 
 // The Learning settings panel: controls the local observe → distill → inject
 // loop, the prompt enhancer, and the shared AI provider. Self-contained — it
@@ -148,8 +150,10 @@ export default function LearningPanel(): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [brain, setBrain] = useState<{
-    memories: { title: string; body: string; scope: string; confidence: number }[]
-    skills: { name: string; description: string; scope: string }[]
+    memories: { title: string; body: string; scope: string; slug: string; scopeKey: string; confidence: number }[]
+    skills: {
+      name: string; description: string; scope: string; slug: string; scopeKey: string; pinned: boolean; archived: boolean
+    }[]
   } | null>(null)
   const [brainOpen, setBrainOpen] = useState(false)
   const [userDoc, setUserDoc] = useState('')
@@ -216,6 +220,26 @@ export default function LearningPanel(): JSX.Element {
   }
   const showBrain = (): void => {
     setBrainOpen(true)
+    loadBrain()
+  }
+  const skillAct = async (
+    action: 'pin' | 'unpin' | 'archive' | 'unarchive' | 'delete',
+    scopeKey: string,
+    slug: string
+  ): Promise<void> => {
+    await api?.skillAction?.(action, scopeKey, slug)
+    loadBrain()
+  }
+  const delMemory = async (scopeKey: string, slug: string): Promise<void> => {
+    await api?.deleteMemory?.(scopeKey, slug)
+    loadBrain()
+  }
+  const tidySkills = async (): Promise<void> => {
+    const r = await api?.tidySkills?.()
+    toast(
+      r ? `Tidied — archived ${r.archived} stale skill${r.archived === 1 ? '' : 's'}.` : 'Tidy failed',
+      'ok'
+    )
     loadBrain()
   }
 
@@ -311,11 +335,16 @@ export default function LearningPanel(): JSX.Element {
       <Group title="What URterminal has learned about you" defaultOpen={false}>
         <Row
           label="Your learning profile"
-          desc="Everything distilled into memory + skills, across all your projects."
+          desc="Every memory + skill distilled across your projects. Pin to protect, archive to hide from agents, or delete."
           control={
-            <button className="btn" onClick={showBrain}>
-              {brainOpen ? 'Refresh' : 'Show'}
-            </button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn" onClick={tidySkills} title="Archive stale, unpinned skills">
+                Tidy
+              </button>
+              <button className="btn" onClick={showBrain}>
+                {brainOpen ? 'Refresh' : 'Show'}
+              </button>
+            </div>
           }
         />
         {brainOpen && brain && (
@@ -326,10 +355,36 @@ export default function LearningPanel(): JSX.Element {
               </div>
             )}
             {brain.skills.map((s, i) => (
-              <div className="learn-brain-item" key={`s${i}`}>
+              <div className={'learn-brain-item' + (s.archived ? ' archived' : '')} key={`s${i}`}>
                 <div className="learn-brain-head">
-                  <span className="learn-brain-title">🛠 {s.name}</span>
-                  <span className="learn-brain-scope">{s.scope}</span>
+                  <span className="learn-brain-title">
+                    🛠 {s.name}
+                    {s.pinned && <Pin size={11} className="brain-pin" />}
+                    {s.archived && <span className="brain-tag">archived</span>}
+                  </span>
+                  <span className="brain-actions">
+                    <button
+                      className="icon-btn"
+                      title={s.pinned ? 'Unpin' : 'Pin (protect from tidy)'}
+                      onClick={() => skillAct(s.pinned ? 'unpin' : 'pin', s.scopeKey, s.slug)}
+                    >
+                      {s.pinned ? <PinOff size={13} /> : <Pin size={13} />}
+                    </button>
+                    <button
+                      className="icon-btn"
+                      title={s.archived ? 'Restore' : 'Archive (hide from agents)'}
+                      onClick={() => skillAct(s.archived ? 'unarchive' : 'archive', s.scopeKey, s.slug)}
+                    >
+                      {s.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                    </button>
+                    <button
+                      className="icon-btn danger"
+                      title="Delete skill"
+                      onClick={() => skillAct('delete', s.scopeKey, s.slug)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
                 </div>
                 {s.description && <div className="learn-brain-body">{s.description}</div>}
               </div>
@@ -338,7 +393,16 @@ export default function LearningPanel(): JSX.Element {
               <div className="learn-brain-item" key={`m${i}`}>
                 <div className="learn-brain-head">
                   <span className="learn-brain-title">{m.title}</span>
-                  <span className="learn-brain-scope">{m.scope}</span>
+                  <span className="brain-actions">
+                    <span className="learn-brain-scope">{m.scope}</span>
+                    <button
+                      className="icon-btn danger"
+                      title="Delete memory"
+                      onClick={() => delMemory(m.scopeKey, m.slug)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
                 </div>
                 <div className="learn-brain-body">{m.body}</div>
               </div>

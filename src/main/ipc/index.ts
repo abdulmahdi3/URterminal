@@ -33,8 +33,15 @@ import { searchSessions, warmSessionIndex } from '../sessions/recall'
 import { expandReference } from '../references/expand'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
-import { forgetProject as forgetLearningProject, readAllMemories, readAllSkills } from '../learning/brain'
+import {
+  forgetProject as forgetLearningProject,
+  readAllMemories,
+  readAllSkills,
+  deleteSkillEntry,
+  deleteMemoryEntry
+} from '../learning/brain'
 import { readProfileDoc, writeProfileDoc, type ProfileDoc } from '../learning/profile'
+import { getSkillFlags, setSkillFlags, clearSkillFlags } from '../learning/skillState'
 import { enhancePrompt } from '../learning/enhancer'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
@@ -436,18 +443,71 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   )
   // Full brain content (with bodies) across every scope — for the "what URterminal
   // has learned about you" viewer.
-  ipcMain.handle(IPC.learningBrainView, () => ({
-    memories: readAllMemories()
-      .map((m) => ({
-        title: m.title,
-        body: m.body,
-        scope: m.scope,
-        confidence: m.confidence,
-        updated: m.updated
-      }))
-      .sort((a, b) => b.confidence - a.confidence),
-    skills: readAllSkills().map((s) => ({ name: s.name, description: s.description, scope: s.scope }))
-  }))
+  ipcMain.handle(IPC.learningBrainView, () => {
+    const scopeKey = (e: { scope: string; project: string }): string =>
+      e.scope === 'global' ? 'global' : e.project
+    return {
+      memories: readAllMemories()
+        .map((m) => ({
+          title: m.title,
+          body: m.body,
+          scope: m.scope,
+          slug: m.slug,
+          scopeKey: scopeKey(m),
+          confidence: m.confidence,
+          updated: m.updated
+        }))
+        .sort((a, b) => b.confidence - a.confidence),
+      skills: readAllSkills().map((s) => {
+        const sk = scopeKey(s)
+        const flags = getSkillFlags(sk, s.slug)
+        return {
+          name: s.name,
+          description: s.description,
+          scope: s.scope,
+          slug: s.slug,
+          scopeKey: sk,
+          pinned: !!flags.pinned,
+          archived: !!flags.archived
+        }
+      })
+    }
+  })
+  ipcMain.handle(
+    IPC.learningSkillAction,
+    (_e, action: 'pin' | 'unpin' | 'archive' | 'unarchive' | 'delete', scopeKey: string, slug: string) => {
+      const ph = scopeKey === 'global' ? null : scopeKey
+      if (action === 'delete') {
+        deleteSkillEntry(ph, slug)
+        clearSkillFlags(scopeKey, slug)
+      } else if (action === 'pin') setSkillFlags(scopeKey, slug, { pinned: true })
+      else if (action === 'unpin') setSkillFlags(scopeKey, slug, { pinned: false })
+      else if (action === 'archive') setSkillFlags(scopeKey, slug, { archived: true })
+      else if (action === 'unarchive') setSkillFlags(scopeKey, slug, { archived: false })
+      return true
+    }
+  )
+  ipcMain.handle(IPC.learningMemoryDelete, (_e, scopeKey: string, slug: string) => {
+    deleteMemoryEntry(scopeKey === 'global' ? null : scopeKey, slug)
+    return true
+  })
+  ipcMain.handle(IPC.learningTidySkills, () => {
+    const daysSince = (d: string): number => {
+      const t = Date.parse(d)
+      return Number.isNaN(t) ? 0 : (Date.now() - t) / 86_400_000
+    }
+    let archived = 0
+    for (const s of readAllSkills()) {
+      const sk = s.scope === 'global' ? 'global' : s.project
+      const flags = getSkillFlags(sk, s.slug)
+      if (flags.pinned || flags.archived) continue
+      if (s.confidence < 0.5 && s.hits <= 1 && daysSince(s.updated || s.created) > 45) {
+        setSkillFlags(sk, s.slug, { archived: true })
+        archived++
+      }
+    }
+    return { archived }
+  })
   ipcMain.handle(IPC.learningGetProfile, (_e, doc: ProfileDoc) => readProfileDoc(doc))
   ipcMain.handle(IPC.learningSetProfile, (_e, doc: ProfileDoc, text: string) => {
     writeProfileDoc(doc, text)

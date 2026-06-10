@@ -155,6 +155,42 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+.learn-brain-item.archived {
+  opacity: 0.55;
+}
+.learn-brain-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.brain-pin {
+  color: var(--accent);
+}
+.brain-tag {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 0 6px;
+}
+.brain-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.brain-actions .icon-btn {
+  padding: 3px;
+  color: var(--text-faint);
+}
+.brain-actions .icon-btn:hover {
+  color: var(--text);
+}
+.brain-actions .icon-btn.danger:hover {
+  color: var(--danger);
+}
 
 /* ---- theme studio (custom theme) ---- */
 .theme-studio {

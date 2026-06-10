@@ -111,9 +111,21 @@ const api = {
     listMemory: (projectHash?: string | null): Promise<unknown> =>
       ipcRenderer.invoke(IPC.learningListMemory, projectHash),
     viewBrain: (): Promise<{
-      memories: { title: string; body: string; scope: string; confidence: number; updated: string }[]
-      skills: { name: string; description: string; scope: string }[]
+      memories: {
+        title: string; body: string; scope: string; slug: string; scopeKey: string; confidence: number; updated: string
+      }[]
+      skills: {
+        name: string; description: string; scope: string; slug: string; scopeKey: string; pinned: boolean; archived: boolean
+      }[]
     }> => ipcRenderer.invoke(IPC.learningBrainView),
+    skillAction: (
+      action: 'pin' | 'unpin' | 'archive' | 'unarchive' | 'delete',
+      scopeKey: string,
+      slug: string
+    ): Promise<boolean> => ipcRenderer.invoke(IPC.learningSkillAction, action, scopeKey, slug),
+    deleteMemory: (scopeKey: string, slug: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.learningMemoryDelete, scopeKey, slug),
+    tidySkills: (): Promise<{ archived: number }> => ipcRenderer.invoke(IPC.learningTidySkills),
     getProfile: (doc: 'user' | 'persona'): Promise<string> =>
       ipcRenderer.invoke(IPC.learningGetProfile, doc),
     setProfile: (doc: 'user' | 'persona', text: string): Promise<boolean> =>

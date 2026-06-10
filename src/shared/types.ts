@@ -783,6 +783,9 @@ export const IPC = {
   learningBrainView: 'learning:brain-view', // renderer -> main: full memories + skills (with bodies)
   learningGetProfile: 'learning:get-profile', // renderer -> main: USER.md / SOUL.md content
   learningSetProfile: 'learning:set-profile', // renderer -> main: save USER.md / SOUL.md
+  learningSkillAction: 'learning:skill-action', // pin/unpin/archive/unarchive/delete a skill
+  learningMemoryDelete: 'learning:memory-delete', // delete a learned memory
+  learningTidySkills: 'learning:tidy-skills', // archive stale, unpinned skills
   learningListPendingOps: 'learning:list-pending-ops', // renderer -> main: distilled ops awaiting review
   learningApproveOp: 'learning:approve-op', // renderer -> main: write a pending op into the brain
   learningRejectOp: 'learning:reject-op', // renderer -> main: discard a pending op

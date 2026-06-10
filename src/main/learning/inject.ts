@@ -3,6 +3,7 @@ import { join, dirname, isAbsolute } from 'path'
 import { execFileSync } from 'child_process'
 import { readMemories, readSkills } from './brain'
 import { readProfileDoc } from './profile'
+import { getSkillFlags } from './skillState'
 import type { MemoryEntry, SkillEntry } from './markdown'
 
 /** Global user profile (USER.md) + persona (SOUL.md) injected ahead of memories. */
@@ -211,7 +212,11 @@ export function injectForPane(
   if (io.isTracked(cwd, rel)) return { status: 'skipped-tracked', file: rel }
 
   const memories = readMemories(projectHash)
-  const skills = readSkills(projectHash)
+  // Archived skills stay on disk but are excluded from what agents see.
+  const skills = readSkills(projectHash).filter((s) => {
+    const sk = s.scope === 'global' ? 'global' : s.project
+    return !getSkillFlags(sk, s.slug).archived
+  })
   const profile: ProfileDocs = { user: readProfileDoc('user'), persona: readProfileDoc('persona') }
   if (!memories.length && !skills.length && !profile.user.trim() && !profile.persona.trim()) {
     return { status: 'skipped-empty' }

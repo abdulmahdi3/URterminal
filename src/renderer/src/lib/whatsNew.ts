@@ -64,6 +64,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.24': {
+    version: '0.3.24',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Curate what URterminal has learned',
+        demo: 'learn',
+        body:
+          'In Settings → Learning → “What URterminal has learned about you”, every memory and skill ' +
+          'now has controls: pin to protect it, archive to hide it from agents, or delete it. ' +
+          '“Tidy” auto-archives stale, unpinned skills so the brain stays clean.'
+      }
+    ]
+  },
+
   '0.3.23': {
     version: '0.3.23',
     headline: 'New in this update',
