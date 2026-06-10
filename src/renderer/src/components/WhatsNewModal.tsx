@@ -16,7 +16,15 @@ import {
   DownloadCloud,
   Play,
   Palette,
-  Brain
+  Brain,
+  User,
+  Pin,
+  Archive,
+  Plug,
+  GitFork,
+  Send,
+  ArrowDown,
+  CheckCircle2
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -99,6 +107,93 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
           <div className="wn-recall-row active">JWT migration — 2d ago</div>
           <div className="wn-recall-row">login bug fix — 1w ago</div>
           <div className="wn-recall-row">OAuth setup — 3w ago</div>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'profile') {
+    // An ID card whose fields fill in.
+    return (
+      <div className="wn-demo wn-demo-profile">
+        <div className="wn-pf-card">
+          <div className="wn-pf-avatar">
+            <User size={20} />
+          </div>
+          <div className="wn-pf-lines">
+            <span className="wn-pf-line l1" />
+            <span className="wn-pf-line l2" />
+            <span className="wn-pf-line l3" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'curate') {
+    // Skill rows: one gets pinned, one archives away.
+    return (
+      <div className="wn-demo wn-demo-curate">
+        <div className="wn-cur-row">
+          <span>🛠 git-workflow</span>
+          <Pin size={12} className="wn-cur-pin" />
+        </div>
+        <div className="wn-cur-row wn-cur-archiving">
+          <span>🛠 old-helper</span>
+          <Archive size={12} />
+        </div>
+        <div className="wn-cur-row">
+          <span>🛠 deploy-steps</span>
+          <Pin size={12} className="wn-cur-pin" />
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'skillget') {
+    // A SKILL.md URL dropping into an installed-skill card.
+    return (
+      <div className="wn-demo wn-demo-skillget">
+        <div className="wn-sg-url">…/SKILL.md</div>
+        <ArrowDown size={16} className="wn-sg-arrow" />
+        <div className="wn-sg-card">
+          🛠 skill installed <CheckCircle2 size={12} className="wn-sg-check" />
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'mcp') {
+    // A plug lighting up server chips.
+    return (
+      <div className="wn-demo wn-demo-mcp">
+        <Plug size={22} className="wn-mcp-plug" />
+        <div className="wn-mcp-servers">
+          <span className="wn-mcp-chip">filesystem</span>
+          <span className="wn-mcp-chip">github</span>
+          <span className="wn-mcp-chip">postgres</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'delegate') {
+    // One agent forks into a working subagent.
+    return (
+      <div className="wn-demo wn-demo-delegate">
+        <Bot size={24} className="wn-dg-main" />
+        <GitFork size={16} className="wn-dg-fork" />
+        <div className="wn-dg-sub">
+          <Bot size={22} />
+          <span className="wn-dg-task">task ▸</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'webhook') {
+    // A message flying from the app to a Discord/Slack chip.
+    return (
+      <div className="wn-demo wn-demo-webhook">
+        <Bot size={22} />
+        <Send size={14} className="wn-wh-msg" />
+        <div className="wn-wh-targets">
+          <span className="wn-wh-chip">Discord</span>
+          <span className="wn-wh-chip">Slack</span>
         </div>
       </div>
     )

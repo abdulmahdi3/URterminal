@@ -229,6 +229,253 @@
   background: var(--accent-soft);
 }
 
+/* "profile" demo — an ID card whose fields fill in */
+.wn-demo-profile {
+  display: grid;
+  place-items: center;
+}
+.wn-pf-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-elev-2);
+}
+.wn-pf-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.wn-pf-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wn-pf-line {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  animation: wn-pf-fill 2.6s ease-in-out infinite;
+}
+.wn-pf-line.l1 {
+  width: 110px;
+}
+.wn-pf-line.l2 {
+  width: 80px;
+  animation-delay: 0.25s;
+}
+.wn-pf-line.l3 {
+  width: 95px;
+  animation-delay: 0.5s;
+}
+@keyframes wn-pf-fill {
+  0%, 100% {
+    background: var(--border-strong);
+  }
+  40%, 70% {
+    background: var(--accent);
+  }
+}
+
+/* "curate" demo — skill rows: pin / archive */
+.wn-demo-curate {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+}
+.wn-cur-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev-2);
+}
+.wn-cur-pin {
+  color: var(--accent);
+  animation: wn-cur-pin 2.4s ease-in-out infinite;
+}
+.wn-cur-archiving {
+  animation: wn-cur-archive 3s ease-in-out infinite;
+}
+@keyframes wn-cur-pin {
+  0%, 100% {
+    opacity: 0.3;
+    transform: rotate(0);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(-20deg);
+  }
+}
+@keyframes wn-cur-archive {
+  0%, 40% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  60%, 100% {
+    opacity: 0.25;
+    transform: translateX(16px);
+  }
+}
+
+/* "skillget" demo — a SKILL.md URL dropping into an installed card */
+.wn-demo-skillget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.wn-sg-url {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-sg-arrow {
+  color: var(--accent);
+  animation: wn-export-arrow 1.6s ease-in-out infinite;
+}
+.wn-sg-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  padding: 6px 12px;
+  animation: wn-drop-fall 3s ease-in-out infinite;
+}
+.wn-sg-check {
+  color: var(--ok, #3fb950);
+}
+
+/* "mcp" demo — a plug lighting up server chips */
+.wn-demo-mcp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.wn-mcp-plug {
+  color: var(--accent);
+  animation: wn-float 2.6s ease-in-out infinite;
+}
+.wn-mcp-servers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wn-mcp-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  animation: wn-mcp-on 2.4s ease-in-out infinite;
+}
+.wn-mcp-servers .wn-mcp-chip:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.wn-mcp-servers .wn-mcp-chip:nth-child(3) {
+  animation-delay: 0.6s;
+}
+@keyframes wn-mcp-on {
+  0%, 60%, 100% {
+    border-color: var(--border);
+    color: var(--text-dim);
+  }
+  20%, 40% {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* "delegate" demo — one agent forks into a subagent */
+.wn-demo-delegate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.wn-dg-main {
+  color: var(--text-dim);
+}
+.wn-dg-fork {
+  color: var(--accent);
+}
+.wn-dg-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  animation: wn-drop-fall 3s ease-in-out infinite;
+}
+.wn-dg-task {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+
+/* "webhook" demo — a message flying to Discord/Slack chips */
+.wn-demo-webhook {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-dim);
+}
+.wn-wh-msg {
+  color: var(--accent);
+  animation: wn-wh-fly 2.2s ease-in-out infinite;
+}
+.wn-wh-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wn-wh-chip {
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+@keyframes wn-wh-fly {
+  0% {
+    transform: translateX(-8px);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateX(4px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-8px);
+    opacity: 0.3;
+  }
+}
+
 /* "learn" demo — a brain with pulsing sparkles */
 .wn-demo-learn {
   position: relative;
@@ -1098,6 +1345,15 @@
   .wn-zoom-aa,
   .wn-export-arrow,
   .wn-learn-brain,
+  .wn-pf-line,
+  .wn-cur-pin,
+  .wn-cur-archiving,
+  .wn-sg-arrow,
+  .wn-sg-card,
+  .wn-mcp-plug,
+  .wn-mcp-chip,
+  .wn-dg-sub,
+  .wn-wh-msg,
   .wn-demo-loader .spin {
     animation: none;
   }

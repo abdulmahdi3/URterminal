@@ -35,6 +35,12 @@ export type WhatsNewDemo =
   | 'learn'
   | 'recall'
   | 'ref'
+  | 'profile'
+  | 'curate'
+  | 'skillget'
+  | 'mcp'
+  | 'delegate'
+  | 'webhook'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -72,7 +78,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       {
         kind: 'feature',
         title: 'Install community skills',
-        demo: 'learn',
+        demo: 'skillget',
         body:
           'Settings → Learning → Install a skill: paste an agentskills.io / GitHub SKILL.md URL and ' +
           'it’s added to your brain (pinned), so every agent gains that skill.'
@@ -80,7 +86,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       {
         kind: 'feature',
         title: 'Configure MCP servers',
-        demo: 'ref',
+        demo: 'mcp',
         body:
           'Ctrl+K → “Configure MCP servers” edits the active folder’s .mcp.json — add the MCP ' +
           'servers your agents (Claude Code, etc.) should load, right from URterminal.'
@@ -88,7 +94,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       {
         kind: 'feature',
         title: 'Delegate to a subagent',
-        demo: 'runall',
+        demo: 'delegate',
         body:
           'Ctrl+K → “Delegate a task to a subagent” spins up a new agent in the same folder and ' +
           'drops your subtask into it — a parallel workstream in one step.'
@@ -96,7 +102,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       {
         kind: 'feature',
         title: 'Discord & Slack notifications',
-        demo: 'notif',
+        demo: 'webhook',
         body:
           'Settings → Notifications: paste a Discord or Slack webhook URL and you’ll get an ' +
           '“agent finished” message there — your agents can reach you off your laptop.'
@@ -112,7 +118,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       {
         kind: 'feature',
         title: 'Curate what URterminal has learned',
-        demo: 'learn',
+        demo: 'curate',
         body:
           'In Settings → Learning → “What URterminal has learned about you”, every memory and skill ' +
           'now has controls: pin to protect it, archive to hide it from agents, or delete it. ' +
@@ -163,7 +169,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       {
         kind: 'feature',
         title: 'A profile & persona for every agent',
-        demo: 'learn',
+        demo: 'profile',
         body:
           'Settings → Learning now has two boxes: “About you” (durable facts — your stack, tools, ' +
           'style) and a “Persona” (how agents should behave). With learning on, both are injected ' +
