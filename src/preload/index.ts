@@ -112,6 +112,10 @@ const api = {
       memories: { title: string; body: string; scope: string; confidence: number; updated: string }[]
       skills: { name: string; description: string; scope: string }[]
     }> => ipcRenderer.invoke(IPC.learningBrainView),
+    getProfile: (doc: 'user' | 'persona'): Promise<string> =>
+      ipcRenderer.invoke(IPC.learningGetProfile, doc),
+    setProfile: (doc: 'user' | 'persona', text: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.learningSetProfile, doc, text),
     listPendingOps: (): Promise<unknown[]> => ipcRenderer.invoke(IPC.learningListPendingOps),
     approveOp: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.learningApproveOp, id),
     rejectOp: (id: string): Promise<void> => ipcRenderer.invoke(IPC.learningRejectOp, id),

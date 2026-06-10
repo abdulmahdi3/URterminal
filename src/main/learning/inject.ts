@@ -2,7 +2,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from '
 import { join, dirname, isAbsolute } from 'path'
 import { execFileSync } from 'child_process'
 import { readMemories, readSkills } from './brain'
+import { readProfileDoc } from './profile'
 import type { MemoryEntry, SkillEntry } from './markdown'
+
+/** Global user profile (USER.md) + persona (SOUL.md) injected ahead of memories. */
+export interface ProfileDocs {
+  user: string
+  persona: string
+}
 
 /**
  * Passive injection — the payoff that makes EVERY hosted agent smarter with zero
@@ -42,19 +49,25 @@ export function targetFor(agentId: string): string {
   return AGENT_TARGETS[base] ?? DEFAULT_TARGET
 }
 
-/** Render the learned-knowledge block from memories + skills, byte-bounded. */
+/** Render the learned-knowledge block from memories + skills, byte-bounded.
+ *  The user's persona (SOUL.md) + profile (USER.md) lead — they're highest value
+ *  and always apply — followed by learned memories and the skills index. */
 export function renderLearnedBlock(
   memories: MemoryEntry[],
   skills: SkillEntry[],
-  maxBytes = 8192
+  maxBytes = 8192,
+  profile?: ProfileDocs
 ): string {
   const ranked = memories.slice().sort((a, b) => b.confidence - a.confidence || b.hits - a.hits)
   const lines: string[] = [
     MANAGED_START,
-    '<!-- Auto-maintained by URterminal from your sessions. Edits here are overwritten. -->',
-    '## Learned project knowledge',
-    ''
+    '<!-- Auto-maintained by URterminal from your sessions. Edits here are overwritten. -->'
   ]
+  const persona = profile?.persona.trim()
+  const user = profile?.user.trim()
+  if (persona) lines.push('## How to work with me', persona, '')
+  if (user) lines.push('## About the user', user, '')
+  lines.push('## Learned project knowledge', '')
   let bytes = lines.join('\n').length
   for (const m of ranked) {
     const entry = `- ${m.body.split('\n')[0].trim()}`
@@ -84,11 +97,22 @@ export function renderLearnedBlock(
 export function buildActivePreamble(
   memories: MemoryEntry[],
   skills: SkillEntry[],
-  maxChars = 1500
+  maxChars = 1500,
+  profile?: ProfileDocs
 ): string {
   const ranked = memories.slice().sort((a, b) => b.confidence - a.confidence || b.hits - a.hits)
   const facts: string[] = []
   let used = 60 // budget for the framing sentence
+  const persona = profile?.persona.trim()
+  const user = profile?.user.trim()
+  if (persona) {
+    facts.push(`How to work with me: ${persona.replace(/\s+/g, ' ')}`)
+    used += facts[facts.length - 1].length + 1
+  }
+  if (user && used < maxChars) {
+    facts.push(`About me: ${user.replace(/\s+/g, ' ')}`)
+    used += facts[facts.length - 1].length + 1
+  }
   for (const m of ranked) {
     const line = `- ${m.body.split('\n')[0].trim()}`
     if (used + line.length + 1 > maxChars) break
@@ -188,10 +212,13 @@ export function injectForPane(
 
   const memories = readMemories(projectHash)
   const skills = readSkills(projectHash)
-  if (!memories.length && !skills.length) return { status: 'skipped-empty' }
+  const profile: ProfileDocs = { user: readProfileDoc('user'), persona: readProfileDoc('persona') }
+  if (!memories.length && !skills.length && !profile.user.trim() && !profile.persona.trim()) {
+    return { status: 'skipped-empty' }
+  }
 
   const abs = join(cwd, rel)
-  const block = renderLearnedBlock(memories, skills, opts.maxBytes)
+  const block = renderLearnedBlock(memories, skills, opts.maxBytes, profile)
   const updated = upsertManagedBlock(io.read(abs) ?? '', block)
   io.ensureDir(dirname(abs))
   io.write(abs, updated)

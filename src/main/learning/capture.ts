@@ -6,6 +6,7 @@ import { ReviewQueue, commitOp, type PendingOp } from './review'
 import { brainIndex } from './brain'
 import { injectForPane, buildActivePreamble } from './inject'
 import { readMemories, readSkills } from './brain'
+import { readProfileDoc } from './profile'
 import { projectHash as hashOf } from './paths'
 import { appendTurn, getLearningConfig, type LearningConfig, type TurnRecord } from './store'
 import type { Candidate } from './heuristics'
@@ -185,7 +186,8 @@ export class CaptureService implements CaptureSink {
       const preamble = buildActivePreamble(
         readMemories(ctx.projectHash),
         readSkills(ctx.projectHash),
-        this.cfg().maxInjectBytes
+        this.cfg().maxInjectBytes,
+        { user: readProfileDoc('user'), persona: readProfileDoc('persona') }
       )
       if (preamble) this.writer(ctx.ptyId, preamble + '\r')
     } catch {

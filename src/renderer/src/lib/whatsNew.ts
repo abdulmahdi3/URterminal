@@ -63,6 +63,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.21': {
+    version: '0.3.21',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'A profile & persona for every agent',
+        demo: 'learn',
+        body:
+          'Settings → Learning now has two boxes: “About you” (durable facts — your stack, tools, ' +
+          'style) and a “Persona” (how agents should behave). With learning on, both are injected ' +
+          'into every agent you launch, so they all start knowing you — no re-explaining.'
+      }
+    ]
+  },
+
   '0.3.20': {
     version: '0.3.20',
     headline: 'New in this update',

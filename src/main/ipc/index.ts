@@ -33,6 +33,7 @@ import { searchSessions, warmSessionIndex } from '../sessions/recall'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
 import { forgetProject as forgetLearningProject, readAllMemories, readAllSkills } from '../learning/brain'
+import { readProfileDoc, writeProfileDoc, type ProfileDoc } from '../learning/profile'
 import { enhancePrompt } from '../learning/enhancer'
 import { listSystemProcesses, killSystemProcess } from '../system/processes'
 import { SettingsStore } from '../settings/store'
@@ -445,6 +446,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       .sort((a, b) => b.confidence - a.confidence),
     skills: readAllSkills().map((s) => ({ name: s.name, description: s.description, scope: s.scope }))
   }))
+  ipcMain.handle(IPC.learningGetProfile, (_e, doc: ProfileDoc) => readProfileDoc(doc))
+  ipcMain.handle(IPC.learningSetProfile, (_e, doc: ProfileDoc, text: string) => {
+    writeProfileDoc(doc, text)
+    return true
+  })
   ipcMain.handle(IPC.learningListPendingOps, () => capture.listPendingOps())
   ipcMain.handle(IPC.learningApproveOp, (_e, id: string) => capture.approveOp(id))
   ipcMain.handle(IPC.learningRejectOp, (_e, id: string) => capture.rejectOp(id))

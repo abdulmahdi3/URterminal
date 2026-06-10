@@ -99,6 +99,19 @@
   gap: 6px;
 }
 
+/* ---- learning: profile + persona editors ---- */
+.learn-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.learn-doc textarea {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
 /* ---- learning: "what we've learned about you" viewer ---- */
 .learn-brain {
   display: flex;

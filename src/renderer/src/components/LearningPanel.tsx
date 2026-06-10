@@ -145,6 +145,8 @@ export default function LearningPanel(): JSX.Element {
     skills: { name: string; description: string; scope: string }[]
   } | null>(null)
   const [brainOpen, setBrainOpen] = useState(false)
+  const [userDoc, setUserDoc] = useState('')
+  const [personaDoc, setPersonaDoc] = useState('')
 
   const api = window.api.learning
 
@@ -156,6 +158,8 @@ export default function LearningPanel(): JSX.Element {
 
   useEffect(() => {
     refresh()
+    void api?.getProfile?.('user').then((t) => setUserDoc(t ?? ''))
+    void api?.getProfile?.('persona').then((t) => setPersonaDoc(t ?? ''))
     const off = api?.onCandidates(() => refresh())
     return () => off?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,6 +263,35 @@ export default function LearningPanel(): JSX.Element {
           desc="Skip plain shells/SSH; record only agent panes."
           control={<Toggle on={cfg.aiOnly} onClick={() => patch({ aiOnly: !cfg.aiOnly })} />}
         />
+      </Group>
+
+      <Group title="Your profile & persona" defaultOpen={false}>
+        <div className="settings-row-desc" style={{ marginBottom: 10 }}>
+          Injected into every agent you launch (when learning + injection are on). The persona
+          shapes how agents behave; the profile lists durable facts about you.
+        </div>
+        <div className="learn-doc">
+          <div className="settings-row-label">About you — facts (USER.md)</div>
+          <textarea
+            className="input mono"
+            rows={4}
+            placeholder="e.g. I use pnpm, never npm. Stack: React + Electron + TypeScript. Prefer terse answers, no preamble."
+            value={userDoc}
+            onChange={(e) => setUserDoc(e.target.value)}
+            onBlur={() => void api?.setProfile?.('user', userDoc)}
+          />
+        </div>
+        <div className="learn-doc">
+          <div className="settings-row-label">Persona — how agents should act (SOUL.md)</div>
+          <textarea
+            className="input mono"
+            rows={4}
+            placeholder="e.g. Be direct and concise. Challenge weak ideas. Explain trade-offs, then recommend one."
+            value={personaDoc}
+            onChange={(e) => setPersonaDoc(e.target.value)}
+            onBlur={() => void api?.setProfile?.('persona', personaDoc)}
+          />
+        </div>
       </Group>
 
       <Group title="What URterminal has learned about you" defaultOpen={false}>
