@@ -234,6 +234,26 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* @-reference suggestion chips */
+.ref-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ref-chip {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.ref-chip:hover {
+  border-color: var(--accent);
+}
 .doctor-cmd {
   position: relative;
   flex: 0 0 auto;

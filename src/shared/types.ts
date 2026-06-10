@@ -768,6 +768,8 @@ export const IPC = {
   gitStatus: 'git:status',
   // sessions: full-text search across past Claude conversations (cross-session recall)
   sessionsSearch: 'sessions:search',
+  // references: expand a @diff / @url / @file / @git reference into prompt context
+  referenceExpand: 'reference:expand',
 
   // learning layer (local observe -> distill -> inject; opt-in, default off)
   learningTurnMarker: 'learning:turn-marker', // renderer -> main: a submitted user prompt

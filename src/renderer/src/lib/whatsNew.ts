@@ -34,6 +34,7 @@ export type WhatsNewDemo =
   | 'export'
   | 'learn'
   | 'recall'
+  | 'ref'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -63,6 +64,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.23': {
+    version: '0.3.23',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Attach context with @-references',
+        demo: 'ref',
+        body:
+          'Ctrl+K → “Insert context” lets you drop @diff, @staged, @git:3, @file:path:10-40, or ' +
+          '@url:… into a prompt. URterminal runs git / reads the file / fetches the page and pastes ' +
+          'the real content into the agent — context it can’t pull on its own.'
+      }
+    ]
+  },
+
   '0.3.22': {
     version: '0.3.22',
     headline: 'New in this update',

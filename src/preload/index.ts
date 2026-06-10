@@ -86,6 +86,8 @@ const api = {
   gitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke(IPC.gitStatus, cwd),
   searchSessions: (query: string): Promise<SessionHit[]> =>
     ipcRenderer.invoke(IPC.sessionsSearch, query),
+  expandReference: (ref: string, cwd: string): Promise<{ ok: boolean; content?: string; error?: string }> =>
+    ipcRenderer.invoke(IPC.referenceExpand, ref, cwd),
   promptsGet: (sessionId: string): Promise<string[]> =>
     ipcRenderer.invoke(IPC.promptsGet, sessionId),
   promptsAppend: (sessionId: string, text: string): void =>

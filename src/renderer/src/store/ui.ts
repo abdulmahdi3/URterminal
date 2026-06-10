@@ -19,6 +19,8 @@ interface UiState {
   showRunCommand: boolean
   /** cross-session search (search past conversations) overlay open */
   showSessionSearch: boolean
+  /** insert-context-reference (@diff/@url/@file) prompt open */
+  showInsertReference: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -60,6 +62,7 @@ interface UiState {
   setShowRunCommand: (v: boolean) => void
   setShowSessionSearch: (v: boolean) => void
   toggleSessionSearch: () => void
+  setShowInsertReference: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -89,6 +92,7 @@ const ALL_CLOSED = {
   showAgentDoctor: false,
   showRunCommand: false,
   showSessionSearch: false,
+  showInsertReference: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -105,6 +109,7 @@ export const useUi = create<UiState>((set, get) => ({
   showAgentDoctor: false,
   showRunCommand: false,
   showSessionSearch: false,
+  showInsertReference: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -156,6 +161,8 @@ export const useUi = create<UiState>((set, get) => ({
     set((s) =>
       s.showSessionSearch ? { showSessionSearch: false } : { ...ALL_CLOSED, showSessionSearch: true }
     ),
+  setShowInsertReference: (v) =>
+    set(v ? { ...ALL_CLOSED, showInsertReference: true } : { showInsertReference: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),

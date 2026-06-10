@@ -150,6 +150,12 @@ export function getCommands(): Command[] {
       run: () => ui().setShowRunCommand(true)
     },
     {
+      id: 'pane.insertReference',
+      title: 'Insert context: @diff, @url, @file…',
+      group: 'Panes',
+      run: () => ui().setShowInsertReference(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'Connect to SSH server…',
       group: 'Panes',

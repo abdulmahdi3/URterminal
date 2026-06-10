@@ -77,6 +77,7 @@ export function useHotkeys(): void {
           ui.showAgentDoctor ||
           ui.showRunCommand ||
           ui.showSessionSearch ||
+          ui.showInsertReference ||
           ui.linkingPaneId
         ) {
           ui.closeOverlays()

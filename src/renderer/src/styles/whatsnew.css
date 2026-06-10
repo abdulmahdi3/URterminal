@@ -155,6 +155,43 @@
   animation: wn-blink 1s steps(1) infinite;
 }
 
+/* "ref" demo — an @-chip expanding into a diff block */
+.wn-demo-ref {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.wn-ref-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+.wn-ref-arrow {
+  color: var(--text-faint);
+}
+.wn-ref-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.wn-ref-add {
+  color: var(--ok, #3fb950);
+}
+.wn-ref-del {
+  color: var(--danger, #f05d57);
+}
+
 /* "recall" demo — a search box over past-conversation rows */
 .wn-demo-recall {
   display: flex;

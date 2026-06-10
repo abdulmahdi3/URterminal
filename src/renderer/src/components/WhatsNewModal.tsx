@@ -75,6 +75,19 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'ref') {
+    // An @-chip expanding into a diff block.
+    return (
+      <div className="wn-demo wn-demo-ref">
+        <div className="wn-ref-chip">@diff</div>
+        <div className="wn-ref-arrow">→</div>
+        <div className="wn-ref-block">
+          <span className="wn-ref-add">+ added line</span>
+          <span className="wn-ref-del">- removed line</span>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'recall') {
     // A search box over past-conversation result rows.
     return (
