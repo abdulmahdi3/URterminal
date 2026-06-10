@@ -5,11 +5,19 @@ import { SerializeAddon } from '@xterm/addon-serialize'
 import type { CursorStyle, PtyDataEvent, PtyExitEvent } from '@shared/types'
 import { agentLaunch } from '@shared/providers'
 import { getAgentDescriptor } from './agents'
+import { eventToCombo } from './keys'
 import { noteOutputChars } from './outputMetrics'
 import { flashCopied } from '@renderer/store/copied'
 import { useTokens } from '@renderer/store/tokens'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import '@xterm/xterm/css/xterm.css'
+
+// App-navigation shortcuts that must win over the terminal even while a pane is
+// focused. These aren't shell input (the shell relies on Ctrl+letter control
+// codes, so those are deliberately left for xterm), so we let them bubble to the
+// global hotkey handler instead of being swallowed by xterm. Keep in sync with
+// the matching command bindings in commands.ts (jump to prev/next prompt).
+const BUBBLE_COMBOS = new Set(['Alt+Up', 'Alt+Down'])
 
 // 'Segoe UI'/'Tahoma' tail lets Arabic glyphs render (RTL) when present in output.
 const DEFAULT_FONT_STACK =
@@ -551,11 +559,17 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   term.open(container)
   fit.fit()
 
-  // Let the global hotkey layer own Ctrl+Tab / Ctrl+Shift+Tab (switch workspace).
-  // Returning false stops xterm from translating them into a stray Tab/ESC[Z
-  // sent to the shell; the event still bubbles to the window keydown handler.
+  // Let the global hotkey layer own a few app-navigation combos even while the
+  // terminal is focused. Without this, xterm consumes the keydown (translating
+  // it into a shell sequence — a stray Tab/ESC[Z, or a meta-escape for Alt+Arrow)
+  // and then cancels the event, so it never bubbles to the window keydown handler
+  // and the shortcut silently does nothing until focus leaves the pane. Returning
+  // false makes xterm bail out before that, letting the event bubble.
   term.attachCustomKeyEventHandler((ev) => {
-    if (ev.type === 'keydown' && (ev.ctrlKey || ev.metaKey) && ev.code === 'Tab') return false
+    if (ev.type !== 'keydown') return true
+    if ((ev.ctrlKey || ev.metaKey) && ev.code === 'Tab') return false
+    const combo = eventToCombo(ev)
+    if (combo && BUBBLE_COMBOS.has(combo)) return false
     return true
   })
 
@@ -894,6 +908,20 @@ export function repaintTerminal(paneId: string): void {
     run()
     requestAnimationFrame(run)
   })
+}
+
+/**
+ * Note a user wheel gesture inside a pane. An upward scroll is an explicit
+ * "stop following the tail", so we detach immediately. We can't rely on the
+ * onScroll viewport-delta alone: while an agent streams, the per-write re-pin
+ * keeps resetting that reference point (and saturates the main thread), so a
+ * small scroll-up gets swallowed and the viewport snaps back to the bottom.
+ * Scrolling back down to the bottom re-attaches via the onScroll handler.
+ */
+export function noteUserScroll(paneId: string, deltaY: number): void {
+  if (deltaY >= 0) return
+  const entry = pool.get(paneId)
+  if (entry) entry.followTail = false
 }
 
 // ---- scrollback search (xterm search addon) ----

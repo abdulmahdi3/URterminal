@@ -1,5 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { mountTerminal, fitTerminal, bumpFontSize, pasteText } from '@renderer/lib/terminalPool'
+import {
+  mountTerminal,
+  fitTerminal,
+  bumpFontSize,
+  pasteText,
+  noteUserScroll
+} from '@renderer/lib/terminalPool'
 import { useSettings } from '@renderer/store/settings'
 
 interface Props {
@@ -86,7 +92,12 @@ export default function TerminalPane({
     // stop the wheel from also scrolling the buffer while zooming.
     let persistT = 0
     const onWheel = (e: WheelEvent): void => {
-      if (!e.ctrlKey) return
+      if (!e.ctrlKey) {
+        // A plain wheel-up detaches follow-the-tail immediately, so a streaming
+        // agent stops yanking the viewport back to the bottom while reading.
+        noteUserScroll(paneId, e.deltaY)
+        return
+      }
       e.preventDefault()
       const size = bumpFontSize(e.deltaY < 0 ? 1 : -1)
       window.clearTimeout(persistT)
