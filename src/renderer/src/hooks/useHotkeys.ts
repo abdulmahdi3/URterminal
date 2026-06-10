@@ -76,6 +76,7 @@ export function useHotkeys(): void {
           ui.showQuickSwitch ||
           ui.showAgentDoctor ||
           ui.showRunCommand ||
+          ui.showSessionSearch ||
           ui.linkingPaneId
         ) {
           ui.closeOverlays()

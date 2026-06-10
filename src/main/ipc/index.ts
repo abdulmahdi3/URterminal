@@ -29,6 +29,7 @@ import { discoverAgents } from '../agents/discover'
 import { installAgent } from '../agents/install'
 import { getGitStatus } from '../git/status'
 import { getPrompts, appendPrompt } from '../prompts/store'
+import { searchSessions, warmSessionIndex } from '../sessions/recall'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
 import { forgetProject as forgetLearningProject, readAllMemories, readAllSkills } from '../learning/brain'
@@ -398,6 +399,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.agentsDiscover, () => discoverAgents())
   ipcMain.handle(IPC.agentsInstall, (_e, command: string) => installAgent(command))
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
+  ipcMain.handle(IPC.sessionsSearch, (_e, query: string) => searchSessions(query))
+  warmSessionIndex() // start indexing past conversations in the background
   ipcMain.handle(IPC.promptsGet, (_e, sessionId: string) => getPrompts(sessionId))
   ipcMain.on(IPC.promptsAppend, (_e, sessionId: string, text: string) =>
     appendPrompt(sessionId, text)

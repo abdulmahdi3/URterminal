@@ -17,6 +17,8 @@ interface UiState {
   showAgentDoctor: boolean
   /** "run a command in all shells" prompt open */
   showRunCommand: boolean
+  /** cross-session search (search past conversations) overlay open */
+  showSessionSearch: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -56,6 +58,8 @@ interface UiState {
   toggleQuickSwitch: () => void
   setShowAgentDoctor: (v: boolean) => void
   setShowRunCommand: (v: boolean) => void
+  setShowSessionSearch: (v: boolean) => void
+  toggleSessionSearch: () => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -84,6 +88,7 @@ const ALL_CLOSED = {
   showQuickSwitch: false,
   showAgentDoctor: false,
   showRunCommand: false,
+  showSessionSearch: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -99,6 +104,7 @@ export const useUi = create<UiState>((set, get) => ({
   showQuickSwitch: false,
   showAgentDoctor: false,
   showRunCommand: false,
+  showSessionSearch: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -144,6 +150,12 @@ export const useUi = create<UiState>((set, get) => ({
     set(v ? { ...ALL_CLOSED, showAgentDoctor: true } : { showAgentDoctor: false }),
   setShowRunCommand: (v) =>
     set(v ? { ...ALL_CLOSED, showRunCommand: true } : { showRunCommand: false }),
+  setShowSessionSearch: (v) =>
+    set(v ? { ...ALL_CLOSED, showSessionSearch: true } : { showSessionSearch: false }),
+  toggleSessionSearch: () =>
+    set((s) =>
+      s.showSessionSearch ? { showSessionSearch: false } : { ...ALL_CLOSED, showSessionSearch: true }
+    ),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),

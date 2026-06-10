@@ -155,6 +155,43 @@
   animation: wn-blink 1s steps(1) infinite;
 }
 
+/* "recall" demo — a search box over past-conversation rows */
+.wn-demo-recall {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+.wn-recall-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-recall-search svg {
+  color: var(--accent);
+}
+.wn-recall-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wn-recall-row {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 4px 9px;
+  border-radius: 5px;
+}
+.wn-recall-row.active {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
 /* "learn" demo — a brain with pulsing sparkles */
 .wn-demo-learn {
   position: relative;

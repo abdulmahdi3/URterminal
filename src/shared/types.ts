@@ -697,6 +697,20 @@ export interface FileSaveResult {
   error?: string
 }
 
+/** One cross-session search result: a past Claude conversation that matched. */
+export interface SessionHit {
+  /** Claude session id (resume target) */
+  sessionId: string
+  /** the conversation's subject (aiTitle or first prompt) */
+  title?: string
+  /** working directory the conversation ran in */
+  cwd?: string
+  /** last-modified epoch ms */
+  when: number
+  /** matched excerpt with surrounding context */
+  snippet: string
+}
+
 /** Git working-tree summary for a folder (null when it isn't a git repo). */
 export interface GitStatus {
   /** current branch name, or a short SHA when detached */
@@ -752,6 +766,8 @@ export const IPC = {
   promptsAppend: 'prompts:append',
   // git: working-tree status for a folder (branch / ahead-behind / dirty counts)
   gitStatus: 'git:status',
+  // sessions: full-text search across past Claude conversations (cross-session recall)
+  sessionsSearch: 'sessions:search',
 
   // learning layer (local observe -> distill -> inject; opt-in, default off)
   learningTurnMarker: 'learning:turn-marker', // renderer -> main: a submitted user prompt

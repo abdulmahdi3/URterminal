@@ -117,6 +117,13 @@ export function getCommands(): Command[] {
       run: () => ui().toggleQuickSwitch()
     },
     {
+      id: 'nav.searchHistory',
+      title: 'Search past conversations…',
+      group: 'Panes',
+      shortcut: 'Ctrl+Shift+F',
+      run: () => ui().toggleSessionSearch()
+    },
+    {
       id: 'nav.prevPrompt',
       title: 'Jump to previous prompt',
       group: 'Panes',

@@ -33,6 +33,7 @@ export type WhatsNewDemo =
   | 'zoom'
   | 'export'
   | 'learn'
+  | 'recall'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -62,6 +63,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.20': {
+    version: '0.3.20',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Search your past conversations',
+        demo: 'recall',
+        body:
+          'Press Ctrl+Shift+F to full-text search every chat you’ve ever had with an agent — by ' +
+          'anything that was said. Pick a result and it resumes that exact conversation in a new ' +
+          'pane. Your whole history, instantly recallable.'
+      }
+    ]
+  },
+
   '0.3.19': {
     version: '0.3.19',
     headline: 'New in this update',

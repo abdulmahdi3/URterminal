@@ -21,6 +21,7 @@ import type {
   FileSaveRequest,
   FileSaveResult,
   GitStatus,
+  SessionHit,
   PaneInfo,
   SessionData,
   LastSessionPayload,
@@ -83,6 +84,8 @@ const api = {
   installAgent: (command: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.agentsInstall, command),
   gitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke(IPC.gitStatus, cwd),
+  searchSessions: (query: string): Promise<SessionHit[]> =>
+    ipcRenderer.invoke(IPC.sessionsSearch, query),
   promptsGet: (sessionId: string): Promise<string[]> =>
     ipcRenderer.invoke(IPC.promptsGet, sessionId),
   promptsAppend: (sessionId: string, text: string): void =>

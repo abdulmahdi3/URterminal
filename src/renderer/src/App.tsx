@@ -16,6 +16,7 @@ import NotesModal from './components/NotesModal'
 import QuickSwitcher from './components/QuickSwitcher'
 import AgentDoctorModal from './components/AgentDoctorModal'
 import RunCommandModal from './components/RunCommandModal'
+import SessionSearchModal from './components/SessionSearchModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
@@ -126,6 +127,7 @@ export default function App(): JSX.Element {
       <QuickSwitcher />
       <AgentDoctorModal />
       <RunCommandModal />
+      <SessionSearchModal />
       <WhatsNewModal />
       <SearchBar />
       <ShortcutsModal />

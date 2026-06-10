@@ -75,6 +75,21 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'recall') {
+    // A search box over past-conversation result rows.
+    return (
+      <div className="wn-demo wn-demo-recall">
+        <div className="wn-recall-search">
+          <Search size={11} /> <span>auth refactor</span>
+        </div>
+        <div className="wn-recall-rows">
+          <div className="wn-recall-row active">JWT migration — 2d ago</div>
+          <div className="wn-recall-row">login bug fix — 1w ago</div>
+          <div className="wn-recall-row">OAuth setup — 3w ago</div>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'learn') {
     // A brain with orbiting auto-sparkles.
     return (
