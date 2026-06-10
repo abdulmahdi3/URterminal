@@ -8,7 +8,7 @@ import { DEFAULT_MODELS, latestModel } from '@shared/providers'
 // it doesn't touch the app's main settings store. Follows the project's
 // purposeful-animation rule (collapsing groups toggle instantly).
 
-type LearnProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic'
+type LearnProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic' | 'openrouter'
 
 interface LearningCfg {
   enabled: boolean
@@ -21,7 +21,7 @@ interface LearningCfg {
   injectionActive: boolean
   provider: LearnProvider
   providerModel: string
-  apiKeys: { gemini: string; openai: string; anthropic: string }
+  apiKeys: { gemini: string; openai: string; anthropic: string; openrouter: string }
   [k: string]: unknown
 }
 
@@ -44,6 +44,13 @@ const PROVIDERS: Array<{
   keyHelp?: string
 }> = [
   { id: 'claude-cli', label: 'Claude CLI — reuse my login (no key)', needsKey: false },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter — one key, 200+ models',
+    needsKey: true,
+    keyHint: 'sk-or-…',
+    keyHelp: 'One key for 200+ models — openrouter.ai/keys'
+  },
   {
     id: 'gemini',
     label: 'Google Gemini',
@@ -213,9 +220,12 @@ export default function LearningPanel(): JSX.Element {
   }
 
   // ---- AI provider helpers ----
+  type KeyProv = 'gemini' | 'openai' | 'anthropic' | 'openrouter'
   const meta = PROVIDERS.find((p) => p.id === cfg.provider) ?? PROVIDERS[0]
   const isApi = cfg.provider !== 'claude-cli'
-  const baseModels = isApi ? DEFAULT_MODELS[cfg.provider as ProviderId] : []
+  // OpenRouter has 200+ models → free-text id; the others use a fixed model list.
+  const isOpenRouter = cfg.provider === 'openrouter'
+  const baseModels = isApi && !isOpenRouter ? DEFAULT_MODELS[cfg.provider as ProviderId] : []
   // Keep a saved/custom model id (e.g. migrated from an older default) selectable.
   const models =
     cfg.providerModel && !baseModels.includes(cfg.providerModel)
@@ -227,12 +237,16 @@ export default function LearningPanel(): JSX.Element {
       patch({ provider: id })
       return
     }
+    if (id === 'openrouter') {
+      patch({ provider: id, providerModel: cfg.providerModel || 'openai/gpt-4o-mini' })
+      return
+    }
     const list = DEFAULT_MODELS[id as ProviderId]
     const model = list.includes(cfg.providerModel) ? cfg.providerModel : latestModel(id as ProviderId)
     patch({ provider: id, providerModel: model })
   }
 
-  const setKey = (id: 'gemini' | 'openai' | 'anthropic', value: string): void =>
+  const setKey = (id: KeyProv, value: string): void =>
     patch({ apiKeys: { ...cfg.apiKeys, [id]: value } })
 
   return (
@@ -354,7 +368,22 @@ export default function LearningPanel(): JSX.Element {
             </select>
           }
         />
-        {isApi && (
+        {isApi && isOpenRouter && (
+          <Row
+            label="Model"
+            desc="Any OpenRouter model id — e.g. anthropic/claude-3.5-sonnet, openai/gpt-4o-mini."
+            control={
+              <input
+                className="input mono"
+                placeholder="openai/gpt-4o-mini"
+                value={cfg.providerModel || ''}
+                onChange={(e) => patch({ providerModel: e.target.value })}
+                style={{ width: 240 }}
+              />
+            }
+          />
+        )}
+        {isApi && !isOpenRouter && (
           <Row
             label="Model"
             desc="The model used for this provider."
@@ -382,8 +411,8 @@ export default function LearningPanel(): JSX.Element {
                 className="input"
                 type="password"
                 placeholder={meta.keyHint}
-                value={cfg.apiKeys[cfg.provider as 'gemini' | 'openai' | 'anthropic'] ?? ''}
-                onChange={(e) => setKey(cfg.provider as 'gemini' | 'openai' | 'anthropic', e.target.value)}
+                value={cfg.apiKeys[cfg.provider as KeyProv] ?? ''}
+                onChange={(e) => setKey(cfg.provider as KeyProv, e.target.value)}
                 style={{ width: 240 }}
               />
             }

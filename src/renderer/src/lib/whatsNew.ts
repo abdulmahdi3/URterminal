@@ -63,6 +63,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.22': {
+    version: '0.3.22',
+    headline: 'New in this update',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'OpenRouter: one key, 200+ models',
+        demo: 'learn',
+        body:
+          'Settings → Learning now has OpenRouter as an AI provider. Paste one key and the learning ' +
+          'distiller + prompt enhancer can use any of 200+ models (just type the id, e.g. ' +
+          'anthropic/claude-3.5-sonnet) — no separate accounts per model.'
+      }
+    ]
+  },
+
   '0.3.21': {
     version: '0.3.21',
     headline: 'New in this update',

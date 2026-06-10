@@ -137,6 +137,42 @@ export function runOpenAI(apiKey: string, model: string): RunModel {
 }
 
 /**
+ * Run OpenRouter (openrouter.ai) — one key, 200+ models, OpenAI-compatible. Same
+ * Chat Completions shape as OpenAI with a different base URL; model ids are
+ * namespaced like `openai/gpt-4o-mini` or `anthropic/claude-3.5-sonnet`. The
+ * optional Referer/X-Title headers are courtesy attribution, not required.
+ */
+export function runOpenRouter(apiKey: string, model: string): RunModel {
+  return async (system, prompt) => {
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://github.com/abdulmahdi3/URterminal',
+        'X-Title': 'URterminal'
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: prompt }
+        ]
+      })
+    }).catch((e) => {
+      throw new Error(`OpenRouter request failed: ${(e as Error).message}`)
+    })
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '')
+      throw new Error(`OpenRouter failed: HTTP ${r.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
+    }
+    const data = (await r.json()) as { choices?: Array<{ message?: { content?: string } }> }
+    return data.choices?.[0]?.message?.content ?? ''
+  }
+}
+
+/**
  * Run Anthropic's Messages API and return the assistant text. Runs in the main
  * process, so there is no browser CORS constraint.
  */
@@ -172,7 +208,8 @@ export function runAnthropic(apiKey: string, model: string): RunModel {
 const DEFAULT_MODEL_BY_PROVIDER: Record<Exclude<LearningProvider, 'claude-cli'>, string> = {
   gemini: 'gemini-2.0-flash',
   openai: 'gpt-4o-mini',
-  anthropic: 'claude-haiku-4-5-20251001'
+  anthropic: 'claude-haiku-4-5-20251001',
+  openrouter: 'openai/gpt-4o-mini'
 }
 
 /**
@@ -202,6 +239,8 @@ export function getLearningRunModel(cfg: LearningConfig): RunModel {
       return runOpenAI(key, model)
     case 'anthropic':
       return runAnthropic(key, model)
+    case 'openrouter':
+      return runOpenRouter(key, model)
     default:
       return runClaudeHeadless
   }

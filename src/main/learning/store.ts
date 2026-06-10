@@ -21,7 +21,7 @@ import { join } from 'path'
  * the user's already-authenticated Claude Code CLI (no new API key); the rest
  * are HTTP APIs that need a key stored in `LearningConfig.apiKeys`.
  */
-export type LearningProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic'
+export type LearningProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic' | 'openrouter'
 
 export interface LearningConfig {
   /** Master switch. The entire layer is inert unless this is true. */
@@ -61,7 +61,7 @@ export interface LearningConfig {
   /** Model id for the chosen API provider. Ignored when provider is 'claude-cli'. */
   providerModel: string
   /** Per-provider API keys (stored locally, never synced). Empty until set. */
-  apiKeys: { gemini: string; openai: string; anthropic: string }
+  apiKeys: { gemini: string; openai: string; anthropic: string; openrouter: string }
   distillIdleMs: number
   minTurns: number
   minClusterSupport: number
@@ -84,7 +84,7 @@ export const DEFAULT_LEARNING_CONFIG: LearningConfig = {
   injectionActive: false,
   provider: 'claude-cli',
   providerModel: '',
-  apiKeys: { gemini: '', openai: '', anthropic: '' },
+  apiKeys: { gemini: '', openai: '', anthropic: '', openrouter: '' },
   distillIdleMs: 90000,
   minTurns: 6,
   minClusterSupport: 2,
