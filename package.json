@@ -1,6 +1,6 @@
 {
   "name": "urterminal",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "description": "Multi-pane AI + shell terminal",
   "main": "./out/main/index.js",
   "author": "URterminal",
@@ -49,6 +49,7 @@
     "react-dom": "^18.3.1",
     "react-i18next": "^15.0.2",
     "react-mosaic-component": "^6.1.1",
+    "shadcn": "^4.11.0",
     "typescript": "^5.6.2",
     "vite": "^7.0.0",
     "vitest": "^4.1.0",
