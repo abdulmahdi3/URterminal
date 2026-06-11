@@ -18,10 +18,19 @@ import { join } from 'path'
 
 /**
  * Providers the learning layer can call for its model work. 'claude-cli' reuses
- * the user's already-authenticated Claude Code CLI (no new API key); the rest
- * are HTTP APIs that need a key stored in `LearningConfig.apiKeys`.
+ * the user's already-authenticated Claude Code CLI (no new API key); 'gemini' |
+ * 'openai' | 'anthropic' | 'openrouter' are HTTP APIs needing a key in
+ * `LearningConfig.apiKeys`; 'ollama' | 'lmstudio' are local servers that need no
+ * key — their base URL is read from the shared settings store (Settings page).
  */
-export type LearningProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic' | 'openrouter'
+export type LearningProvider =
+  | 'claude-cli'
+  | 'gemini'
+  | 'openai'
+  | 'anthropic'
+  | 'openrouter'
+  | 'ollama'
+  | 'lmstudio'
 
 export interface LearningConfig {
   /** Master switch. The entire layer is inert unless this is true. */

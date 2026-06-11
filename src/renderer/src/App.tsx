@@ -20,6 +20,7 @@ import SessionSearchModal from './components/SessionSearchModal'
 import InsertReferenceModal from './components/InsertReferenceModal'
 import McpModal from './components/McpModal'
 import DelegateModal from './components/DelegateModal'
+import OrchestratorModal from './components/OrchestratorModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
@@ -36,6 +37,7 @@ import { useHotkeys } from './hooks/useHotkeys'
 import { usePersistence } from './hooks/usePersistence'
 import { useChainForwarding } from './hooks/useChainForwarding'
 import { useTelegramForwarding } from './hooks/useTelegramForwarding'
+import { useControlServer } from './hooks/useControlServer'
 import { usePaneRegistry } from './hooks/usePaneRegistry'
 import { useBroadcast } from './hooks/useBroadcast'
 import { usePaneActivity } from './hooks/usePaneActivity'
@@ -59,6 +61,7 @@ export default function App(): JSX.Element {
   usePersistence()
   useChainForwarding()
   useTelegramForwarding()
+  useControlServer()
   usePaneRegistry()
   useBroadcast()
   usePaneActivity()
@@ -134,6 +137,7 @@ export default function App(): JSX.Element {
       <InsertReferenceModal />
       <McpModal />
       <DelegateModal />
+      <OrchestratorModal />
       <WhatsNewModal />
       <SearchBar />
       <ShortcutsModal />

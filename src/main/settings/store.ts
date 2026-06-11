@@ -10,7 +10,12 @@ import type {
   IntegrationsPublic
 } from '@shared/types'
 import { DEFAULT_PREFS } from '@shared/types'
-import { DEFAULT_MODELS, DEFAULT_OLLAMA_URL, DEFAULT_AGENT } from '@shared/providers'
+import {
+  DEFAULT_MODELS,
+  DEFAULT_OLLAMA_URL,
+  DEFAULT_LMSTUDIO_URL,
+  DEFAULT_AGENT
+} from '@shared/providers'
 
 interface RawSettings {
   providers: {
@@ -18,6 +23,7 @@ interface RawSettings {
     openai: { keyEnc?: string }
     gemini: { keyEnc?: string }
     ollama: { baseUrl: string }
+    lmstudio: { baseUrl: string }
   }
   telegram: { tokenEnc?: string; defaultChatId?: string }
   /** saved SSH passwords, keyed by target ("user@host"), encrypted like API keys */
@@ -52,7 +58,8 @@ const DEFAULTS: RawSettings = {
     anthropic: {},
     openai: {},
     gemini: {},
-    ollama: { baseUrl: DEFAULT_OLLAMA_URL }
+    ollama: { baseUrl: DEFAULT_OLLAMA_URL },
+    lmstudio: { baseUrl: DEFAULT_LMSTUDIO_URL }
   },
   telegram: {},
   ssh: { passwords: {} },
@@ -115,7 +122,8 @@ export class SettingsStore {
         anthropic: { ...s.providers?.anthropic },
         openai: { ...s.providers?.openai },
         gemini: { ...s.providers?.gemini },
-        ollama: { baseUrl: s.providers?.ollama?.baseUrl || DEFAULT_OLLAMA_URL }
+        ollama: { baseUrl: s.providers?.ollama?.baseUrl || DEFAULT_OLLAMA_URL },
+        lmstudio: { baseUrl: s.providers?.lmstudio?.baseUrl || DEFAULT_LMSTUDIO_URL }
       },
       telegram: { ...s.telegram },
       ssh: { passwords: { ...s.ssh?.passwords } },
@@ -161,7 +169,8 @@ export class SettingsStore {
         anthropic: { keySet: !!aKey, keyPreview: preview(aKey) },
         openai: { keySet: !!oKey, keyPreview: preview(oKey) },
         gemini: { keySet: !!gKey, keyPreview: preview(gKey) },
-        ollama: { baseUrl: s.providers.ollama.baseUrl }
+        ollama: { baseUrl: s.providers.ollama.baseUrl },
+        lmstudio: { baseUrl: s.providers.lmstudio.baseUrl }
       },
       telegram: {
         tokenSet: !!tToken,
@@ -231,6 +240,17 @@ export class SettingsStore {
     return this.raw().providers.ollama.baseUrl
   }
 
+  getLmstudioBaseUrl(): string {
+    return this.raw().providers.lmstudio.baseUrl
+  }
+
+  /** Base URL for a local provider (Ollama / LM Studio); '' for the others. */
+  getLocalBaseUrl(provider: ProviderId): string {
+    if (provider === 'ollama') return this.getOllamaBaseUrl()
+    if (provider === 'lmstudio') return this.getLmstudioBaseUrl()
+    return ''
+  }
+
   getTelegramToken(): string | undefined {
     return decrypt(this.raw().telegram.tokenEnc)
   }
@@ -257,8 +277,8 @@ export class SettingsStore {
 
     if (patch.providerKey) {
       const { provider, key } = patch.providerKey
-      if (provider === 'ollama') {
-        // ollama uses baseUrl, not a key
+      if (provider === 'ollama' || provider === 'lmstudio') {
+        // local providers use a baseUrl, not a key
       } else {
         const enc = key ? encrypt(key) : undefined
         s.providers[provider] = enc ? { keyEnc: enc } : {}
@@ -266,6 +286,9 @@ export class SettingsStore {
     }
     if (patch.ollamaBaseUrl !== undefined) {
       s.providers.ollama.baseUrl = patch.ollamaBaseUrl || DEFAULT_OLLAMA_URL
+    }
+    if (patch.lmstudioBaseUrl !== undefined) {
+      s.providers.lmstudio.baseUrl = patch.lmstudioBaseUrl || DEFAULT_LMSTUDIO_URL
     }
     if (patch.telegramToken !== undefined) {
       s.telegram.tokenEnc = patch.telegramToken ? encrypt(patch.telegramToken) : undefined

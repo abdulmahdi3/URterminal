@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { AGENT_REGISTRY, agentLaunch } from './providers'
+import {
+  AGENT_REGISTRY,
+  agentLaunch,
+  PROVIDER_IDS,
+  PROVIDER_LABELS,
+  DEFAULT_MODELS,
+  DEFAULT_LMSTUDIO_URL,
+  DEFAULT_OLLAMA_URL,
+  isLocalProvider,
+  defaultLocalBaseUrl,
+  latestModel
+} from './providers'
 
 describe('agent registry', () => {
   it('declares stream-json support for Claude Code', () => {
@@ -24,5 +35,34 @@ describe('agentLaunch', () => {
 
   it('falls back to the id when the descriptor is missing', () => {
     expect(agentLaunch(undefined, 'mystery')).toEqual({ command: 'mystery', args: [] })
+  })
+})
+
+describe('providers', () => {
+  it('registers LM Studio alongside the other providers', () => {
+    expect(PROVIDER_IDS).toContain('lmstudio')
+    expect(PROVIDER_LABELS.lmstudio).toBe('LM Studio (local)')
+  })
+
+  it('flags only Ollama and LM Studio as local', () => {
+    expect(isLocalProvider('ollama')).toBe(true)
+    expect(isLocalProvider('lmstudio')).toBe(true)
+    expect(isLocalProvider('anthropic')).toBe(false)
+    expect(isLocalProvider('openai')).toBe(false)
+    expect(isLocalProvider('gemini')).toBe(false)
+  })
+
+  it('maps local providers to their default base URLs', () => {
+    expect(defaultLocalBaseUrl('ollama')).toBe(DEFAULT_OLLAMA_URL)
+    expect(defaultLocalBaseUrl('lmstudio')).toBe(DEFAULT_LMSTUDIO_URL)
+    expect(DEFAULT_LMSTUDIO_URL).toMatch(/^http:\/\/127\.0\.0\.1:1234$/)
+    expect(defaultLocalBaseUrl('openai')).toBe('')
+  })
+
+  it('treats LM Studio as having no static model fallback', () => {
+    expect(DEFAULT_MODELS.lmstudio).toEqual([])
+    expect(latestModel('lmstudio')).toBe('')
+    // Ollama keeps a fallback list for when its server is unreachable.
+    expect(DEFAULT_MODELS.ollama.length).toBeGreaterThan(0)
   })
 })

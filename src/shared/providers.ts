@@ -4,10 +4,18 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   gemini: 'Google Gemini',
-  ollama: 'Ollama (local)'
+  ollama: 'Ollama (local)',
+  lmstudio: 'LM Studio (local)'
 }
 
-export const PROVIDER_IDS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama']
+export const PROVIDER_IDS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama', 'lmstudio']
+
+/** Providers backed by a local server (configurable base URL, no API key, live
+ *  model discovery). Used by the settings UI, the learning runner, and the
+ *  discovery dispatcher to branch away from the hosted/API-key providers. */
+export function isLocalProvider(p: ProviderId): boolean {
+  return p === 'ollama' || p === 'lmstudio'
+}
 
 /**
  * Known model ids per provider, NEWEST FIRST. The first entry is treated as the
@@ -18,15 +26,27 @@ export const DEFAULT_MODELS: Record<ProviderId, string[]> = {
   anthropic: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
   gemini: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
-  ollama: ['llama3.1', 'qwen2.5', 'mistral']
+  // Local providers discover their real model list at runtime; these are only a
+  // fallback shown when the server is unreachable (Ollama) / empty (LM Studio).
+  ollama: ['llama3.1', 'qwen2.5', 'mistral'],
+  lmstudio: []
 }
 
-/** The latest model id for a provider (top of its `DEFAULT_MODELS` list). */
+/** The latest model id for a provider (top of its `DEFAULT_MODELS` list), or ''
+ *  when the provider has no static fallback (local providers discover live). */
 export function latestModel(provider: ProviderId): string {
-  return DEFAULT_MODELS[provider][0]
+  return DEFAULT_MODELS[provider][0] ?? ''
 }
 
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434'
+export const DEFAULT_LMSTUDIO_URL = 'http://127.0.0.1:1234'
+
+/** The default base URL for a local provider (empty for non-local providers). */
+export function defaultLocalBaseUrl(provider: ProviderId): string {
+  if (provider === 'ollama') return DEFAULT_OLLAMA_URL
+  if (provider === 'lmstudio') return DEFAULT_LMSTUDIO_URL
+  return ''
+}
 
 // ---------------------------------------------------------------------------
 // Agent CLIs launched inside terminal panes (the "AI pane" runs one of these).
@@ -85,8 +105,9 @@ export interface AgentDescriptor {
    */
   supports?: { streamJson?: boolean }
   /** Where this descriptor came from. Built-ins are always listed; the others
-   *  are discovered at runtime (main process) and merged in. */
-  source?: 'builtin' | 'manifest' | 'gh-extension'
+   *  are discovered at runtime (main process) and merged in. `local-model` is one
+   *  installed Ollama model surfaced as a chat agent (`ollama run <model>`). */
+  source?: 'builtin' | 'manifest' | 'gh-extension' | 'local-model'
 }
 
 /** Result of runtime agent discovery (built-ins + user manifest + gh extensions). */

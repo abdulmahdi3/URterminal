@@ -1,7 +1,7 @@
 // Shared types used across main, preload, and renderer.
 // Keep this free of any node/electron/dom imports so all processes can use it.
 
-export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama'
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio'
 
 export type PaneType = 'ai' | 'shell' | 'empty'
 
@@ -138,6 +138,7 @@ export interface ProviderSettingsPublic {
   openai: { keySet: boolean; keyPreview?: string }
   gemini: { keySet: boolean; keyPreview?: string }
   ollama: { baseUrl: string }
+  lmstudio: { baseUrl: string }
 }
 
 export interface TelegramSettingsPublic {
@@ -159,6 +160,14 @@ export interface SnippetItem {
   name: string
   body: string
   kind: 'prompt' | 'shell'
+}
+
+/** A saved sequence of commands/prompts replayed into a pane, one line at a time. */
+export interface MacroItem {
+  id: string
+  name: string
+  /** each entry is one command/prompt line, submitted in order */
+  steps: string[]
 }
 
 /** A saved pane configuration that can be spawned in one click. */
@@ -187,6 +196,12 @@ export interface AppPrefs {
   telegramNotifyOnDone: boolean
   /** Telegram chat IDs allowed to control the app (empty = allow any) */
   telegramChatWhitelist: string[]
+  /** local control HTTP server (127.0.0.1) — list/open panes + send prompts from scripts */
+  controlServerEnabled: boolean
+  /** port the local control server listens on */
+  controlServerPort: number
+  /** bearer token required by the local control server ('' = not yet generated) */
+  controlServerToken: string
   /** terminal font family ('' = built-in default) */
   fontFamily: string
   /** terminal font size in px */
@@ -195,6 +210,8 @@ export interface AppPrefs {
   autoRestore: boolean
   /** saved reusable prompts / commands */
   snippets: SnippetItem[]
+  /** saved command sequences replayed into a pane */
+  macros: MacroItem[]
   /** saved pane configurations */
   templates: PaneTemplate[]
   /** recent SSH targets (most recent first, e.g. "user@host"), shown by the SSH button */
@@ -281,10 +298,14 @@ export const DEFAULT_PREFS: AppPrefs = {
   notifySound: false,
   telegramNotifyOnDone: false,
   telegramChatWhitelist: [],
+  controlServerEnabled: false,
+  controlServerPort: 8777,
+  controlServerToken: '',
   fontFamily: '',
   fontSize: 13,
   autoRestore: true,
   snippets: [],
+  macros: [],
   templates: [],
   sshHosts: [],
 
@@ -481,6 +502,7 @@ export interface NoteDoc {
 export interface SettingsPatch {
   providerKey?: { provider: ProviderId; key: string | null }
   ollamaBaseUrl?: string
+  lmstudioBaseUrl?: string
   telegramToken?: string | null
   telegramDefaultChatId?: string | null
   defaultProvider?: ProviderId
@@ -653,6 +675,24 @@ export interface TelegramCreatePane {
   chatId: string
 }
 
+/** A pane the local control server asked the renderer to open. */
+export interface ControlCreatePane {
+  type: 'ai' | 'shell'
+  /** agent CLI for ai panes (e.g. "claude") */
+  command?: string
+  /** shell binary for shell panes */
+  shell?: string
+  /** working directory to launch in */
+  cwd?: string
+}
+
+/** Running state of the local control server, for the Settings panel. */
+export interface ControlServerStatus {
+  running: boolean
+  port?: number
+  error?: string
+}
+
 // ---------------------------------------------------------------------------
 // Perf
 // ---------------------------------------------------------------------------
@@ -756,6 +796,9 @@ export const IPC = {
   settingsGet: 'settings:get',
   settingsPatch: 'settings:patch',
   settingsChanged: 'settings:changed',
+
+  // providers: discover installed models from a local server (Ollama / LM Studio)
+  providersDiscoverModels: 'providers:discover-models',
 
   // pty
   ptySpawn: 'pty:spawn',
@@ -886,6 +929,10 @@ export const IPC = {
   // SSHFS (mount remote folder so a local agent can edit files): status + install
   sshfsStatus: 'sshfs:status',
   sshfsInstall: 'sshfs:install',
+
+  // local control server (drive panes from scripts over 127.0.0.1)
+  controlOpenPane: 'control:open-pane', // main -> renderer (event): open a pane on request
+  controlStatus: 'control:status', // renderer -> main: running state for Settings
 
   // telegram
   telegramStatus: 'telegram:status',

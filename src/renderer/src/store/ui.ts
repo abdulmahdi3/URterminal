@@ -25,6 +25,8 @@ interface UiState {
   showMcp: boolean
   /** delegate-to-subagent modal open */
   showDelegate: boolean
+  /** orchestrator (fan a goal to worker agent panes) modal open */
+  showOrchestrate: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -69,6 +71,7 @@ interface UiState {
   setShowInsertReference: (v: boolean) => void
   setShowMcp: (v: boolean) => void
   setShowDelegate: (v: boolean) => void
+  setShowOrchestrate: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -101,6 +104,7 @@ const ALL_CLOSED = {
   showInsertReference: false,
   showMcp: false,
   showDelegate: false,
+  showOrchestrate: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -120,6 +124,7 @@ export const useUi = create<UiState>((set, get) => ({
   showInsertReference: false,
   showMcp: false,
   showDelegate: false,
+  showOrchestrate: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -175,6 +180,8 @@ export const useUi = create<UiState>((set, get) => ({
     set(v ? { ...ALL_CLOSED, showInsertReference: true } : { showInsertReference: false }),
   setShowMcp: (v) => set(v ? { ...ALL_CLOSED, showMcp: true } : { showMcp: false }),
   setShowDelegate: (v) => set(v ? { ...ALL_CLOSED, showDelegate: true } : { showDelegate: false }),
+  setShowOrchestrate: (v) =>
+    set(v ? { ...ALL_CLOSED, showOrchestrate: true } : { showOrchestrate: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),

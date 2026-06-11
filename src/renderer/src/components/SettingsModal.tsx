@@ -4,17 +4,31 @@ import clsx from 'clsx'
 import {
   Check, Search, Trash2, RotateCcw, RotateCw, Download, Upload, Keyboard,
   Volume2, Volume1, VolumeX, Play, Monitor, EyeOff,
-  KeyRound, Cpu, Bot, SquareTerminal, Server,
+  KeyRound, Cpu, Bot, SquareTerminal, Server, RefreshCw,
   TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed, GripVertical,
   Bell, Copy, ClipboardPaste, PanelTop,
   Palette, Type, CaseSensitive, Droplet,
   FolderOpen, Save, Layers, Focus, History, Eraser, Languages,
   Send, MessageSquare, Users, Info, Gauge
 } from 'lucide-react'
-import type { ProviderId, AppPrefs, SettingsPatch, IntegrationId, IntegrationStatus } from '@shared/types'
+import type {
+  ProviderId,
+  AppPrefs,
+  SettingsPatch,
+  IntegrationId,
+  IntegrationStatus,
+  ControlServerStatus
+} from '@shared/types'
 import { DEFAULT_PREFS } from '@shared/types'
-import { PROVIDER_LABELS, DEFAULT_MODELS, latestModel, DEFAULT_AGENT } from '@shared/providers'
+import {
+  PROVIDER_LABELS,
+  DEFAULT_MODELS,
+  latestModel,
+  isLocalProvider,
+  DEFAULT_AGENT
+} from '@shared/providers'
 import { uid } from '@renderer/lib/snippets'
+import { parseMacroSteps, stepsToText } from '@renderer/lib/macros'
 import { useSettings } from '@renderer/store/settings'
 import { useUi } from '@renderer/store/ui'
 import { toast } from '@renderer/store/toasts'
@@ -458,16 +472,25 @@ export default function SettingsModal(): JSX.Element | null {
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({})
   const [ollamaUrl, setOllamaUrl] = useState('')
   const [ollamaUrlError, setOllamaUrlError] = useState('')
+  const [lmstudioUrl, setLmstudioUrl] = useState('')
+  const [lmstudioUrlError, setLmstudioUrlError] = useState('')
   const [tgToken, setTgToken] = useState('')
   const [defaultModels, setDefaultModels] = useState<string[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  // Whether the current model list came live from a reachable local server
+  // (vs. the static fallback). Only meaningful for local providers.
+  const [modelsLive, setModelsLive] = useState(false)
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
   const [agents, setAgents] = useState(getAgents())
   const [availableAgents, setAvailableAgents] = useState<Set<string>>(getAvailableAgents())
   const [snipName, setSnipName] = useState('')
   const [snipKind, setSnipKind] = useState<'prompt' | 'shell'>('prompt')
   const [snipBody, setSnipBody] = useState('')
+  const [macroName, setMacroName] = useState('')
+  const [macroBody, setMacroBody] = useState('')
   const [appVersion, setAppVersion] = useState('')
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [controlStat, setControlStat] = useState<ControlServerStatus | null>(null)
 
   // two-pane navigation + filtering
   const [query, setQuery] = useState('')
@@ -487,8 +510,29 @@ export default function SettingsModal(): JSX.Element | null {
   }, [])
 
   useEffect(() => {
-    if (settings) setOllamaUrl(settings.providers.ollama.baseUrl)
+    if (settings) {
+      setOllamaUrl(settings.providers.ollama.baseUrl)
+      setLmstudioUrl(settings.providers.lmstudio.baseUrl)
+    }
   }, [settings])
+
+  // Reflect the live control-server state (re-checked when its config changes).
+  const controlCfgKey = settings
+    ? `${settings.prefs.controlServerEnabled}:${settings.prefs.controlServerPort}:${settings.prefs.controlServerToken}`
+    : ''
+  useEffect(() => {
+    if (!show) return
+    let alive = true
+    void window.api
+      .controlStatus()
+      .then((s) => {
+        if (alive) setControlStat(s)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [show, controlCfgKey])
 
   // Jump straight to a section when opened via openSettings('learning') etc.
   useEffect(() => {
@@ -499,14 +543,62 @@ export default function SettingsModal(): JSX.Element | null {
     }
   }, [settingsSection])
 
-  useEffect(() => {
+  // Live-discover installed models for local providers (Ollama / LM Studio);
+  // fall back to the static list when the server is unreachable. Hosted providers
+  // keep using their static model list. Re-runs when the provider changes (and on
+  // demand via the Refresh button next to the model dropdown).
+  const refreshModels = async (): Promise<void> => {
     if (!settings) return
-    const models = DEFAULT_MODELS[settings.defaultProvider]
-    setDefaultModels(models)
-    if (!settings.defaultModel || !models.includes(settings.defaultModel)) {
-      void patch({ defaultModel: latestModel(settings.defaultProvider) })
+    const provider = settings.defaultProvider
+    if (!isLocalProvider(provider)) {
+      const models = DEFAULT_MODELS[provider]
+      setDefaultModels(models)
+      setModelsLive(false)
+      if (!settings.defaultModel || !models.includes(settings.defaultModel)) {
+        void patch({ defaultModel: latestModel(provider) })
+      }
+      return
     }
+    setModelsLoading(true)
+    try {
+      const discovered = await window.api.discoverModels(provider)
+      setModelsLive(discovered.length > 0)
+      const models = discovered.length ? discovered : DEFAULT_MODELS[provider]
+      setDefaultModels(models)
+      // Keep the chosen model if it's still installed; else snap to the first one.
+      if (models.length && (!settings.defaultModel || !models.includes(settings.defaultModel))) {
+        void patch({ defaultModel: models[0] })
+      }
+    } finally {
+      setModelsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshModels()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.defaultProvider])
+
+  // Validate a local server URL and persist it (empty resets to the default).
+  const commitBaseUrl = (
+    url: string,
+    setError: (e: string) => void,
+    field: 'ollamaBaseUrl' | 'lmstudioBaseUrl'
+  ): void => {
+    if (!url) {
+      setError('')
+      void patch({ [field]: url })
+      return
+    }
+    try {
+      const u = new URL(url)
+      if (!u.protocol.startsWith('http')) throw new Error()
+      setError('')
+      void patch({ [field]: url })
+    } catch {
+      setError('Must be a valid http:// or https:// URL')
+    }
+  }
 
   if (!show || !settings) return null
   const prefs = settings.prefs
@@ -571,6 +663,27 @@ export default function SettingsModal(): JSX.Element | null {
   }
   const removeSnippet = (id: string): void =>
     void patch({ prefs: { snippets: snippets.filter((s) => s.id !== id) } })
+
+  const macros = prefs.macros ?? []
+  const macroSteps = parseMacroSteps(macroBody)
+  const addMacro = (): void => {
+    if (!macroName.trim() || !macroSteps.length) return
+    void patch({ prefs: { macros: [...macros, { id: uid(), name: macroName.trim(), steps: macroSteps }] } })
+    setMacroName('')
+    setMacroBody('')
+  }
+  const removeMacro = (id: string): void =>
+    void patch({ prefs: { macros: macros.filter((m) => m.id !== id) } })
+
+  // Local control server: enabling for the first time mints an access token.
+  const newControlToken = (): string => crypto.randomUUID().replace(/-/g, '')
+  const enableControl = (on: boolean): void => {
+    if (on && !prefs.controlServerToken) {
+      setPref({ controlServerEnabled: true, controlServerToken: newControlToken() })
+    } else {
+      setPref({ controlServerEnabled: on })
+    }
+  }
 
   const resetSection = (id: string): void => {
     const keys = SECTION_PREF_KEYS[id]
@@ -668,7 +781,7 @@ export default function SettingsModal(): JSX.Element | null {
 
   // ---- section metadata (sidebar nav + search filtering) ----
   const labels: Record<string, string[]> = {
-    providers: [PROVIDER_LABELS.anthropic, PROVIDER_LABELS.openai, PROVIDER_LABELS.gemini, PROVIDER_LABELS.ollama],
+    providers: [PROVIDER_LABELS.anthropic, PROVIDER_LABELS.openai, PROVIDER_LABELS.gemini, PROVIDER_LABELS.ollama, PROVIDER_LABELS.lmstudio],
     defaults: [t('settings.defaultProvider'), t('settings.defaultModel'), 'Default agent', 'Default terminal'],
     terminal: [
       'Cursor style', 'Cursor blink', 'Line height', 'Letter spacing', 'Scrollback',
@@ -690,6 +803,8 @@ export default function SettingsModal(): JSX.Element | null {
     telegram: [t('settings.telegramToken'), t('settings.telegramDefaultChat'), 'Allowed chats'],
     integrations: ['Integrations', 'Todoist', 'TickTick', 'Microsoft To Do', 'Google Tasks', 'Notion'],
     snippets: ['Snippets'],
+    macros: ['Macros'],
+    control: ['Local control', 'control server', 'HTTP API', 'access token', 'remote', 'automation'],
     keyboard: ['Keyboard shortcuts'],
     learning: ['Learning', 'Cross-agent learning', 'Distillation', 'Review candidates', 'Brain store', 'Hermes'],
     about: ['About', 'Version', 'Check for updates', 'Export settings', 'Import settings', 'Reset all data']
@@ -704,6 +819,8 @@ export default function SettingsModal(): JSX.Element | null {
     { id: 'telegram', title: t('settings.telegram') },
     { id: 'integrations', title: 'Integrations' },
     { id: 'snippets', title: 'Snippets' },
+    { id: 'macros', title: 'Macros' },
+    { id: 'control', title: 'Local control' },
     { id: 'keyboard', title: 'Keyboard' },
     { id: 'learning', title: 'Learning' },
     { id: 'about', title: 'About' }
@@ -829,7 +946,7 @@ export default function SettingsModal(): JSX.Element | null {
                     stacked
                     icon={<Server size={16} />}
                     title={PROVIDER_LABELS.ollama}
-                    desc="Run models locally — set your Ollama server URL."
+                    desc="Run models locally — set your Ollama server URL. Models you've pulled appear in the Defaults → model list."
                     control={
                       <>
                         <input
@@ -837,19 +954,29 @@ export default function SettingsModal(): JSX.Element | null {
                           value={ollamaUrl}
                           placeholder={t('settings.baseUrl')}
                           onChange={(e) => { setOllamaUrl(e.target.value); setOllamaUrlError('') }}
-                          onBlur={() => {
-                            if (!ollamaUrl) { patch({ ollamaBaseUrl: ollamaUrl }); return }
-                            try {
-                              const u = new URL(ollamaUrl)
-                              if (!u.protocol.startsWith('http')) throw new Error()
-                              setOllamaUrlError('')
-                              patch({ ollamaBaseUrl: ollamaUrl })
-                            } catch {
-                              setOllamaUrlError('Must be a valid http:// or https:// URL')
-                            }
-                          }}
+                          onBlur={() => commitBaseUrl(ollamaUrl, setOllamaUrlError, 'ollamaBaseUrl')}
                         />
                         {ollamaUrlError && <span className="hint fail">{ollamaUrlError}</span>}
+                      </>
+                    }
+                  />
+                )}
+                {match(PROVIDER_LABELS.lmstudio) && (
+                  <SettingCard
+                    stacked
+                    icon={<Server size={16} />}
+                    title={PROVIDER_LABELS.lmstudio}
+                    desc="Run models locally — set your LM Studio server URL (start its local server first). Loaded models appear in the Defaults → model list."
+                    control={
+                      <>
+                        <input
+                          className={clsx('input', lmstudioUrlError && 'input-error')}
+                          value={lmstudioUrl}
+                          placeholder={t('settings.baseUrl')}
+                          onChange={(e) => { setLmstudioUrl(e.target.value); setLmstudioUrlError('') }}
+                          onBlur={() => commitBaseUrl(lmstudioUrl, setLmstudioUrlError, 'lmstudioBaseUrl')}
+                        />
+                        {lmstudioUrlError && <span className="hint fail">{lmstudioUrlError}</span>}
                       </>
                     }
                   />
@@ -883,20 +1010,45 @@ export default function SettingsModal(): JSX.Element | null {
                   <SettingCard
                     icon={<Cpu size={16} />}
                     title={t('settings.defaultModel')}
-                    desc="Defaults to the latest model; updates as new ones ship."
+                    desc={
+                      isLocalProvider(settings.defaultProvider)
+                        ? 'Discovered live from your local server.'
+                        : 'Defaults to the latest model; updates as new ones ship.'
+                    }
                     control={
-                      <select
-                        className="select"
-                        value={settings.defaultModel}
-                        onChange={(e) => patch({ defaultModel: e.target.value })}
-                      >
-                        {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
-                          <option value={settings.defaultModel}>{settings.defaultModel}</option>
+                      <>
+                        <div className="settings-actions">
+                          <select
+                            className="select"
+                            value={settings.defaultModel}
+                            onChange={(e) => patch({ defaultModel: e.target.value })}
+                          >
+                            {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
+                              <option value={settings.defaultModel}>{settings.defaultModel}</option>
+                            )}
+                            {defaultModels.map((m, i) => (
+                              <option key={m} value={m}>
+                                {m}{!isLocalProvider(settings.defaultProvider) && i === 0 ? ' — latest' : ''}
+                              </option>
+                            ))}
+                          </select>
+                          {isLocalProvider(settings.defaultProvider) && (
+                            <button
+                              className="btn"
+                              onClick={() => void refreshModels()}
+                              disabled={modelsLoading}
+                              title="Re-scan the local server for installed models"
+                            >
+                              <RefreshCw size={14} className={modelsLoading ? 'spin' : undefined} />
+                            </button>
+                          )}
+                        </div>
+                        {isLocalProvider(settings.defaultProvider) && !modelsLoading && !modelsLive && (
+                          <span className="hint">
+                            Couldn’t reach {PROVIDER_LABELS[settings.defaultProvider]} — showing defaults. Start the server, then Refresh.
+                          </span>
                         )}
-                        {defaultModels.map((m, i) => (
-                          <option key={m} value={m}>{m}{i === 0 ? ' — latest' : ''}</option>
-                        ))}
-                      </select>
+                      </>
                     }
                   />
                 )}
@@ -1454,6 +1606,113 @@ export default function SettingsModal(): JSX.Element | null {
                     <button className="btn primary" onClick={addSnippet} disabled={!snipName.trim() || !snipBody.trim()}>Add snippet</button>
                   </div>
                 </div>
+              </section>
+            )}
+
+            {/* Macros */}
+            {showSection('macros', 'Macros') && (
+              <section className="settings-section" ref={sectionRef('macros')}>
+                <Head id="macros" title="Macros" />
+                <span className="hint settings-block-hint">
+                  A saved sequence of commands replayed into the active pane, one line at a time.
+                  Run one from the command palette (“Run macro: …”). One command per line.
+                </span>
+                {macros.length > 0 && (
+                  <div className="snippet-list">
+                    {macros.map((m) => (
+                      <div className="snippet-item" key={m.id}>
+                        <div className="snippet-item-head">
+                          <span className="snippet-kind prompt">{m.steps.length} steps</span>
+                          <span className="snippet-name">{m.name}</span>
+                          <button className="icon-btn danger snippet-del" title={t('settings.clear')} onClick={() => removeMacro(m.id)}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        <pre className="snippet-preview">{stepsToText(m.steps)}</pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="snippet-add">
+                  <div className="snippet-add-row">
+                    <input className="input" placeholder="Macro name" value={macroName} onChange={(e) => setMacroName(e.target.value)} />
+                  </div>
+                  <textarea className="input mono" rows={4} placeholder={'One command per line — e.g.\nnpm install\nnpm run build\nnpm test'} value={macroBody} onChange={(e) => setMacroBody(e.target.value)} />
+                  <div className="settings-actions">
+                    <button className="btn primary" onClick={addMacro} disabled={!macroName.trim() || !macroSteps.length}>Add macro</button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Local control */}
+            {showSection('control', 'Local control') && (
+              <section className="settings-section" ref={sectionRef('control')}>
+                <Head id="control" title="Local control" />
+                <span className="hint settings-block-hint">
+                  A loopback HTTP server (127.0.0.1 only) so local scripts can list panes, open
+                  panes, and send prompts. Token-gated and never exposed to the network.
+                </span>
+                <ToggleCard
+                  icon={<Server size={16} />}
+                  title="Enable local control server"
+                  desc={
+                    controlStat?.running
+                      ? `Running at http://127.0.0.1:${controlStat.port}`
+                      : controlStat?.error
+                        ? `Stopped — ${controlStat.error}`
+                        : 'Drive panes from scripts on this machine.'
+                  }
+                  checked={prefs.controlServerEnabled}
+                  onChange={enableControl}
+                />
+                {prefs.controlServerEnabled && (
+                  <>
+                    <SettingCard
+                      icon={<SquareTerminal size={16} />}
+                      title="Port"
+                      desc="Restarts the server on change — pick a free port."
+                      control={
+                        <input
+                          className="input"
+                          type="number"
+                          min={1}
+                          max={65535}
+                          style={{ width: 96 }}
+                          value={prefs.controlServerPort}
+                          onChange={(e) => setPref({ controlServerPort: Number(e.target.value) || 8777 })}
+                        />
+                      }
+                    />
+                    <SettingCard
+                      icon={<KeyRound size={16} />}
+                      title="Access token"
+                      desc="Send as Authorization: Bearer <token>, or ?token= in the URL."
+                      stacked
+                      control={
+                        <div className="settings-actions" style={{ width: '100%', gap: 6 }}>
+                          <input className="input mono" readOnly value={prefs.controlServerToken} style={{ flex: 1 }} />
+                          <button
+                            className="btn"
+                            title="Copy token"
+                            onClick={() =>
+                              void navigator.clipboard
+                                .writeText(prefs.controlServerToken)
+                                .then(() => toast('Token copied', 'ok'))
+                                .catch(() => {})
+                            }
+                          >
+                            <Copy size={13} />
+                          </button>
+                          <button className="btn" title="Regenerate token" onClick={() => setPref({ controlServerToken: newControlToken() })}>
+                            <RefreshCw size={13} /> New
+                          </button>
+                        </div>
+                      }
+                    />
+                    <pre className="snippet-preview">{`curl -H "Authorization: Bearer ${prefs.controlServerToken || '<token>'}" http://127.0.0.1:${prefs.controlServerPort}/panes`}</pre>
+                  </>
+                )}
               </section>
             )}
 

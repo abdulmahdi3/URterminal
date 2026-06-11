@@ -227,6 +227,8 @@ interface Entry {
    * (baseY increases, viewportY unchanged). The latter must NOT detach follow-tail.
    */
   lastViewportY: number
+  /** Pending requestAnimationFrame id for a coalesced pin-to-bottom (see schedulePin). */
+  pinRaf: number | null
 }
 
 /** Is the viewport currently at the very bottom of the buffer? */
@@ -248,6 +250,22 @@ function pinToBottom(entry: Entry): void {
     /* noop */
   }
   entry.suppressScrollSync = false
+}
+
+/**
+ * Coalesce pin-to-bottom into at most one scroll per animation frame. Claude's
+ * TUI streams many small write chunks per frame and redraws its input box in
+ * place; scrolling the viewport synchronously after *every* chunk races those
+ * redraws and momentarily paints streamed reasoning text into the rows where the
+ * input box sits. Deferring to a single rAF lets all of the frame's writes parse
+ * first, so we pin once against a settled buffer and the desync can't occur.
+ */
+function schedulePin(entry: Entry): void {
+  if (entry.pinRaf !== null) return
+  entry.pinRaf = requestAnimationFrame(() => {
+    entry.pinRaf = null
+    if (entry.followTail && !viewportAtBottom(entry.term)) pinToBottom(entry)
+  })
 }
 
 // ---- session restore seeding ---------------------------------------------
@@ -612,6 +630,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     followTail: true,
     suppressScrollSync: false,
     lastViewportY: term.buffer.active.viewportY,
+    pinRaf: null,
     dispose: () => {}
   }
 
@@ -686,7 +705,11 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
           window.setTimeout(() => {
             try {
               entry.term.focus()
-              entry.term.paste(seeded)
+              entry.term.paste(seeded.text)
+              if (seeded.submit) {
+                const id = entry.ptyId
+                if (id) window.setTimeout(() => window.api.writePty(id, '\r'), 250)
+              }
             } catch {
               /* noop */
             }
@@ -700,7 +723,7 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
     // in-place redraws), which strands a bottom-pinned input box above the fold
     // until the next keystroke — this keeps it visible during live output.
     term.write(e.data, () => {
-      if (entry.followTail && !viewportAtBottom(term)) pinToBottom(entry)
+      if (entry.followTail) schedulePin(entry)
     })
     noteOutputChars(e.data.length)
     useTokens.getState().note(e.data.length, paneId)
@@ -713,6 +736,10 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
   const offExit = (): void => void exitRoutes.delete(paneId)
 
   entry.dispose = (): void => {
+    if (entry.pinRaf !== null) {
+      cancelAnimationFrame(entry.pinRaf)
+      entry.pinRaf = null
+    }
     try {
       onData.dispose()
       onScroll.dispose()
@@ -1013,10 +1040,12 @@ export function exportPaneHtml(paneId: string): string {
 }
 
 // A task to type into a pane once its agent has booted (delegated subagents).
-const pendingPrompts = new Map<string, string>()
+const pendingPrompts = new Map<string, { text: string; submit: boolean }>()
 /** Queue text to be typed into a pane the moment its process starts. */
-export function seedPrompt(paneId: string, text: string): void {
-  if (text.trim()) pendingPrompts.set(paneId, text)
+export function seedPrompt(paneId: string, text: string, submit = false): void {
+  // submit=true also sends the prompt (Enter) after typing — used by the
+  // orchestrator's fan-out; the delegate flow leaves it false so the user sends.
+  if (text.trim()) pendingPrompts.set(paneId, { text, submit })
 }
 
 /** Move keyboard focus into a pane's terminal (used by the quick-switcher). */

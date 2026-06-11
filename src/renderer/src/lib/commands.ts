@@ -7,6 +7,7 @@ import { useSettings } from '@renderer/store/settings'
 import { useActivity, activityToMarkdown } from '@renderer/store/activity'
 import { broadcastActiveLine } from '@renderer/hooks/useBroadcast'
 import { insertSnippet } from '@renderer/lib/snippets'
+import { runMacro } from '@renderer/lib/macros'
 import { getShellSpecs } from '@renderer/lib/shells'
 import { getAgents } from '@renderer/lib/agents'
 import {
@@ -160,6 +161,12 @@ export function getCommands(): Command[] {
       title: 'Delegate a task to a subagent…',
       group: 'Panes',
       run: () => ui().setShowDelegate(true)
+    },
+    {
+      id: 'pane.orchestrate',
+      title: 'Orchestrate a goal across agents…',
+      group: 'Panes',
+      run: () => ui().setShowOrchestrate(true)
     },
     {
       id: 'app.mcp',
@@ -571,6 +578,17 @@ export function getCommands(): Command[] {
       title: `Insert ${sn.kind === 'shell' ? 'command' : 'prompt'}: ${sn.name}`,
       group: 'Snippets',
       run: () => insertSnippet(sn)
+    })
+  }
+
+  // a "run" command for each saved macro (replays its steps into the active pane)
+  const macros = useSettings.getState().settings?.prefs.macros ?? []
+  for (const mc of macros) {
+    cmds.push({
+      id: `macro.run.${mc.id}`,
+      title: `Run macro: ${mc.name}`,
+      group: 'Macros',
+      run: () => runMacro(mc)
     })
   }
 

@@ -405,6 +405,52 @@ select {
   color: var(--accent);
 }
 
+/* ---- orchestrator worker monitor (#2) ---- */
+.orch-workers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.orch-worker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+.orch-worker-task {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orch-status {
+  flex: none;
+  min-width: 56px;
+  text-align: center;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: var(--r-sm, 6px);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+}
+.orch-status.orch-working {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.orch-status.orch-done {
+  color: #4ade80;
+  border-color: #4ade80;
+}
+.orch-report {
+  max-height: 200px;
+  overflow: auto;
+}
+
 /* ---- selection translate (Google-translate-style floating action) ---- */
 .sel-translate {
   position: fixed;

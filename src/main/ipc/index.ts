@@ -13,7 +13,8 @@ import type {
   SettingsPatch,
   FileSaveRequest,
   FileSaveResult,
-  GoogleTask
+  GoogleTask,
+  ProviderId
 } from '@shared/types'
 import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget } from '../ssh/sshPty'
@@ -23,10 +24,13 @@ import { SshfsManager, sshfsInstalled, SSHFS_INSTALL, SSHFS_BIN } from '../ssh/s
 import { PtyManager } from '../pty/manager'
 import { TranscriptStore } from '../pty/transcriptStore'
 import { claudeSessionInfo } from '../claude/sessions'
+import { ensureClaudeConfigHealthy, prepareClaudeSpawn } from '../claude/configGuard'
+import { ControlServer } from '../control/server'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
 import { installAgent } from '../agents/install'
+import { discoverModels } from '../providers/discoverModels'
 import { getGitStatus } from '../git/status'
 import { getPrompts, appendPrompt } from '../prompts/store'
 import { searchSessions, warmSessionIndex } from '../sessions/recall'
@@ -120,6 +124,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     emit(channel, payload)
   })
 
+  // A prior run may have left ~/.claude.json corrupt (concurrent `claude` writes
+  // race and truncate it). Restore it from Claude's own backup now, before any
+  // pane spawns, so even a manually-typed `claude` starts clean. See configGuard.
+  ensureClaudeConfigHealthy()
+
   // Learning layer: tee every agent's output + clean user turns into a local,
   // scrubbed transcript store, then run the zero-token gate. Lives wholly in main
   // so it sees each pty exactly once (multi-window-safe), and is a no-op unless
@@ -133,6 +142,29 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   const transcripts = new TranscriptStore()
   pty.setTranscriptSink(transcripts)
   app.on('before-quit', () => transcripts.persistAll())
+
+  // Local control server (#17): list/open panes + send prompts from scripts over
+  // 127.0.0.1, token-gated. Input is written straight to the pane's pty; opening
+  // a pane is delegated to the focused renderer (it owns the layout).
+  const control = new ControlServer({
+    version: () => app.getVersion(),
+    listPanes: () => pty.list(),
+    sendInput: (ptyId, data) => {
+      if (!pty.list().some((p) => p.ptyId === ptyId)) return false
+      pty.write(ptyId, data)
+      return true
+    },
+    openPane: (spec) => emitFocused(IPC.controlOpenPane, spec)
+  })
+  const startControl = (): Promise<unknown> => {
+    const p = settings.getPrefs()
+    return control.start({
+      enabled: p.controlServerEnabled,
+      port: p.controlServerPort,
+      token: p.controlServerToken
+    })
+  }
+  app.on('before-quit', () => void control.stop())
 
   const publicSettings = (): ReturnType<SettingsStore['getPublic']> =>
     settings.getPublic(
@@ -153,12 +185,27 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.settingsGet, () => publicSettings())
   ipcMain.handle(IPC.settingsPatch, async (_e, patch: SettingsPatch) => {
     const tokenChanged = patch.telegramToken !== undefined
+    const controlChanged =
+      !!patch.prefs &&
+      ('controlServerEnabled' in patch.prefs ||
+        'controlServerPort' in patch.prefs ||
+        'controlServerToken' in patch.prefs)
     settings.patch(patch)
     if (tokenChanged) await telegram.start()
+    if (controlChanged) await startControl()
     const next = publicSettings()
     emit(IPC.settingsChanged, next)
     return next
   })
+  // ---- local control server ----
+  ipcMain.handle(IPC.controlStatus, () => control.getStatus())
+  // ---- providers (live model discovery for local servers) ----
+  ipcMain.handle(
+    IPC.providersDiscoverModels,
+    (_e, provider: ProviderId, baseUrl?: string): Promise<string[]> =>
+      // Fall back to the user's configured base URL when the caller doesn't pass one.
+      discoverModels(provider, baseUrl ?? settings.getLocalBaseUrl(provider))
+  )
   // ---- telegram ----
   ipcMain.handle(IPC.telegramStatus, () => telegram.getStatus())
   ipcMain.handle(IPC.telegramRestart, () => telegram.start())
@@ -280,7 +327,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
 
   // ---- pty ----
-  ipcMain.handle(IPC.ptySpawn, (_e, req: PtySpawnRequest) => pty.spawn(req))
+  ipcMain.handle(IPC.ptySpawn, async (_e, req: PtySpawnRequest) => {
+    // Heal ~/.claude.json if a prior race corrupted it, and stagger concurrent
+    // `claude` starts so they don't corrupt it again. No-op for non-claude panes.
+    await prepareClaudeSpawn(req.command)
+    return pty.spawn(req)
+  })
   ipcMain.on(IPC.ptyWrite, (_e, { ptyId, data }: { ptyId: string; data: string }) =>
     pty.write(ptyId, data)
   )
@@ -408,7 +460,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // ---- shells ----
   ipcMain.handle(IPC.shellListWsl, () => listWslDistros())
   ipcMain.handle(IPC.commandsCheck, (_e, names: string[]) => filterAvailable(names))
-  ipcMain.handle(IPC.agentsDiscover, () => discoverAgents())
+  ipcMain.handle(IPC.agentsDiscover, () => discoverAgents(settings.getOllamaBaseUrl()))
   ipcMain.handle(IPC.agentsInstall, (_e, command: string) => installAgent(command))
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
   ipcMain.handle(IPC.sessionsSearch, (_e, query: string) => searchSessions(query))
@@ -799,6 +851,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
 
   // start the bot if a token is already configured
   void telegram.start()
+  // start the local control server if the user enabled it
+  void startControl()
 
   return { getWindow, pty, settings, telegram }
 }

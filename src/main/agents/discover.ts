@@ -5,6 +5,7 @@ import { execFileSync } from 'child_process'
 import { app } from 'electron'
 import { AGENT_REGISTRY, type AgentDescriptor, type AgentDiscovery } from '@shared/providers'
 import { commandExists } from '../pty/which'
+import { discoverModels } from '../providers/discoverModels'
 
 /**
  * Runtime agent discovery — the dynamic layer on top of the built-in registry.
@@ -111,13 +112,42 @@ function probeCommand(a: AgentDescriptor): string {
   return a.detect?.[0] ?? a.bin ?? a.id
 }
 
-export function discoverAgents(): AgentDiscovery {
+/**
+ * Each installed Ollama model surfaced as a launchable chat agent — opening one
+ * spawns `ollama run <model>`, Ollama's native interactive REPL, in a pane. This
+ * needs the `ollama` CLI on PATH (that's what makes it a real terminal chat), so
+ * we skip discovery entirely when it's absent. LM Studio is intentionally NOT
+ * included: it ships no interactive CLI (GUI + an OpenAI server only), so there's
+ * nothing to spawn — it stays a provider for the model picker + learning layer.
+ */
+async function discoverLocalModelAgents(ollamaBaseUrl?: string): Promise<AgentDescriptor[]> {
+  if (!commandExists('ollama')) return []
+  let models: string[] = []
+  try {
+    models = await discoverModels('ollama', ollamaBaseUrl)
+  } catch {
+    return [] // server down / unreachable — no model agents this round
+  }
+  return models.map((m) => ({
+    id: `ollama:${m}`,
+    label: `Ollama · ${m}`,
+    bin: 'ollama',
+    launchArgs: ['run', m],
+    detect: ['ollama'],
+    installHint: 'Install Ollama from https://ollama.com',
+    source: 'local-model' as const
+  }))
+}
+
+export async function discoverAgents(ollamaBaseUrl?: string): Promise<AgentDiscovery> {
   // Merge by id, preserving first-seen order. Built-ins seed the map; manifest
-  // entries extend/override them; gh extensions append (never clobber a builtin).
+  // entries extend/override them; gh extensions + local models append (never
+  // clobber a builtin).
   const byId = new Map<string, AgentDescriptor>()
   for (const a of AGENT_REGISTRY) byId.set(a.id, { ...a, source: 'builtin' })
   for (const a of loadManifest()) byId.set(a.id, { ...byId.get(a.id), ...a })
   for (const a of scanGhExtensions()) if (!byId.has(a.id)) byId.set(a.id, a)
+  for (const a of await discoverLocalModelAgents(ollamaBaseUrl)) if (!byId.has(a.id)) byId.set(a.id, a)
 
   const agents = [...byId.values()]
   const available = agents.filter((a) => commandExists(probeCommand(a))).map((a) => a.id)

@@ -189,7 +189,22 @@ export class CaptureService implements CaptureSink {
         this.cfg().maxInjectBytes,
         { user: readProfileDoc('user'), persona: readProfileDoc('persona') }
       )
-      if (preamble) this.writer(ctx.ptyId, preamble + '\r')
+      if (!preamble) return
+      // Deliver the note as ONE bracketed paste, then submit with a separate Enter
+      // once it settles. A raw write of this multi-line preamble would let each
+      // embedded newline submit a fragment, stranding the tail in the input box
+      // (the visible "❯ …skill: …" / "❯ …[[memory]]…" leftovers). Bracketed paste
+      // keeps the whole note atomic — the same approach every other inject path uses.
+      const writer = this.writer
+      const { ptyId } = ctx
+      writer(ptyId, `\x1b[200~${preamble}\x1b[201~`)
+      setTimeout(() => {
+        try {
+          writer(ptyId, '\r')
+        } catch {
+          /* the pane may have closed before the delayed submit */
+        }
+      }, 150)
     } catch {
       /* active injection must never disrupt the session */
     }

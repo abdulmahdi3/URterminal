@@ -8,7 +8,7 @@ Full roadmap reference: `~/.claude/plans/suggest-25-features-that-fluttering-sea
 
 ## Summary
 
-- **~16 / 25** roadmap features done (several were already present in the codebase).
+- **~21 / 25** roadmap features done (several were already present in the codebase). Since this report was first written at 0.3.17, **#6 Prompt enhancer**, **#3 Shared cross-agent memory**, **#14 Macros**, **#17 Local HTTP/CLI control**, and **#2 Orchestrator pane** have shipped.
 - **6 releases shipped** this effort: **0.3.13 → 0.3.17** (all published to GitHub with installer + `latest.yml` auto-update).
 - A **What's New tour** convention was established: every shipped feature adds an animated step, and **each version shows only its own new features** (dynamic multi-version: a 0.3.14→0.3.17 jump shows all versions between; a first install shows only the latest).
 
@@ -45,6 +45,11 @@ Full roadmap reference: `~/.claude/plans/suggest-25-features-that-fluttering-sea
 | 22 | What's New tour | 0.3.13 | `lib/whatsNew.ts`, `components/WhatsNewModal.tsx`, `hooks/useWhatsNew.ts`, pref `lastSeenVersion` |
 | 23 | App zoom + a11y | 0.3.17 | `window:set-zoom` IPC, pref `uiZoom`, cmds `app.zoomIn/Out/Reset` |
 | 24 | Notification center | 0.3.15 | `store/notifications.ts`, `hooks/useNotificationFeed.ts`, `components/NotificationBell.tsx` |
+| 6 | Prompt enhancer v2 | 0.3.2x | `main/learning/enhancePrompt.ts` + `enhancer.ts`, `lib/enhance.ts`, EnhanceFab in `AiPane.tsx` |
+| 3 | Shared cross-agent project memory | 0.3.2x | `main/learning/` brain (inject/brain/profile), per-project memory injected into each agent's context file |
+| 14 | Macros | 0.3.27 | `lib/macroSchedule.ts` (pure) + `lib/macros.ts` (`runMacro`), `prefs.macros`, Settings → Macros, palette `macro.run.*`, What's New `macro` demo |
+| 17 | Local HTTP/CLI control | 0.3.27 | `main/control/server.ts` (127.0.0.1, token-gated: `/health`, `/panes`, `/input`, `POST /panes`), `prefs.controlServer*`, `IPC.controlOpenPane/controlStatus`, `useControlServer.ts`, Settings → Local control, What's New `control` demo |
+| 2 | Orchestrator pane | 0.3.27 | `lib/orchestratePlan.ts` (pure) + `lib/orchestrate.ts` (`runOrchestration`/`collectReport`), `store/orchestrator.ts`, `OrchestratorModal.tsx`, cmd `pane.orchestrate`, `seedPrompt(submit)` for fan-out, answer-block aggregation, What's New `orchestrate` demo |
 | — | Prompt minimap (extra) | 0.3.16 | `components/PromptMinimap.tsx`, per-chat persistence `main/prompts/store.ts` + `prompts:get/append` IPC |
 
 ---
@@ -55,12 +60,7 @@ All remaining items are heavier — large, architecturally risky, or dependent o
 
 | # | Feature | Effort | Notes / risk |
 |---|---------|--------|--------------|
-| **14** | **Macros** | M | _Was the next one in progress when stopped — no code written yet._ Saved command sequences replayed into a pane. Needs a Settings manager (mirror the Snippets section in `SettingsModal.tsx`), `prefs.macros`, a `lib/macros.ts` runner, and dynamic "Run macro: X" palette commands. |
-| 17 | Local HTTP/CLI control | M | Localhost server (127.0.0.1 + token) to list panes / open panes / send prompts from scripts. Mirror the Telegram bridge event pattern; security-sensitive. |
-| 6 | Prompt enhancer v2 (context attach) | M | @-attach files/URLs into the enhancer. Depends on the learning model being configured (`window.api.learning.enhance`). |
 | 5 | Inline diff review & apply | M–L | Detect file-edit blocks in agent output, show accept/reject, write to disk. Relies on fragile parsing of agent output — needs a robust detector. |
-| 3 | Shared cross-agent project memory | L | Unify the learning-layer brain so all agents read the same per-project memory. Touches `main/learning/`. |
-| 2 | Orchestrator pane | L | A pane that fans a goal to worker agent panes and aggregates. Builds on broadcast + paneStatus; new coordination logic. |
 | 4 | Structured stream-json pane | L | Render Claude's `--output-format stream-json` (tool calls, diffs, todos) as native UI cards. New `Pane.type` + renderer; biggest visual leap. |
 | 19 | macOS / Linux support | L | Abstract Windows-only bits (ConPTY, WSL detection, SSHFS-Win). Broadens the user base materially. |
 | 25 | Web / mobile dashboard | L | Authenticated web view to see panes + send prompts remotely. Generalize the Telegram bridge into an HTTP+WS service. |

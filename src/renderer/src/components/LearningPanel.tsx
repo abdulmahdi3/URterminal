@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pin, PinOff, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { Pin, PinOff, Archive, ArchiveRestore, Trash2, RefreshCw } from 'lucide-react'
 import type { ProviderId } from '@shared/types'
 import { DEFAULT_MODELS, latestModel } from '@shared/providers'
 import { toast } from '@renderer/store/toasts'
@@ -10,7 +10,14 @@ import { toast } from '@renderer/store/toasts'
 // it doesn't touch the app's main settings store. Follows the project's
 // purposeful-animation rule (collapsing groups toggle instantly).
 
-type LearnProvider = 'claude-cli' | 'gemini' | 'openai' | 'anthropic' | 'openrouter'
+type LearnProvider =
+  | 'claude-cli'
+  | 'gemini'
+  | 'openai'
+  | 'anthropic'
+  | 'openrouter'
+  | 'ollama'
+  | 'lmstudio'
 
 interface LearningCfg {
   enabled: boolean
@@ -73,7 +80,9 @@ const PROVIDERS: Array<{
     needsKey: true,
     keyHint: 'sk-ant-…',
     keyHelp: 'Key from console.anthropic.com/settings/keys'
-  }
+  },
+  { id: 'ollama', label: 'Ollama — local models (no key)', needsKey: false },
+  { id: 'lmstudio', label: 'LM Studio — local models (no key)', needsKey: false }
 ]
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }): JSX.Element {
@@ -160,6 +169,9 @@ export default function LearningPanel(): JSX.Element {
   const [installing, setInstalling] = useState(false)
   const [userDoc, setUserDoc] = useState('')
   const [personaDoc, setPersonaDoc] = useState('')
+  // Discovered models for a local provider (Ollama / LM Studio).
+  const [localModels, setLocalModels] = useState<string[]>([])
+  const [localModelsLoading, setLocalModelsLoading] = useState(false)
 
   const api = window.api.learning
 
@@ -184,6 +196,29 @@ export default function LearningPanel(): JSX.Element {
     setCfg(next)
     void api?.setConfig(p as Record<string, unknown>)
   }
+
+  // Live-discover installed models from a local provider's server, auto-selecting
+  // the first one when nothing valid is chosen. Best-effort: an unreachable server
+  // yields an empty list and a hint in the model Row.
+  const loadLocalModels = async (provider: 'ollama' | 'lmstudio'): Promise<void> => {
+    setLocalModelsLoading(true)
+    try {
+      const discovered = await window.api.discoverModels(provider)
+      setLocalModels(discovered)
+      if (discovered.length && !discovered.includes(cfg?.providerModel ?? '')) {
+        patch({ providerModel: discovered[0] })
+      }
+    } finally {
+      setLocalModelsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const p = cfg?.provider
+    if (p === 'ollama' || p === 'lmstudio') void loadLocalModels(p)
+    else setLocalModels([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg?.provider])
 
   if (!cfg) return <></>
 
@@ -267,9 +302,12 @@ export default function LearningPanel(): JSX.Element {
   type KeyProv = 'gemini' | 'openai' | 'anthropic' | 'openrouter'
   const meta = PROVIDERS.find((p) => p.id === cfg.provider) ?? PROVIDERS[0]
   const isApi = cfg.provider !== 'claude-cli'
-  // OpenRouter has 200+ models → free-text id; the others use a fixed model list.
+  // OpenRouter has 200+ models → free-text id; local providers discover their
+  // model list at runtime; the remaining hosted providers use a fixed list.
   const isOpenRouter = cfg.provider === 'openrouter'
-  const baseModels = isApi && !isOpenRouter ? DEFAULT_MODELS[cfg.provider as ProviderId] : []
+  const isLocal = cfg.provider === 'ollama' || cfg.provider === 'lmstudio'
+  const baseModels =
+    isApi && !isOpenRouter && !isLocal ? DEFAULT_MODELS[cfg.provider as ProviderId] : []
   // Keep a saved/custom model id (e.g. migrated from an older default) selectable.
   const models =
     cfg.providerModel && !baseModels.includes(cfg.providerModel)
@@ -283,6 +321,11 @@ export default function LearningPanel(): JSX.Element {
     }
     if (id === 'openrouter') {
       patch({ provider: id, providerModel: cfg.providerModel || 'openai/gpt-4o-mini' })
+      return
+    }
+    if (id === 'ollama' || id === 'lmstudio') {
+      // Model is discovered from the local server (see the effect on cfg.provider).
+      patch({ provider: id, providerModel: '' })
       return
     }
     const list = DEFAULT_MODELS[id as ProviderId]
@@ -485,7 +528,7 @@ export default function LearningPanel(): JSX.Element {
             }
           />
         )}
-        {isApi && !isOpenRouter && (
+        {isApi && !isOpenRouter && !isLocal && (
           <Row
             label="Model"
             desc="The model used for this provider."
@@ -501,6 +544,41 @@ export default function LearningPanel(): JSX.Element {
                   </option>
                 ))}
               </select>
+            }
+          />
+        )}
+        {isLocal && (
+          <Row
+            label="Model"
+            desc="Installed models discovered from your local server. Set its URL in Settings → Providers."
+            control={
+              <div className="settings-actions">
+                <select
+                  className="select"
+                  value={cfg.providerModel || ''}
+                  onChange={(e) => patch({ providerModel: e.target.value })}
+                >
+                  {!cfg.providerModel && (
+                    <option value="">{localModelsLoading ? 'Loading…' : 'No models found'}</option>
+                  )}
+                  {cfg.providerModel && !localModels.includes(cfg.providerModel) && (
+                    <option value={cfg.providerModel}>{cfg.providerModel}</option>
+                  )}
+                  {localModels.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn"
+                  onClick={() => void loadLocalModels(cfg.provider as 'ollama' | 'lmstudio')}
+                  disabled={localModelsLoading}
+                  title="Re-scan the local server for installed models"
+                >
+                  <RefreshCw size={14} className={localModelsLoading ? 'spin' : undefined} />
+                </button>
+              </div>
             }
           />
         )}
@@ -523,6 +601,12 @@ export default function LearningPanel(): JSX.Element {
         {!isApi && (
           <div className="settings-row-desc">
             No API key needed — the enhancer spawns your authenticated Claude Code CLI.
+          </div>
+        )}
+        {isLocal && (
+          <div className="settings-row-desc">
+            No API key needed — runs on your local {cfg.provider === 'ollama' ? 'Ollama' : 'LM Studio'} server.
+            Set its URL in Settings → Providers.
           </div>
         )}
       </Group>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Languages, Copy, X, Loader2, ListPlus, Columns2, Wand2, ArrowRightToLine } from 'lucide-react'
 import { getPaneSelection } from '@renderer/lib/terminalPool'
 import { useSettings } from '@renderer/store/settings'
@@ -15,13 +16,25 @@ interface WidgetState {
   y: number
   text: string
   paneId: string
-  /** true when more than one word is selected — show the full action row */
-  multi: boolean
   phase: 'actions' | 'loading' | 'result' | 'error'
   mode?: Mode
   result?: string
   source?: string
   error?: string
+}
+
+/** Resolve which pane a mouseup belongs to. Prefer the pane element under the
+ *  pointer; with the canvas/webgl renderer the mouseup target can be an overlay
+ *  layer that isn't under [data-pane-id], so fall back to the active pane when
+ *  the release still landed inside the workspace area. */
+function paneIdForEvent(target: HTMLElement | null): string | null {
+  const host = target?.closest?.('[data-pane-id]') as HTMLElement | null
+  const id = host?.getAttribute('data-pane-id')
+  if (id) return id
+  if (target?.closest?.('.pane-capture, .agent-pane, .xterm, main')) {
+    return useWorkspace.getState().activePaneId
+  }
+  return null
 }
 
 /**
@@ -41,16 +54,14 @@ export default function SelectionTranslate(): JSX.Element | null {
   useEffect(() => {
     const onUp = (e: MouseEvent): void => {
       if (ref.current?.contains(e.target as Node)) return // clicks inside the widget
-      const host = (e.target as HTMLElement)?.closest?.('[data-pane-id]') as HTMLElement | null
-      const paneId = host?.getAttribute('data-pane-id')
+      const paneId = paneIdForEvent(e.target as HTMLElement | null)
       const sel = paneId ? getPaneSelection(paneId).trim() : ''
       if (!sel || !paneId) {
         setW(null)
         return
       }
-      const multi = sel.split(/\s+/).filter(Boolean).length > 1
       const left = Math.min(Math.max(8, e.clientX), window.innerWidth - 340)
-      setW({ x: left, y: e.clientY + 8, text: sel, paneId, multi, phase: 'actions' })
+      setW({ x: left, y: e.clientY + 8, text: sel, paneId, phase: 'actions' })
     }
     const onDown = (e: MouseEvent): void => {
       if (ref.current?.contains(e.target as Node)) return
@@ -122,7 +133,7 @@ export default function SelectionTranslate(): JSX.Element | null {
       .catch(() => {})
   }
 
-  return (
+  return createPortal(
     <div
       ref={ref}
       className="sel-translate"
@@ -138,27 +149,19 @@ export default function SelectionTranslate(): JSX.Element | null {
           >
             <Languages size={15} />
           </button>
-          {w.multi && (
-            <>
-              <button className="sel-translate-btn" onClick={doCreateTask} title="Create task in notes">
-                <ListPlus size={15} />
-              </button>
-              <button
-                className="sel-translate-btn"
-                onClick={doMoveToNewPane}
-                title="Move to a new agent pane"
-              >
-                <Columns2 size={15} />
-              </button>
-              <button
-                className="sel-translate-btn"
-                onClick={doEnhance}
-                title="Enhance into a prompt"
-              >
-                <Wand2 size={15} />
-              </button>
-            </>
-          )}
+          <button className="sel-translate-btn" onClick={doCreateTask} title="Create task in notes">
+            <ListPlus size={15} />
+          </button>
+          <button
+            className="sel-translate-btn"
+            onClick={doMoveToNewPane}
+            title="Move to a new agent pane"
+          >
+            <Columns2 size={15} />
+          </button>
+          <button className="sel-translate-btn" onClick={doEnhance} title="Enhance into a prompt">
+            <Wand2 size={15} />
+          </button>
         </div>
       )}
       {w.phase === 'loading' && (
@@ -190,6 +193,7 @@ export default function SelectionTranslate(): JSX.Element | null {
         </div>
       )}
       {w.phase === 'error' && <div className="sel-translate-pop error">{w.error}</div>}
-    </div>
+    </div>,
+    document.body
   )
 }

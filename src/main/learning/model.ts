@@ -1,6 +1,8 @@
 import { spawn } from 'child_process'
 import { existsSync } from 'fs'
 import { isAbsolute } from 'path'
+import { SettingsStore } from '../settings/store'
+import { defaultLocalBaseUrl } from '@shared/providers'
 import type { RunModel } from './distiller'
 import type { LearningConfig, LearningProvider } from './store'
 
@@ -108,14 +110,23 @@ export function runGemini(apiKey: string, model: string): RunModel {
 }
 
 /**
- * Run OpenAI's Chat Completions API and return the assistant text. Used wherever
- * the learning layer needs a model and the user picked OpenAI as the provider.
+ * Run any OpenAI-compatible Chat Completions endpoint and return the assistant
+ * text. `url` is the full `.../chat/completions` URL; `apiKey` is optional (local
+ * servers like Ollama / LM Studio need none); `label` names the provider in error
+ * messages. This powers hosted OpenAI and both local providers.
  */
-export function runOpenAI(apiKey: string, model: string): RunModel {
+export function runOpenAICompatible(
+  url: string,
+  model: string,
+  label: string,
+  apiKey?: string
+): RunModel {
   return async (system, prompt) => {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+    const r = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers,
       body: JSON.stringify({
         model,
         temperature: 0.3,
@@ -125,15 +136,33 @@ export function runOpenAI(apiKey: string, model: string): RunModel {
         ]
       })
     }).catch((e) => {
-      throw new Error(`OpenAI request failed: ${(e as Error).message}`)
+      throw new Error(`${label} request failed: ${(e as Error).message}`)
     })
     if (!r.ok) {
       const detail = await r.text().catch(() => '')
-      throw new Error(`OpenAI failed: HTTP ${r.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
+      throw new Error(`${label} failed: HTTP ${r.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
     }
     const data = (await r.json()) as { choices?: Array<{ message?: { content?: string } }> }
     return data.choices?.[0]?.message?.content ?? ''
   }
+}
+
+/**
+ * Run OpenAI's Chat Completions API. Used when the user picked OpenAI as the
+ * learning provider — a thin wrapper over {@link runOpenAICompatible}.
+ */
+export function runOpenAI(apiKey: string, model: string): RunModel {
+  return runOpenAICompatible('https://api.openai.com/v1/chat/completions', model, 'OpenAI', apiKey)
+}
+
+/**
+ * Run a local OpenAI-compatible server (Ollama / LM Studio). Both expose
+ * `{baseUrl}/v1/chat/completions` and need no API key. `baseUrl` is the server
+ * root the user configured on the Settings page (e.g. `http://127.0.0.1:11434`).
+ */
+export function runLocalOpenAI(baseUrl: string, model: string, label: string): RunModel {
+  const url = `${baseUrl.replace(/\/+$/, '')}/v1/chat/completions`
+  return runOpenAICompatible(url, model, label)
 }
 
 /**
@@ -204,12 +233,31 @@ export function runAnthropic(apiKey: string, model: string): RunModel {
   }
 }
 
-/** Fallback model id per API provider when the user hasn't picked one. */
+/** Fallback model id per provider when the user hasn't picked one. Local
+ *  providers have no universal default (depends what's installed); '' forces the
+ *  user to pick a discovered model. */
 const DEFAULT_MODEL_BY_PROVIDER: Record<Exclude<LearningProvider, 'claude-cli'>, string> = {
   gemini: 'gemini-2.0-flash',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-haiku-4-5-20251001',
-  openrouter: 'openai/gpt-4o-mini'
+  openrouter: 'openai/gpt-4o-mini',
+  ollama: 'llama3.1',
+  lmstudio: ''
+}
+
+/**
+ * Base URL for a local provider, read fresh from the shared settings store so it
+ * tracks whatever the user set on the Settings page. Falls back to the documented
+ * default if settings are unavailable.
+ */
+function localBaseUrl(provider: 'ollama' | 'lmstudio'): string {
+  try {
+    const url = new SettingsStore().getLocalBaseUrl(provider).trim()
+    if (url) return url
+  } catch {
+    /* settings store unavailable — use the documented default */
+  }
+  return defaultLocalBaseUrl(provider)
 }
 
 /**
@@ -221,6 +269,20 @@ const DEFAULT_MODEL_BY_PROVIDER: Record<Exclude<LearningProvider, 'claude-cli'>,
 export function getLearningRunModel(cfg: LearningConfig): RunModel {
   const provider = cfg.provider ?? 'claude-cli'
   if (provider === 'claude-cli') return runClaudeHeadless
+
+  // Local providers (Ollama / LM Studio): no API key; base URL comes from the
+  // shared settings store. The model id must be one the user picked/discovered.
+  if (provider === 'ollama' || provider === 'lmstudio') {
+    const model = cfg.providerModel || DEFAULT_MODEL_BY_PROVIDER[provider]
+    if (!model) {
+      return () =>
+        Promise.reject(
+          new Error(`Pick an installed ${provider} model in Learning settings, then retry.`)
+        )
+    }
+    const label = provider === 'ollama' ? 'Ollama' : 'LM Studio'
+    return runLocalOpenAI(localBaseUrl(provider), model, label)
+  }
 
   const key = (cfg.apiKeys?.[provider] || '').trim()
   if (!key) {

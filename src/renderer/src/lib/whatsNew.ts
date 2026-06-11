@@ -41,6 +41,10 @@ export type WhatsNewDemo =
   | 'mcp'
   | 'delegate'
   | 'webhook'
+  | 'macro'
+  | 'localmodels'
+  | 'control'
+  | 'orchestrate'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -70,6 +74,68 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.27': {
+    version: '0.3.27',
+    headline: 'Local models, macros, plus stability fixes',
+    kind: 'mixed',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Run local models — Ollama & LM Studio',
+        demo: 'localmodels',
+        body:
+          'Settings → Providers: point URterminal at your Ollama or LM Studio server and it lists the ' +
+          'models you’ve actually installed — no more guessing. Pick one as the AI provider that powers ' +
+          'the prompt enhancer and distillation, so your learned memory runs on a local model with no API ' +
+          'key and nothing leaving your machine.'
+      },
+      {
+        kind: 'feature',
+        title: 'Macros — replay a command sequence',
+        demo: 'macro',
+        body:
+          'Settings → Macros: save a sequence of commands (one per line). Run it from the command ' +
+          'palette (“Run macro: …”) and URterminal types each line into the active pane in order — ' +
+          'your setup / build / test routine in a single step.'
+      },
+      {
+        kind: 'feature',
+        title: 'Drive URterminal from scripts',
+        demo: 'control',
+        body:
+          'Settings → Local control: flip on a loopback HTTP server (127.0.0.1, token-gated) and your ' +
+          'scripts can list panes, open panes, and send prompts — e.g. curl a prompt into a running ' +
+          'agent. Never exposed to the network.'
+      },
+      {
+        kind: 'feature',
+        title: 'Orchestrate a goal across agents',
+        demo: 'orchestrate',
+        body:
+          'Ctrl+K → “Orchestrate a goal across agents”: type a goal and one subtask per line. URterminal ' +
+          'spawns a worker agent for each, seeds it with the goal + its subtask, then collects every ' +
+          'worker’s answer into a single report you can copy.'
+      },
+      {
+        kind: 'fix',
+        title: 'Claude panes no longer lose your sign-in',
+        demo: 'doctor',
+        body:
+          'Opening several Claude panes at once could corrupt Claude’s config file (~/.claude.json), ' +
+          'so on the next launch every pane showed “configuration file contains invalid JSON” and ' +
+          'made you sign in again. URterminal now staggers Claude startups and auto-restores a healthy ' +
+          'backup, so your session and login survive.'
+      },
+      {
+        kind: 'fix',
+        title: 'Selection actions are back',
+        body:
+          'Selecting text in a pane again shows the full action row — Translate, Create task, Move to ' +
+          'a new agent pane, and Enhance — for any selection, not just multi-word ones.'
+      }
+    ]
+  },
+
   '0.3.25': {
     version: '0.3.25',
     headline: 'New in this update',

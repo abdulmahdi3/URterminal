@@ -4,6 +4,7 @@ import type { AgentDiscovery } from '@shared/providers'
 import type {
   SettingsPublic,
   SettingsPatch,
+  ProviderId,
   PtySpawnRequest,
   SshSpawnRequest,
   SshAgentResult,
@@ -16,6 +17,8 @@ import type {
   TelegramStatus,
   TelegramInbound,
   TelegramCreatePane,
+  ControlCreatePane,
+  ControlServerStatus,
   PerfSample,
   ClaudeUsage,
   FileSaveRequest,
@@ -57,6 +60,10 @@ const api = {
     ipcRenderer.invoke(IPC.settingsPatch, patch),
   onSettingsChanged: (cb: (s: SettingsPublic) => void): (() => void) =>
     on<SettingsPublic>(IPC.settingsChanged, cb),
+  /** Live-discover installed models from a local provider's server (Ollama / LM
+   *  Studio). Returns [] for hosted providers or when the server is unreachable. */
+  discoverModels: (provider: ProviderId, baseUrl?: string): Promise<string[]> =>
+    ipcRenderer.invoke(IPC.providersDiscoverModels, provider, baseUrl),
 
   // ---- pty ----
   spawnPty: (req: PtySpawnRequest): Promise<{ ptyId: string; shell: string }> =>
@@ -291,6 +298,11 @@ const api = {
     on<TelegramCreatePane>(IPC.telegramCreatePane, cb),
   onTelegramStatusChanged: (cb: (s: TelegramStatus) => void): (() => void) =>
     on<TelegramStatus>(IPC.telegramStatusChanged, cb),
+
+  // ---- local control server ----
+  controlStatus: (): Promise<ControlServerStatus> => ipcRenderer.invoke(IPC.controlStatus),
+  onControlOpenPane: (cb: (e: ControlCreatePane) => void): (() => void) =>
+    on<ControlCreatePane>(IPC.controlOpenPane, cb),
 
   // ---- perf ----
   getPerfSample: (): Promise<PerfSample> => ipcRenderer.invoke(IPC.perfSample),

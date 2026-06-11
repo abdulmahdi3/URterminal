@@ -24,7 +24,9 @@ import {
   GitFork,
   Send,
   ArrowDown,
-  CheckCircle2
+  CheckCircle2,
+  Server,
+  Workflow
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -406,6 +408,78 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
           <div className="wn-sw-row">claude · /web</div>
           <div className="wn-sw-row">powershell · ~</div>
           <div className="wn-sw-row">kali · ssh root@box</div>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'macro') {
+    // A saved sequence firing into the prompt, one line at a time.
+    return (
+      <div className="wn-demo wn-demo-macro">
+        <div className="wn-macro-badge">
+          <Play size={11} /> macro
+        </div>
+        <div className="wn-macro-list">
+          <div className="wn-macro-step s1">
+            <span className="wn-arrow">❯</span> npm install
+          </div>
+          <div className="wn-macro-step s2">
+            <span className="wn-arrow">❯</span> npm run build
+          </div>
+          <div className="wn-macro-step s3">
+            <span className="wn-arrow">❯</span> npm test
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'localmodels') {
+    // A local server lighting up the models you've installed, one by one.
+    return (
+      <div className="wn-demo wn-demo-localmodels">
+        <div className="wn-lm-server">
+          <Server size={26} />
+          <span className="wn-lm-dot" />
+        </div>
+        <div className="wn-lm-models">
+          <span className="wn-lm-chip c1">llama3.1</span>
+          <span className="wn-lm-chip c2">qwen2.5</span>
+          <span className="wn-lm-chip c3">mistral</span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'control') {
+    // A local curl hitting the loopback control server, which lights up.
+    return (
+      <div className="wn-demo wn-demo-control">
+        <div className="wn-ctl-curl">
+          <span className="wn-arrow">$</span> curl :8777/panes
+        </div>
+        <ArrowDown size={16} className="wn-ctl-arrow" />
+        <div className="wn-ctl-server">
+          <Server size={16} /> 127.0.0.1 <span className="wn-ctl-dot" />
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'orchestrate') {
+    // A goal fanning out to several worker agents that light up in turn.
+    return (
+      <div className="wn-demo wn-demo-orchestrate">
+        <div className="wn-orch-goal">
+          <Workflow size={13} /> goal
+        </div>
+        <div className="wn-orch-fan">
+          <span className="wn-orch-worker w1">
+            <Bot size={14} />
+          </span>
+          <span className="wn-orch-worker w2">
+            <Bot size={14} />
+          </span>
+          <span className="wn-orch-worker w3">
+            <Bot size={14} />
+          </span>
         </div>
       </div>
     )
