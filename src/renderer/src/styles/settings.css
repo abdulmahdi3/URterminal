@@ -929,6 +929,165 @@
   fill: var(--text);
 }
 
+/* ── Rooms ─────────────────────────────────────────────────────────────── */
+.modal.rooms {
+  width: 760px;
+}
+.rooms-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-md, 14px);
+}
+.rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.room-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.room-card-name {
+  font-weight: 600;
+  font-size: var(--fs-md, 14px);
+}
+.room-card-tag {
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  min-height: 30px;
+}
+.room-card-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.room-role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs, 12px);
+  color: var(--text-dim);
+}
+.room-role-label {
+  color: var(--text);
+}
+.room-role-hint {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+}
+.room-role-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.room-enter {
+  justify-content: center;
+  margin-top: 4px;
+}
+/* Review Room panel */
+.rooms-review {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.rr-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.rr-git {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.rr-branch {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs, 12px);
+  color: var(--text);
+}
+.rr-chip {
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+.rr-chip.staged {
+  color: var(--ok, #22c55e);
+}
+.rr-chip.unstaged {
+  color: var(--warn, #e0a33e);
+}
+.rr-empty {
+  font-size: var(--fs-xs, 12px);
+  color: var(--text-dim);
+}
+.rr-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rr-note {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--fs-xs, 12px);
+  padding: 3px 9px;
+}
+.rr-note:hover {
+  border-color: var(--accent);
+}
+.rr-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rr-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--fs-sm, 13px);
+  padding: 3px 0;
+  text-align: left;
+}
+.rr-check .on {
+  color: var(--ok, #22c55e);
+}
+.rr-verdict {
+  margin-top: 6px;
+  font-size: var(--fs-sm, 13px);
+  color: var(--text-dim);
+}
+.rr-verdict.go {
+  color: var(--ok, #22c55e);
+  font-weight: 600;
+}
+
 /* consistent field width so every input/select/textarea + button group aligns */
 .settings-content {
   --settings-field-w: 380px;

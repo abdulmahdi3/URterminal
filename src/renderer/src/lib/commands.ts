@@ -213,6 +213,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowBridge(true)
     },
     {
+      id: 'app.rooms',
+      title: 'Open a Room: Command · Swarm · Review…',
+      group: 'App',
+      shortcut: 'Ctrl+Shift+R',
+      run: () => ui().setShowRooms(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'Connect to SSH server…',
       group: 'Panes',

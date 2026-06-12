@@ -463,6 +463,36 @@ function sceneBridgemcp(i, N) {
   return buf
 }
 
+// Rooms — three focused workspace cards (Command / Swarm / Review) lighting up.
+function sceneRooms(i, N) {
+  const buf = frame()
+  const cards = [
+    { label: 'COMMAND', dot: C.accent },
+    { label: 'SWARM', dot: C.ok },
+    { label: 'REVIEW', dot: C.white }
+  ]
+  const tw = 146, th = 110, gap = 14
+  const total = cards.length * tw + (cards.length - 1) * gap
+  let x = Math.round((W - total) / 2)
+  const y = Math.round((H - th) / 2)
+  const active = Math.floor((i / N) * cards.length) % cards.length
+  cards.forEach((c, idx) => {
+    const on = idx === active
+    rect(buf, x, y, tw, th, C.panel2)
+    rectOutline(buf, x, y, tw, th, on ? C.accent : C.border, 2)
+    textCenter(buf, x + tw / 2, y + 12, c.label, on ? C.white : C.dim, 1)
+    // three "role" rows inside
+    for (let r = 0; r < 3; r++) {
+      const ry = y + 38 + r * 18
+      disc(buf, x + 18, ry + 4, 4, on ? c.dot : C.dim)
+      rect(buf, x + 30, ry + 2, tw - 48, 5, on ? C.border : C.bg)
+      rect(buf, x + 30, ry + 2, on ? tw - 70 : tw - 90, 5, on ? C.accentDim : C.border)
+    }
+    x += tw + gap
+  })
+  return buf
+}
+
 const SCENES = {
   crossplatform: sceneCrossplatform,
   diffreview: sceneDiffreview,
@@ -470,7 +500,8 @@ const SCENES = {
   dashboard: sceneDashboard,
   bridgememory: sceneBridgememory,
   bridgegraph: sceneBridgegraph,
-  bridgemcp: sceneBridgemcp
+  bridgemcp: sceneBridgemcp,
+  rooms: sceneRooms
 }
 
 // Optional PNG preview (frame snapshot) + a single-frame GIF, for visual review.

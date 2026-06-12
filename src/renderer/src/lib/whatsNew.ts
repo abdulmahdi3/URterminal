@@ -22,6 +22,7 @@ import dashboardGif from '../assets/whatsnew/dashboard.gif'
 import bridgememoryGif from '../assets/whatsnew/bridgememory.gif'
 import bridgegraphGif from '../assets/whatsnew/bridgegraph.gif'
 import bridgemcpGif from '../assets/whatsnew/bridgemcp.gif'
+import roomsGif from '../assets/whatsnew/rooms.gif'
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
 export type WhatsNewDemo =
@@ -87,6 +88,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.3': {
+    version: '0.4.3',
+    headline: 'Rooms — a focused space for each part of the work',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Command, Swarm & Review rooms',
+        media: roomsGif,
+        body:
+          'Ctrl+Shift+R. Different work needs different rooms. Command Room lays out role-labeled shells ' +
+          '(dev server, test runner, agent shell) tied to the task. Swarm Room spins up builder / reviewer ' +
+          '/ scout agents without a window maze. Review Room gathers the git diff, your captured ' +
+          'BridgeMemory notes, and a ship checklist — see the context and decide when it’s ready to ship.'
+      }
+    ]
+  },
+
   '0.4.2': {
     version: '0.4.2',
     headline: 'Every agent shares the same memory',
