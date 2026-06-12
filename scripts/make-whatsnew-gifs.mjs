@@ -107,6 +107,26 @@ function rectOutline(buf, x, y, w, h, c, t = 1) {
 function disc(buf, cx, cy, r, c) {
   for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (i * i + j * j <= r * r) px(buf, cx + i, cy + j, c)
 }
+function ring(buf, cx, cy, r, c, t = 1) {
+  for (let j = -r; j <= r; j++)
+    for (let i = -r; i <= r; i++) {
+      const d = i * i + j * j
+      if (d <= r * r && d >= (r - t) * (r - t)) px(buf, cx + i, cy + j, c)
+    }
+}
+function line(buf, x0, y0, x1, y1, c) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1)
+  const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0)
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1
+  let err = dx - dy
+  for (;;) {
+    px(buf, x0, y0, c)
+    if (x0 === x1 && y0 === y1) break
+    const e2 = 2 * err
+    if (e2 > -dy) { err -= dy; x0 += sx }
+    if (e2 < dx) { err += dx; y0 += sy }
+  }
+}
 function glyphW(s) {
   return s * 5
 }
@@ -350,11 +370,43 @@ function sceneDashboard(i, N) {
   return buf
 }
 
+// BridgeMemory — a living knowledge graph: central hub + linked notes, nodes
+// lighting green in turn (the "context compounds" look).
+function sceneBridgememory(i, N) {
+  const buf = frame()
+  const cx = 240, cy = 72
+  const nodes = [
+    { x: 116, y: 36, label: 'AUTH' },
+    { x: 360, y: 34, label: 'STRIPE' },
+    { x: 92, y: 110, label: 'CSRF' },
+    { x: 388, y: 106, label: 'SHIP' },
+    { x: 214, y: 124, label: '' },
+    { x: 300, y: 22, label: '' }
+  ]
+  // edges
+  for (const n of nodes) line(buf, cx, cy, n.x, n.y, C.border)
+  // glow + hub
+  const pulse = 0.5 + 0.5 * Math.sin((i / N) * Math.PI * 4)
+  disc(buf, cx, cy, Math.round(16 + pulse * 6), C.okDim)
+  disc(buf, cx, cy, 10, C.ok)
+  disc(buf, cx, cy, 6, C.white)
+  // nodes — one lights green in turn
+  const active = Math.floor((i / N) * nodes.length) % nodes.length
+  nodes.forEach((n, idx) => {
+    const on = idx === active
+    disc(buf, n.x, n.y, 6, on ? C.ok : C.dim)
+    if (on) ring(buf, n.x, n.y, 10, C.ok, 2)
+    if (n.label) textCenter(buf, n.x, n.y + 10, n.label, on ? C.text : C.dim, 1)
+  })
+  return buf
+}
+
 const SCENES = {
   crossplatform: sceneCrossplatform,
   diffreview: sceneDiffreview,
   streamcards: sceneStreamcards,
-  dashboard: sceneDashboard
+  dashboard: sceneDashboard,
+  bridgememory: sceneBridgememory
 }
 
 // Optional PNG preview (frame snapshot) + a single-frame GIF, for visual review.

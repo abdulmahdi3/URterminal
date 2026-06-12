@@ -19,6 +19,7 @@ import crossplatformGif from '../assets/whatsnew/crossplatform.gif'
 import diffreviewGif from '../assets/whatsnew/diffreview.gif'
 import streamcardsGif from '../assets/whatsnew/streamcards.gif'
 import dashboardGif from '../assets/whatsnew/dashboard.gif'
+import bridgememoryGif from '../assets/whatsnew/bridgememory.gif'
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
 export type WhatsNewDemo =
@@ -84,6 +85,25 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.0': {
+    version: '0.4.0',
+    headline: 'BridgeMemory — a living knowledge graph next to your code',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Local-first notes, linked by [[wikilinks]]',
+        media: bridgememoryGif,
+        body:
+          'Ctrl+Shift+M (or Ctrl+K → “BridgeMemory”). A .bridgememory/ folder of plain markdown notes ' +
+          'lives next to your repo — commit it, version it, own it. Link notes with [[wikilinks]] and tag ' +
+          'with #topic; the panel surfaces backlinks and suggested connections, so the bug you’re chasing ' +
+          'today finds the note you wrote three weeks ago. Decisions stick; context compounds across ' +
+          'sessions. (Graph view + shared agent access land next.)'
+      }
+    ]
+  },
+
   '0.3.31': {
     version: '0.3.31',
     headline: 'Drive URterminal from your browser — the web dashboard',

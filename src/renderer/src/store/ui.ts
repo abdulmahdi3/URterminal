@@ -29,6 +29,8 @@ interface UiState {
   showOrchestrate: boolean
   /** inline diff-review (accept/apply file edits from agent output) modal open */
   showDiffReview: boolean
+  /** BridgeMemory (local-first wikilinked notes hub) modal open */
+  showBridge: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -75,6 +77,7 @@ interface UiState {
   setShowDelegate: (v: boolean) => void
   setShowOrchestrate: (v: boolean) => void
   setShowDiffReview: (v: boolean) => void
+  setShowBridge: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -109,6 +112,7 @@ const ALL_CLOSED = {
   showDelegate: false,
   showOrchestrate: false,
   showDiffReview: false,
+  showBridge: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -130,6 +134,7 @@ export const useUi = create<UiState>((set, get) => ({
   showDelegate: false,
   showOrchestrate: false,
   showDiffReview: false,
+  showBridge: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -189,6 +194,7 @@ export const useUi = create<UiState>((set, get) => ({
     set(v ? { ...ALL_CLOSED, showOrchestrate: true } : { showOrchestrate: false }),
   setShowDiffReview: (v) =>
     set(v ? { ...ALL_CLOSED, showDiffReview: true } : { showDiffReview: false }),
+  setShowBridge: (v) => set(v ? { ...ALL_CLOSED, showBridge: true } : { showBridge: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),

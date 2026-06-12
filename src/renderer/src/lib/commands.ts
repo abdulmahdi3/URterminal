@@ -206,6 +206,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowMcp(true)
     },
     {
+      id: 'app.bridge',
+      title: 'BridgeMemory: project notes & links…',
+      group: 'App',
+      shortcut: 'Ctrl+Shift+M',
+      run: () => ui().setShowBridge(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'Connect to SSH server…',
       group: 'Panes',

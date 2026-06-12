@@ -42,6 +42,7 @@ import { getPrompts, appendPrompt } from '../prompts/store'
 import { searchSessions, warmSessionIndex } from '../sessions/recall'
 import { expandReference } from '../references/expand'
 import { readMcp, writeMcp, type McpServer } from '../mcp/config'
+import { listHub, saveNote, deleteNote, ensureHub } from '../bridge/store'
 import { postWebhook } from '../webhook/post'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
@@ -545,6 +546,19 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.referenceExpand, (_e, ref: string, cwd: string) => expandReference(ref, cwd))
   ipcMain.handle(IPC.mcpRead, (_e, cwd: string) => readMcp(cwd))
   ipcMain.handle(IPC.mcpWrite, (_e, cwd: string, servers: McpServer[]) => writeMcp(cwd, servers))
+
+  // ---- BridgeMemory (local-first wikilinked notes hub) ----
+  ipcMain.handle(IPC.bridgeList, (_e, cwd: string) => listHub(cwd))
+  ipcMain.handle(
+    IPC.bridgeSave,
+    (_e, a: { cwd: string; slug: string | null; title: string; content: string }) =>
+      saveNote(a.cwd, a.slug, a.title, a.content)
+  )
+  ipcMain.handle(IPC.bridgeDelete, (_e, a: { cwd: string; slug: string }) => deleteNote(a.cwd, a.slug))
+  ipcMain.handle(IPC.bridgeReveal, (_e, cwd: string) => {
+    const dir = ensureHub(cwd)
+    if (dir) void shell.openPath(dir)
+  })
   ipcMain.on(IPC.webhookPost, (_e, url: string, text: string) => void postWebhook(url, text))
   warmSessionIndex() // start indexing past conversations in the background
   ipcMain.handle(IPC.promptsGet, (_e, sessionId: string) => getPrompts(sessionId))

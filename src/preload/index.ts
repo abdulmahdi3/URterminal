@@ -30,6 +30,7 @@ import type {
   SessionHit,
   McpServer,
   PaneInfo,
+  BridgeNote,
   SessionData,
   LastSessionPayload,
   ClaudeSessionInfo,
@@ -103,6 +104,22 @@ const api = {
   readMcp: (cwd: string): Promise<McpServer[]> => ipcRenderer.invoke(IPC.mcpRead, cwd),
   writeMcp: (cwd: string, servers: McpServer[]): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.mcpWrite, cwd, servers),
+
+  // ---- BridgeMemory (local-first wikilinked notes hub) ----
+  bridge: {
+    list: (cwd: string): Promise<{ dir: string; exists: boolean; notes: BridgeNote[] }> =>
+      ipcRenderer.invoke(IPC.bridgeList, cwd),
+    save: (
+      cwd: string,
+      slug: string | null,
+      title: string,
+      content: string
+    ): Promise<{ ok: boolean; slug?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC.bridgeSave, { cwd, slug, title, content }),
+    remove: (cwd: string, slug: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.bridgeDelete, { cwd, slug }),
+    reveal: (cwd: string): Promise<void> => ipcRenderer.invoke(IPC.bridgeReveal, cwd)
+  },
   postWebhook: (url: string, text: string): void => ipcRenderer.send(IPC.webhookPost, url, text),
   promptsGet: (sessionId: string): Promise<string[]> =>
     ipcRenderer.invoke(IPC.promptsGet, sessionId),
