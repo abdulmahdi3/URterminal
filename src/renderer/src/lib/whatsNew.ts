@@ -20,6 +20,7 @@ import diffreviewGif from '../assets/whatsnew/diffreview.gif'
 import streamcardsGif from '../assets/whatsnew/streamcards.gif'
 import dashboardGif from '../assets/whatsnew/dashboard.gif'
 import bridgememoryGif from '../assets/whatsnew/bridgememory.gif'
+import bridgegraphGif from '../assets/whatsnew/bridgegraph.gif'
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
 export type WhatsNewDemo =
@@ -85,6 +86,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.1': {
+    version: '0.4.1',
+    headline: 'See the memory graph',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'The knowledge graph, visualized',
+        media: bridgegraphGif,
+        body:
+          'BridgeMemory now has a graph view (the share icon in its header): every note is a node, every ' +
+          '[[wikilink]] an edge, and your most-connected note glows at the center. Click any node to open ' +
+          'it. The layout is deterministic, so the map stays stable as it grows — the thread linking ' +
+          'today’s bug to a note you wrote three weeks ago becomes something you can actually see.'
+      }
+    ]
+  },
+
   '0.4.0': {
     version: '0.4.0',
     headline: 'BridgeMemory — a living knowledge graph next to your code',

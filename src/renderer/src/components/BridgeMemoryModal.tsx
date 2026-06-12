@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Network, Search, Plus, Save, Trash2, FolderOpen, X, Link2, ArrowUpRight } from 'lucide-react'
+import { Network, Search, Plus, Save, Trash2, FolderOpen, X, Link2, ArrowUpRight, List, Share2 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
 import { toast } from '@renderer/store/toasts'
@@ -10,6 +10,7 @@ import {
   buildGraph,
   type BridgeNote
 } from '@shared/bridge'
+import BridgeGraph from './BridgeGraph'
 
 /** The cwd of the focused pane — where the `.bridgememory/` hub is discovered. */
 function activeCwd(): string {
@@ -39,6 +40,7 @@ export default function BridgeMemoryModal(): JSX.Element | null {
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [view, setView] = useState<'list' | 'graph'>('list')
   const titleRef = useRef<HTMLInputElement>(null)
 
   const refresh = async (c: string): Promise<BridgeNote[]> => {
@@ -132,6 +134,24 @@ export default function BridgeMemoryModal(): JSX.Element | null {
             </span>
           </div>
           <div className="bridge-head-actions">
+            {cwd && (
+              <div className="bridge-viewtoggle">
+                <button
+                  className={`icon-btn ${view === 'list' ? 'on' : ''}`}
+                  title="List view"
+                  onClick={() => setView('list')}
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  className={`icon-btn ${view === 'graph' ? 'on' : ''}`}
+                  title="Graph view"
+                  onClick={() => setView('graph')}
+                >
+                  <Share2 size={14} />
+                </button>
+              </div>
+            )}
             {dir && (
               <button className="icon-btn" title={dir} onClick={() => window.api.bridge.reveal(cwd)}>
                 <FolderOpen size={14} />
@@ -147,6 +167,17 @@ export default function BridgeMemoryModal(): JSX.Element | null {
           <div className="bridge-empty">
             Open an agent or shell pane in a folder, then reopen BridgeMemory — the hub lives in a{' '}
             <code>.bridgememory/</code> folder next to that repo.
+          </div>
+        ) : view === 'graph' ? (
+          <div className="bridge-body bridge-body-graph">
+            <BridgeGraph
+              notes={notes}
+              selected={sel}
+              onSelect={(s) => {
+                select(s)
+                setView('list')
+              }}
+            />
           </div>
         ) : (
           <div className="bridge-body">

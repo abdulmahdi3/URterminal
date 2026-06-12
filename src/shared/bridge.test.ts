@@ -7,6 +7,7 @@ import {
   backlinksFor,
   searchNotes,
   suggestConnections,
+  forceLayout,
   slugify,
   type BridgeNote
 } from './bridge'
@@ -104,5 +105,39 @@ describe('suggestConnections', () => {
 describe('slugify', () => {
   it('makes a filesystem-safe slug', () => {
     expect(slugify('Auth Pattern! (v2)')).toBe('auth-pattern-v2')
+  })
+})
+
+describe('forceLayout', () => {
+  const W = 800
+  const H = 440
+  it('centers a single node and is empty for none', () => {
+    expect(forceLayout({ nodes: [], edges: [] }, { width: W, height: H }).size).toBe(0)
+    const one = forceLayout({ nodes: [{ slug: 'a', title: 'A', tags: [], degree: 0 }], edges: [] }, { width: W, height: H })
+    expect(one.get('a')).toEqual({ x: W / 2, y: H / 2 })
+  })
+
+  it('is deterministic and keeps every node inside the box', () => {
+    const g = buildGraph([mk('a', '[[b]] [[c]]'), mk('b', '[[c]]'), mk('c', 'x'), mk('d', 'lonely')])
+    const p1 = forceLayout(g, { width: W, height: H })
+    const p2 = forceLayout(g, { width: W, height: H })
+    for (const [slug, pt] of p1) {
+      expect(p2.get(slug)).toEqual(pt) // same input → same output
+      expect(pt.x).toBeGreaterThanOrEqual(0)
+      expect(pt.x).toBeLessThanOrEqual(W)
+      expect(pt.y).toBeGreaterThanOrEqual(0)
+      expect(pt.y).toBeLessThanOrEqual(H)
+    }
+  })
+
+  it('pulls linked nodes closer than unlinked ones', () => {
+    const g = buildGraph([mk('a', '[[b]]'), mk('b', 'x'), mk('far', 'unconnected')])
+    const p = forceLayout(g, { width: W, height: H })
+    const dist = (s1: string, s2: string): number => {
+      const a = p.get(s1)!
+      const b = p.get(s2)!
+      return Math.hypot(a.x - b.x, a.y - b.y)
+    }
+    expect(dist('a', 'b')).toBeLessThan(dist('a', 'far'))
   })
 })

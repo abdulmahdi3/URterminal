@@ -219,6 +219,90 @@ export function searchNotes(notes: BridgeNote[], query: string): BridgeNote[] {
     .map((x) => x.n)
 }
 
+export interface Pt {
+  x: number
+  y: number
+}
+
+/**
+ * Deterministic force-directed layout (Fruchterman–Reingold-ish) for the graph
+ * view — no randomness (seeded by node order) so the same graph always lays out
+ * the same way and it's unit-testable. Nodes start on a circle, then repel each
+ * other, springs pull linked nodes together, and gravity keeps the whole thing
+ * centered; positions are clamped to the box.
+ */
+export function forceLayout(
+  graph: BridgeGraphData,
+  opts: { width: number; height: number; iterations?: number }
+): Map<string, Pt> {
+  const { width: W, height: H } = opts
+  const iters = opts.iterations ?? 300
+  const nodes = graph.nodes
+  const n = nodes.length
+  const pos = new Map<string, Pt>()
+  if (n === 0) return pos
+  if (n === 1) {
+    pos.set(nodes[0].slug, { x: W / 2, y: H / 2 })
+    return pos
+  }
+  const idx = new Map<string, number>()
+  nodes.forEach((nd, i) => idx.set(nd.slug, i))
+  const R = Math.min(W, H) * 0.35
+  nodes.forEach((nd, i) => {
+    const a = (i / n) * Math.PI * 2
+    pos.set(nd.slug, { x: W / 2 + Math.cos(a) * R, y: H / 2 + Math.sin(a) * R })
+  })
+  const k = Math.sqrt((W * H) / n) // ideal edge length
+  const disp = nodes.map(() => ({ x: 0, y: 0 }))
+  const P = nodes.map((nd) => pos.get(nd.slug)!)
+
+  for (let it = 0; it < iters; it++) {
+    const t = 1 - it / iters
+    for (let i = 0; i < n; i++) {
+      disp[i].x = 0
+      disp[i].y = 0
+    }
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = P[i].x - P[j].x
+        let dy = P[i].y - P[j].y
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.01
+        const f = (k * k) / d
+        dx /= d
+        dy /= d
+        disp[i].x += dx * f
+        disp[i].y += dy * f
+        disp[j].x -= dx * f
+        disp[j].y -= dy * f
+      }
+    }
+    for (const e of graph.edges) {
+      const a = idx.get(e.source)
+      const b = idx.get(e.target)
+      if (a == null || b == null) continue
+      let dx = P[a].x - P[b].x
+      let dy = P[a].y - P[b].y
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.01
+      const f = (d * d) / k
+      dx /= d
+      dy /= d
+      disp[a].x -= dx * f
+      disp[a].y -= dy * f
+      disp[b].x += dx * f
+      disp[b].y += dy * f
+    }
+    for (let i = 0; i < n; i++) {
+      disp[i].x += (W / 2 - P[i].x) * 0.03
+      disp[i].y += (H / 2 - P[i].y) * 0.03
+      const dl = Math.sqrt(disp[i].x * disp[i].x + disp[i].y * disp[i].y) || 0.01
+      const step = Math.min(dl, 12 * t + 1)
+      P[i].x = Math.max(14, Math.min(W - 14, P[i].x + (disp[i].x / dl) * step))
+      P[i].y = Math.max(14, Math.min(H - 14, P[i].y + (disp[i].y / dl) * step))
+    }
+  }
+  return pos
+}
+
 /** Suggest notes worth linking to `slug`: shared tags or terms, not yet linked. */
 export function suggestConnections(notes: BridgeNote[], slug: string, max = 6): { note: BridgeNote; shared: string[] }[] {
   const me = notes.find((n) => n.slug === slug)

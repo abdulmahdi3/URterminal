@@ -401,12 +401,43 @@ function sceneBridgememory(i, N) {
   return buf
 }
 
+// BridgeMemory graph view — the graph assembles, each new note + link snapping
+// into place (accent), the hub holding the center.
+function sceneBridgegraph(i, N) {
+  const buf = frame()
+  const cx = 240, cy = 72
+  const nodes = [
+    { x: 120, y: 40 },
+    { x: 358, y: 38 },
+    { x: 100, y: 110 },
+    { x: 380, y: 108 },
+    { x: 240, y: 126 },
+    { x: 300, y: 20 }
+  ]
+  const revealed = 2 + Math.floor((i / N) * (nodes.length - 1)) // grows 2 → 6, loops
+  for (let idx = 0; idx < revealed && idx < nodes.length; idx++) {
+    const n = nodes[idx]
+    line(buf, cx, cy, n.x, n.y, idx === revealed - 1 ? C.accent : C.border)
+  }
+  disc(buf, cx, cy, 15, C.okDim)
+  disc(buf, cx, cy, 9, C.ok)
+  disc(buf, cx, cy, 5, C.white)
+  for (let idx = 0; idx < revealed && idx < nodes.length; idx++) {
+    const n = nodes[idx]
+    const fresh = idx === revealed - 1
+    disc(buf, n.x, n.y, 6, fresh ? C.accent : C.dim)
+    if (fresh) ring(buf, n.x, n.y, 10, C.accent, 2)
+  }
+  return buf
+}
+
 const SCENES = {
   crossplatform: sceneCrossplatform,
   diffreview: sceneDiffreview,
   streamcards: sceneStreamcards,
   dashboard: sceneDashboard,
-  bridgememory: sceneBridgememory
+  bridgememory: sceneBridgememory,
+  bridgegraph: sceneBridgegraph
 }
 
 // Optional PNG preview (frame snapshot) + a single-frame GIF, for visual review.
