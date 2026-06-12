@@ -45,6 +45,8 @@ export type WhatsNewDemo =
   | 'localmodels'
   | 'control'
   | 'orchestrate'
+  | 'crossplatform'
+  | 'diffreview'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -74,6 +76,50 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.29': {
+    version: '0.3.29',
+    headline: 'Apply an agent’s code edits without leaving the terminal',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Review & apply diffs inline',
+        demo: 'diffreview',
+        body:
+          'When an agent prints a diff in its pane, run “Review & apply code changes from this pane…” ' +
+          '(Ctrl+K) — or select a diff and click the new ⌥ action. URterminal lists each changed file ' +
+          'with a green/red preview and an accept checkbox, then writes the approved hunks straight to ' +
+          'disk (atomic, only inside the pane’s folder). It tolerates line drift and refuses to apply if ' +
+          'the file changed underneath, so nothing gets corrupted — no copy-paste, no leaving the app.'
+      }
+    ]
+  },
+
+  '0.3.28': {
+    version: '0.3.28',
+    headline: 'URterminal now runs on macOS and Linux',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Native on Windows, macOS & Linux',
+        demo: 'crossplatform',
+        body:
+          'URterminal now builds and runs on all three desktop OSes. New shell panes offer each ' +
+          'system’s native shells automatically — PowerShell & Command Prompt on Windows, zsh/bash on ' +
+          'macOS, bash/sh on Linux (plus your WSL distros on Windows as before).'
+      },
+      {
+        kind: 'feature',
+        title: 'Task manager & remote mounts, everywhere',
+        body:
+          'The system task manager now lists processes with live CPU and memory on macOS and Linux too ' +
+          '(via the native process list), and “agent over SSH” mounts the remote folder using macFUSE / ' +
+          'FUSE + sshfs on those platforms — the same one-click flow you have on Windows.'
+      }
+    ]
+  },
+
   '0.3.27': {
     version: '0.3.27',
     headline: 'Local models, macros, plus stability fixes',

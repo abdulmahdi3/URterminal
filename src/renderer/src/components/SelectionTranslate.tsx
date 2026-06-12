@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Languages, Copy, X, Loader2, ListPlus, Columns2, Wand2, ArrowRightToLine } from 'lucide-react'
+import { Languages, Copy, X, Loader2, ListPlus, Columns2, Wand2, ArrowRightToLine, FileDiff } from 'lucide-react'
 import { getPaneSelection } from '@renderer/lib/terminalPool'
 import { useSettings } from '@renderer/store/settings'
 import { useWorkspace } from '@renderer/store/workspace'
+import { useUi } from '@renderer/store/ui'
+import { useDiffReview } from '@renderer/store/diffReview'
+import { parsePatches } from '@shared/diff'
 import { langCode } from '@renderer/lib/translate'
 import { toast } from '@renderer/store/toasts'
 import { createTaskFromSelection, openTextInNewAgentPane } from '@renderer/lib/selectionActions'
@@ -114,6 +117,17 @@ export default function SelectionTranslate(): JSX.Element | null {
     setW(null)
   }
 
+  // Only offered when the selection actually contains a unified diff.
+  const diffPatches = parsePatches(w.text)
+  const doReviewDiff = (): void => {
+    if (!diffPatches.length) return
+    const pane = useWorkspace.getState().panes[w.paneId]
+    const cwd = pane?.agent?.cwd || pane?.shell?.cwd || ''
+    useDiffReview.getState().open(diffPatches, cwd)
+    useUi.getState().setShowDiffReview(true)
+    setW(null)
+  }
+
   const doMoveToNewPane = (): void => {
     openTextInNewAgentPane(w.paneId, w.text)
     setW(null)
@@ -162,6 +176,15 @@ export default function SelectionTranslate(): JSX.Element | null {
           <button className="sel-translate-btn" onClick={doEnhance} title="Enhance into a prompt">
             <Wand2 size={15} />
           </button>
+          {diffPatches.length > 0 && (
+            <button
+              className="sel-translate-btn"
+              onClick={doReviewDiff}
+              title={`Review & apply ${diffPatches.length} file change${diffPatches.length === 1 ? '' : 's'}`}
+            >
+              <FileDiff size={15} />
+            </button>
+          )}
         </div>
       )}
       {w.phase === 'loading' && (

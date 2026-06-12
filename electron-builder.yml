@@ -32,6 +32,39 @@ nsis:
   artifactName: ${productName}-${version}-Setup-${arch}.${ext}
 portable:
   artifactName: ${productName}-${version}-Portable-${arch}.${ext}
+# macOS — build ON a Mac (electron-builder can't cross-compile from Windows).
+# The `zip` target is REQUIRED for electron-updater on macOS (dmg can't self-patch).
+# Unsigned by default; set CSC_LINK/CSC_KEY_PASSWORD + APPLE_ID* to sign + notarize.
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+# Linux — build ON Linux. AppImage self-updates via electron-updater; deb is for
+# apt-based distros (other distros: install the AppImage).
+linux:
+  category: Development
+  icon: build/icon.png
+  maintainer: URterminal
+  synopsis: Multi-pane AI + shell terminal
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
 # Auto-update feed: the NSIS installer checks GitHub Releases on launch and
 # patches itself. Publishing uploads the installer + latest.yml to a release
 # for the matching version tag (see `npm run publish:win`).

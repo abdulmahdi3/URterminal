@@ -8,7 +8,7 @@ Full roadmap reference: `~/.claude/plans/suggest-25-features-that-fluttering-sea
 
 ## Summary
 
-- **~21 / 25** roadmap features done (several were already present in the codebase). Since this report was first written at 0.3.17, **#6 Prompt enhancer**, **#3 Shared cross-agent memory**, **#14 Macros**, **#17 Local HTTP/CLI control**, and **#2 Orchestrator pane** have shipped.
+- **~23 / 25** roadmap features done (several were already present in the codebase). Since this report was first written at 0.3.17, **#6 Prompt enhancer**, **#3 Shared cross-agent memory**, **#14 Macros**, **#17 Local HTTP/CLI control**, **#2 Orchestrator pane**, **#19 macOS / Linux support**, and **#5 Inline diff review & apply** have shipped.
 - **6 releases shipped** this effort: **0.3.13 → 0.3.17** (all published to GitHub with installer + `latest.yml` auto-update).
 - A **What's New tour** convention was established: every shipped feature adds an animated step, and **each version shows only its own new features** (dynamic multi-version: a 0.3.14→0.3.17 jump shows all versions between; a first install shows only the latest).
 
@@ -50,6 +50,8 @@ Full roadmap reference: `~/.claude/plans/suggest-25-features-that-fluttering-sea
 | 14 | Macros | 0.3.27 | `lib/macroSchedule.ts` (pure) + `lib/macros.ts` (`runMacro`), `prefs.macros`, Settings → Macros, palette `macro.run.*`, What's New `macro` demo |
 | 17 | Local HTTP/CLI control | 0.3.27 | `main/control/server.ts` (127.0.0.1, token-gated: `/health`, `/panes`, `/input`, `POST /panes`), `prefs.controlServer*`, `IPC.controlOpenPane/controlStatus`, `useControlServer.ts`, Settings → Local control, What's New `control` demo |
 | 2 | Orchestrator pane | 0.3.27 | `lib/orchestratePlan.ts` (pure) + `lib/orchestrate.ts` (`runOrchestration`/`collectReport`), `store/orchestrator.ts`, `OrchestratorModal.tsx`, cmd `pane.orchestrate`, `seedPrompt(submit)` for fan-out, answer-block aggregation, What's New `orchestrate` demo |
+| 19 | macOS / Linux support | 0.3.28 | platform plumbed via `app:info` → `osInfo.platform()`; per-OS shells in `lib/shells.ts` (`builtinShells`); `system/processes.ts` `ps` path + parsers; `ssh/sshfs.ts` POSIX FUSE backend (macFUSE/fusermount, dir mountpoints); `electron-builder.yml` mac (dmg+zip) + linux (AppImage+deb) targets; CI release matrix `.github/workflows/release.yml`; What's New `crossplatform` demo |
+| 5 | Inline diff review & apply | 0.3.29 | `shared/diff.ts` pure `parsePatches`/`applyPatch` (drift-tolerant, new-file/delete) + tests; `IPC.diffApply` handler (atomic write, cwd-scoped) + preload `applyDiff`; `store/diffReview.ts`; `DiffReviewModal.tsx` (per-file accept + colored preview); cmd `pane.reviewDiff` + SelectionTranslate action; What's New `diffreview` demo |
 | — | Prompt minimap (extra) | 0.3.16 | `components/PromptMinimap.tsx`, per-chat persistence `main/prompts/store.ts` + `prompts:get/append` IPC |
 
 ---
@@ -60,9 +62,7 @@ All remaining items are heavier — large, architecturally risky, or dependent o
 
 | # | Feature | Effort | Notes / risk |
 |---|---------|--------|--------------|
-| 5 | Inline diff review & apply | M–L | Detect file-edit blocks in agent output, show accept/reject, write to disk. Relies on fragile parsing of agent output — needs a robust detector. |
 | 4 | Structured stream-json pane | L | Render Claude's `--output-format stream-json` (tool calls, diffs, todos) as native UI cards. New `Pane.type` + renderer; biggest visual leap. |
-| 19 | macOS / Linux support | L | Abstract Windows-only bits (ConPTY, WSL detection, SSHFS-Win). Broadens the user base materially. |
 | 25 | Web / mobile dashboard | L | Authenticated web view to see panes + send prompts remotely. Generalize the Telegram bridge into an HTTP+WS service. |
 
 ### Deferred
@@ -74,7 +74,7 @@ All remaining items are heavier — large, architecturally risky, or dependent o
 
 1. **Every shipped feature** adds a step to the current version's `RELEASE_NOTES` entry in `src/renderer/src/lib/whatsNew.ts`, with an animated demo (`WhatsNewDemoView` in `WhatsNewModal.tsx` + CSS in `styles/whatsnew.css`), or a real `.gif` via the `media` field.
 2. **One notes entry per version** — never merge versions into one key (the dynamic multi-version tour depends on this).
-3. **Release flow:** commit source → bump `package.json` patch → commit "Release X.Y.Z: …" → `git push` → `git tag vX.Y.Z` → push tag → `npm run publish:win` (uploads installer + `latest.yml`). Verify with `gh release view`.
+3. **Release flow:** commit source → bump `package.json` patch → commit "Release X.Y.Z: …" → `git push` → `git tag vX.Y.Z` → push tag. Pushing the tag triggers `.github/workflows/release.yml`, a win/mac/linux matrix that builds each OS's installer and publishes it (+ its `latest*.yml`) to the GitHub Release. For a Windows-only quick cut you can still run `npm run publish:win` locally (mac/linux installers must be built on those OSes — that's what the matrix is for). Verify with `gh release view`.
 4. `npm run typecheck` + `npm run build` must be clean before every release.
 5. Commit trailer: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 

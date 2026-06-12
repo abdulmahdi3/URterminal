@@ -23,6 +23,8 @@ import type {
   ClaudeUsage,
   FileSaveRequest,
   FileSaveResult,
+  DiffApplyRequest,
+  DiffApplyResult,
   GitStatus,
   SessionHit,
   McpServer,
@@ -51,7 +53,8 @@ function on<T>(channel: string, cb: (payload: T) => void): () => void {
 
 const api = {
   // ---- app info ----
-  getAppInfo: (): Promise<{ version: string; homeDir: string }> => ipcRenderer.invoke(IPC.appInfo),
+  getAppInfo: (): Promise<{ version: string; homeDir: string; platform: NodeJS.Platform }> =>
+    ipcRenderer.invoke(IPC.appInfo),
   relaunchApp: (): Promise<void> => ipcRenderer.invoke(IPC.appRelaunch),
 
   // ---- settings ----
@@ -326,6 +329,10 @@ const api = {
   // ---- file save ----
   saveFile: (req: FileSaveRequest): Promise<FileSaveResult> =>
     ipcRenderer.invoke(IPC.fileSave, req),
+
+  // ---- diff review: apply an approved file patch to disk ----
+  applyDiff: (req: DiffApplyRequest): Promise<DiffApplyResult> =>
+    ipcRenderer.invoke(IPC.diffApply, req),
 
   // ---- directory picker ----
   pickDirectory: (defaultPath?: string): Promise<string | null> =>

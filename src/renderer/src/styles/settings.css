@@ -506,6 +506,159 @@
   overflow-y: auto;
 }
 
+/* ── Inline diff review & apply ─────────────────────────────────────────── */
+.modal.diff-review {
+  width: 760px;
+}
+.diff-review-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-md, 14px);
+}
+.diff-review-count {
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+.diff-review-cwd {
+  padding: 4px 16px 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+}
+.diff-review-cwd code {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+}
+.diff-review-cwd .warn {
+  color: var(--warn, #e0a33e);
+}
+.diff-review-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.diff-file {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-elev-2);
+}
+.diff-file.applied {
+  border-color: color-mix(in srgb, var(--ok, #22c55e) 55%, var(--border));
+  opacity: 0.85;
+}
+.diff-file.failed {
+  border-color: color-mix(in srgb, #ef4444 55%, var(--border));
+}
+.diff-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+.diff-file-head input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+.diff-file-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+}
+.diff-file-icon.new {
+  color: var(--ok, #22c55e);
+}
+.diff-file-icon.del {
+  color: #ef4444;
+}
+.diff-file-name {
+  flex: 1;
+  min-width: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs, 12px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.diff-stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-2xs);
+}
+.diff-stat.add {
+  color: var(--ok, #22c55e);
+}
+.diff-stat.del {
+  color: #ef4444;
+}
+.diff-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-2xs);
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+}
+.diff-pill.ok {
+  color: var(--ok, #22c55e);
+  background: color-mix(in srgb, var(--ok, #22c55e) 16%, transparent);
+}
+.diff-pill.err {
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 16%, transparent);
+}
+.diff-pill.muted {
+  color: var(--text-dim);
+  background: var(--bg-elev);
+}
+.diff-file-body {
+  max-height: 260px;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.diff-hunk-head {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  padding: 2px 10px;
+}
+.diff-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs, 12px);
+  line-height: 1.5;
+  padding: 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diff-line.add {
+  background: color-mix(in srgb, var(--ok, #22c55e) 14%, transparent);
+  color: var(--text);
+}
+.diff-line.del {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: var(--text);
+}
+.diff-line.ctx {
+  color: var(--text-dim);
+}
+.diff-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+}
+.diff-review-actions .spacer {
+  flex: 1;
+}
+
 /* consistent field width so every input/select/textarea + button group aligns */
 .settings-content {
   --settings-field-w: 380px;

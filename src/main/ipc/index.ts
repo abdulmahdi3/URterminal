@@ -1,8 +1,8 @@
 import { ipcMain, BrowserWindow, dialog, clipboard, app, shell } from 'electron'
-import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
+import { writeFile, readFile, unlink, mkdir, rename } from 'fs/promises'
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
-import { tmpdir, userInfo, homedir } from 'os'
-import { join } from 'path'
+import { tmpdir, userInfo, homedir, platform } from 'os'
+import { join, resolve, isAbsolute, dirname, sep } from 'path'
 import type { ClipboardContent, SessionData, LastSessionPayload, NoteDoc } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
@@ -13,14 +13,17 @@ import type {
   SettingsPatch,
   FileSaveRequest,
   FileSaveResult,
+  DiffApplyRequest,
+  DiffApplyResult,
   GoogleTask,
   ProviderId
 } from '@shared/types'
+import { applyPatch } from '@shared/diff'
 import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget } from '../ssh/sshPty'
 import { SshAgentBridge } from '../ssh/agentBridge'
 import { buildAgentInstruction } from '../ssh/ursshHelpers'
-import { SshfsManager, sshfsInstalled, SSHFS_INSTALL, SSHFS_BIN } from '../ssh/sshfs'
+import { SshfsManager } from '../ssh/sshfs'
 import { PtyManager } from '../pty/manager'
 import { TranscriptStore } from '../pty/transcriptStore'
 import { claudeSessionInfo } from '../claude/sessions'
@@ -174,7 +177,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     )
 
   // ---- app info ----
-  ipcMain.handle(IPC.appInfo, () => ({ version: app.getVersion(), homeDir: homedir() }))
+  ipcMain.handle(IPC.appInfo, () => ({
+    version: app.getVersion(),
+    homeDir: homedir(),
+    platform: platform()
+  }))
   // Relaunch the whole app (so a freshly installed agent is picked up from PATH).
   ipcMain.handle(IPC.appRelaunch, () => {
     app.relaunch()
@@ -326,6 +333,51 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     }
   })
 
+  // ---- diff review: apply an approved file patch to disk ----
+  ipcMain.handle(IPC.diffApply, async (_e, req: DiffApplyRequest): Promise<DiffApplyResult> => {
+    try {
+      if (!req.cwd || !isAbsolute(req.cwd)) {
+        return { ok: false, error: 'This pane has no working folder, so the change has nowhere to apply.' }
+      }
+      const root = resolve(req.cwd)
+      const rel = req.file.replace(/^[ab]\//, '')
+      const abs = isAbsolute(rel) ? resolve(rel) : resolve(root, rel)
+      // Safety: only ever write inside the pane's working folder, so an apply
+      // click can never let agent output clobber an arbitrary path on disk.
+      if (abs !== root && !abs.startsWith(root + sep)) {
+        return { ok: false, error: `Refusing to write outside the working folder: ${req.file}` }
+      }
+
+      if (req.isDelete) {
+        if (existsSync(abs)) await unlink(abs)
+        return { ok: true, path: abs }
+      }
+
+      let content: string
+      if (req.isNew) {
+        // Build the new file straight from the additions (ignore on-disk state).
+        const adds = req.hunks.flatMap((h) => h.lines.filter((l) => l[0] === '+').map((l) => l.slice(1)))
+        content = adds.join('\n') + (adds.length ? '\n' : '')
+      } else {
+        const original = existsSync(abs) ? await readFile(abs, 'utf8') : ''
+        const applied = applyPatch(original, req.hunks)
+        if (!applied.ok || applied.result === undefined) {
+          return { ok: false, error: applied.error ?? 'Could not apply the change.' }
+        }
+        content = applied.result
+      }
+
+      // Atomic write: temp file + rename, so a crash mid-write can't truncate.
+      await mkdir(dirname(abs), { recursive: true })
+      const tmp = `${abs}.urtmp-${process.pid}`
+      await writeFile(tmp, content, 'utf8')
+      await rename(tmp, abs)
+      return { ok: true, path: abs }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+
   // ---- pty ----
   ipcMain.handle(IPC.ptySpawn, async (_e, req: PtySpawnRequest) => {
     // Heal ~/.claude.json if a prior race corrupted it, and stagger concurrent
@@ -428,27 +480,33 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     }
   })
   ipcMain.handle(IPC.sshfsStatus, (): SshfsStatus => {
-    const installed = sshfsInstalled()
+    const s = sshfs.status()
     return {
-      installed,
-      sshfsPath: installed ? SSHFS_BIN : undefined,
-      installCommand: SSHFS_INSTALL.installCommand,
-      url: SSHFS_INSTALL.url
+      installed: s.installed,
+      sshfsPath: s.binPath,
+      installCommand: s.installCommand,
+      url: s.url
     }
   })
   ipcMain.handle(IPC.sshfsInstall, () => {
-    // Open a console that runs the winget installs (WinFsp first); the MSI step
-    // triggers a UAC prompt. URterminal should be restarted afterwards.
-    try {
-      spawn(
-        'cmd.exe',
-        ['/c', 'start', 'Install SSHFS-Win', 'cmd', '/k', `${SSHFS_INSTALL.installCommand} && echo. && echo Done - restart URterminal.`],
-        { windowsHide: false, detached: true, stdio: 'ignore' }
-      ).unref()
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, error: (e as Error).message }
+    const s = sshfs.status()
+    // Windows: pop a console that runs the winget installs (WinFsp first); the MSI
+    // step triggers a UAC prompt. URterminal should be restarted afterwards.
+    if (process.platform === 'win32') {
+      try {
+        spawn(
+          'cmd.exe',
+          ['/c', 'start', 'Install SSHFS-Win', 'cmd', '/k', `${s.installCommand} && echo. && echo Done - restart URterminal.`],
+          { windowsHide: false, detached: true, stdio: 'ignore' }
+        ).unref()
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, error: (e as Error).message }
+      }
     }
+    // macOS/Linux: installing FUSE + sshfs needs sudo/brew in an interactive
+    // terminal, so we can't run it unattended. Surface the command for the user.
+    return { ok: false, error: `Run this in a terminal, then restart URterminal:\n${s.installCommand}` }
   })
   // Release a target's resources when its agent pane closes: unmount the SSHFS
   // drive and close the reused exec connection.

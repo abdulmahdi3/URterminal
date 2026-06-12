@@ -26,7 +26,10 @@ import {
   ArrowDown,
   CheckCircle2,
   Server,
-  Workflow
+  Workflow,
+  Monitor,
+  Laptop,
+  Terminal
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -480,6 +483,42 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
           <span className="wn-orch-worker w3">
             <Bot size={14} />
           </span>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'diffreview') {
+    // A red/green diff settling as a green "applied" check pulses on.
+    return (
+      <div className="wn-demo wn-demo-diff">
+        <div className="wn-diff-card">
+          <div className="wn-diff-line del">- const port = 3000</div>
+          <div className="wn-diff-line add">+ const port = 8080</div>
+        </div>
+        <div className="wn-diff-apply">
+          <Check size={16} />
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'crossplatform') {
+    // The same app lighting up on each OS, each tile showing that OS's native shell.
+    return (
+      <div className="wn-demo wn-demo-xplat">
+        <div className="wn-xplat-tile t1">
+          <Monitor size={18} />
+          <span className="wn-xplat-os">Windows</span>
+          <code className="wn-xplat-sh">PS&gt;</code>
+        </div>
+        <div className="wn-xplat-tile t2">
+          <Laptop size={18} />
+          <span className="wn-xplat-os">macOS</span>
+          <code className="wn-xplat-sh">~ %</code>
+        </div>
+        <div className="wn-xplat-tile t3">
+          <Terminal size={18} />
+          <span className="wn-xplat-os">Linux</span>
+          <code className="wn-xplat-sh">~ $</code>
         </div>
       </div>
     )

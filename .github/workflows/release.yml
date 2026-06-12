@@ -1,0 +1,67 @@
+name: Release
+
+# Cut a cross-platform release by pushing a version tag, e.g.
+#   git tag v0.3.28 && git push origin v0.3.28
+# Each OS runner builds its own installer and uploads it (plus the matching
+# latest*.yml auto-update metadata) to the GitHub Release for that tag.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# electron-builder uploads release assets via the GitHub API.
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # Don't let one OS failing cancel the others — a partial release is better
+    # than none, and you can re-run a single leg.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: publish:win
+          - os: macos-latest
+            script: publish:mac
+          - os: ubuntu-latest
+            script: publish:linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # .deb + AppImage tooling for the Linux runner (no-op on win/mac).
+      - name: Install Linux packaging deps
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot dpkg libfuse2
+
+      # postinstall (scripts/setup-natives.mjs) pins Electron 29 and fetches the
+      # node-pty prebuilt matched to THIS runner's OS/arch + the Electron ABI —
+      # no native compiler needed on any platform.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Builds the renderer/main bundles, packages the OS installer, and publishes
+      # it to the tag's GitHub Release. The per-OS update feeds (latest.yml,
+      # latest-mac.yml, latest-linux.yml) don't collide, so the three legs publish
+      # to the same release concurrently; electron-builder get-or-creates it.
+      - name: Publish ${{ matrix.os }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Unsigned macOS build — don't let electron-builder grab a random
+          # Keychain identity. Add CSC_LINK/CSC_KEY_PASSWORD + APPLE_ID* secrets
+          # and flip this to true to sign + notarize.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npm run ${{ matrix.script }}

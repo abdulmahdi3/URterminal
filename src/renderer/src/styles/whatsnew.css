@@ -1562,6 +1562,132 @@
   }
 }
 
+/* "diffreview" demo — a red/green diff settling as an "applied" check pulses on */
+.wn-demo-diff {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.wn-diff-card {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+}
+.wn-diff-line {
+  padding: 4px 12px;
+  /* Base = settled/visible so reduced-motion reads as a clean diff. */
+  opacity: 1;
+}
+.wn-diff-line.del {
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  animation: wn-diff-del 3s ease-in-out infinite;
+}
+.wn-diff-line.add {
+  color: var(--ok, #22c55e);
+  background: color-mix(in srgb, var(--ok, #22c55e) 14%, transparent);
+  animation: wn-diff-add 3s ease-in-out infinite;
+}
+.wn-diff-apply {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ok, #22c55e);
+  animation: wn-diff-applied 3s ease-in-out infinite;
+}
+@keyframes wn-diff-add {
+  0% {
+    opacity: 0.2;
+    transform: translateX(-6px);
+  }
+  30%, 100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes wn-diff-del {
+  0%, 30% {
+    opacity: 1;
+  }
+  65%, 100% {
+    opacity: 0.45;
+  }
+}
+@keyframes wn-diff-applied {
+  0%, 45% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  65%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* "crossplatform" demo — the same app lighting up on Windows, macOS, Linux */
+.wn-demo-xplat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.wn-xplat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 76px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  /* Base = settled + visible, so reduced-motion reads as three supported OSes. */
+  opacity: 1;
+  animation: wn-xplat-lite 3s ease-in-out infinite;
+}
+.wn-xplat-tile.t2 {
+  animation-delay: 0.5s;
+}
+.wn-xplat-tile.t3 {
+  animation-delay: 1s;
+}
+.wn-xplat-os {
+  font-size: 11px;
+  font-weight: 600;
+}
+.wn-xplat-sh {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--accent);
+}
+@keyframes wn-xplat-lite {
+  0% {
+    opacity: 0.4;
+    transform: translateY(-3px) scale(0.95);
+    color: var(--text-dim);
+    border-color: var(--border);
+  }
+  16%, 60% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  100% {
+    opacity: 0.6;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .whatsnew-step,
   .wn-term-stream,
@@ -1599,6 +1725,9 @@
   .wn-ctl-arrow,
   .wn-ctl-dot,
   .wn-orch-worker,
+  .wn-xplat-tile,
+  .wn-diff-line,
+  .wn-diff-apply,
   .wn-demo-loader .spin {
     animation: none;
   }

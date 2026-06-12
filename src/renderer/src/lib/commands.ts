@@ -19,6 +19,8 @@ import {
 } from '@renderer/lib/terminalPool'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
 import { injectText } from '@renderer/lib/inject'
+import { parsePatches } from '@shared/diff'
+import { useDiffReview } from '@renderer/store/diffReview'
 import { enhanceActivePrompt } from '@renderer/lib/enhance'
 import { summarizeActiveSession } from '@renderer/lib/summarize'
 import { allNotes } from '@renderer/lib/whatsNew'
@@ -79,6 +81,23 @@ function exportActivePane(fmt: 'html' | 'text'): void {
       else if (!r.canceled) toast(`Export failed: ${r.error ?? ''}`, 'error')
     })
     .catch(() => {})
+}
+
+/** Scan the active pane's output for unified diffs and open the review modal. */
+function reviewDiffFromActivePane(): void {
+  const p = activePane()
+  if (!p) {
+    toast('Focus a pane first', 'info')
+    return
+  }
+  const patches = parsePatches(getFullText(p.id))
+  if (!patches.length) {
+    toast('No file diffs found in this pane', 'info')
+    return
+  }
+  const cwd = p.agent?.cwd || p.shell?.cwd || ''
+  useDiffReview.getState().open(patches, cwd)
+  ui().setShowDiffReview(true)
 }
 
 /** Run `command` in the active AI pane, or spin up a new one. */
@@ -167,6 +186,12 @@ export function getCommands(): Command[] {
       title: 'Orchestrate a goal across agents…',
       group: 'Panes',
       run: () => ui().setShowOrchestrate(true)
+    },
+    {
+      id: 'pane.reviewDiff',
+      title: 'Review & apply code changes from this pane…',
+      group: 'Panes',
+      run: reviewDiffFromActivePane
     },
     {
       id: 'app.mcp',

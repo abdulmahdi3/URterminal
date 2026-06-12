@@ -1,6 +1,8 @@
 // Shared types used across main, preload, and renderer.
 // Keep this free of any node/electron/dom imports so all processes can use it.
 
+import type { DiffHunk } from './diff'
+
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio'
 
 export type PaneType = 'ai' | 'shell' | 'empty'
@@ -743,6 +745,26 @@ export interface FileSaveResult {
   error?: string
 }
 
+/** Apply one file's parsed diff hunks to disk (the inline diff-review feature). */
+export interface DiffApplyRequest {
+  /** working folder the file path is resolved against (the pane's cwd) */
+  cwd: string
+  /** target file path — relative to cwd, or an absolute path that stays inside it */
+  file: string
+  hunks: DiffHunk[]
+  /** create the file from the additions (ignores any on-disk content) */
+  isNew?: boolean
+  /** delete the file instead of writing */
+  isDelete?: boolean
+}
+
+export interface DiffApplyResult {
+  ok: boolean
+  /** absolute path written / removed on success */
+  path?: string
+  error?: string
+}
+
 /** One cross-session search result: a past Claude conversation that matched. */
 export interface SessionHit {
   /** Claude session id (resume target) */
@@ -965,6 +987,9 @@ export const IPC = {
 
   // file save dialog
   fileSave: 'file:save',
+
+  // diff review: apply an approved file patch (parsed hunks) to disk
+  diffApply: 'diff:apply',
 
   // directory picker (choose the folder to open an agent in)
   dialogOpenDir: 'dialog:open-dir',

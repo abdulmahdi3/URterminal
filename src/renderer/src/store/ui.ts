@@ -27,6 +27,8 @@ interface UiState {
   showDelegate: boolean
   /** orchestrator (fan a goal to worker agent panes) modal open */
   showOrchestrate: boolean
+  /** inline diff-review (accept/apply file edits from agent output) modal open */
+  showDiffReview: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -72,6 +74,7 @@ interface UiState {
   setShowMcp: (v: boolean) => void
   setShowDelegate: (v: boolean) => void
   setShowOrchestrate: (v: boolean) => void
+  setShowDiffReview: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -105,6 +108,7 @@ const ALL_CLOSED = {
   showMcp: false,
   showDelegate: false,
   showOrchestrate: false,
+  showDiffReview: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -125,6 +129,7 @@ export const useUi = create<UiState>((set, get) => ({
   showMcp: false,
   showDelegate: false,
   showOrchestrate: false,
+  showDiffReview: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -182,6 +187,8 @@ export const useUi = create<UiState>((set, get) => ({
   setShowDelegate: (v) => set(v ? { ...ALL_CLOSED, showDelegate: true } : { showDelegate: false }),
   setShowOrchestrate: (v) =>
     set(v ? { ...ALL_CLOSED, showOrchestrate: true } : { showOrchestrate: false }),
+  setShowDiffReview: (v) =>
+    set(v ? { ...ALL_CLOSED, showDiffReview: true } : { showDiffReview: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),
