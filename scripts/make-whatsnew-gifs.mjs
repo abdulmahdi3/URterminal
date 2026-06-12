@@ -184,13 +184,15 @@ function lzw(minCode, indices) {
       buf = cand
     } else {
       emit(buf.indexOf(',') < 0 ? Number(buf) : dict.get(buf))
-      dict.set(cand, next++)
-      if (next === 1 << size) {
-        if (size < 12) size++
-        else {
-          emit(clear)
-          reset()
-        }
+      // GIF LZW: bump the code width BEFORE assigning the boundary code (>=),
+      // and clear once the table is full (4096). Getting this order right is
+      // what makes strict decoders (Chromium, the image pipeline) accept it.
+      if (next === 4096) {
+        emit(clear)
+        reset()
+      } else {
+        if (next >= 1 << size && size < 12) size++
+        dict.set(cand, next++)
       }
       buf = String(k)
     }
