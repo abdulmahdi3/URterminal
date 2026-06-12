@@ -21,6 +21,7 @@ import streamcardsGif from '../assets/whatsnew/streamcards.gif'
 import dashboardGif from '../assets/whatsnew/dashboard.gif'
 import bridgememoryGif from '../assets/whatsnew/bridgememory.gif'
 import bridgegraphGif from '../assets/whatsnew/bridgegraph.gif'
+import bridgemcpGif from '../assets/whatsnew/bridgemcp.gif'
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
 export type WhatsNewDemo =
@@ -86,6 +87,25 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.2': {
+    version: '0.4.2',
+    headline: 'Every agent shares the same memory',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'BridgeMemory tools for your agents (MCP)',
+        media: bridgemcpGif,
+        body:
+          'In BridgeMemory, hit the plug icon to register a local MCP server into this folder’s .mcp.json. ' +
+          'Now Claude, Codex — any MCP agent launched here — read AND write the same hub: create_memory, ' +
+          'search_memories, read_memory, find_backlinks, suggest_connections, link_memories, graph_summary ' +
+          'and more. Builders, reviewers and scouts share one knowledge surface — what one learns, the next ' +
+          'one starts from.'
+      }
+    ]
+  },
+
   '0.4.1': {
     version: '0.4.1',
     headline: 'See the memory graph',

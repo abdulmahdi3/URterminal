@@ -43,6 +43,7 @@ import { searchSessions, warmSessionIndex } from '../sessions/recall'
 import { expandReference } from '../references/expand'
 import { readMcp, writeMcp, type McpServer } from '../mcp/config'
 import { listHub, saveNote, deleteNote, ensureHub } from '../bridge/store'
+import { connectAgents } from '../bridge/mcp'
 import { postWebhook } from '../webhook/post'
 import { CaptureService } from '../learning/capture'
 import { getLearningConfig, setLearningConfig, learningRoot } from '../learning/store'
@@ -559,6 +560,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     const dir = ensureHub(cwd)
     if (dir) void shell.openPath(dir)
   })
+  ipcMain.handle(IPC.bridgeConnect, (_e, cwd: string) => connectAgents(cwd))
   ipcMain.on(IPC.webhookPost, (_e, url: string, text: string) => void postWebhook(url, text))
   warmSessionIndex() // start indexing past conversations in the background
   ipcMain.handle(IPC.promptsGet, (_e, sessionId: string) => getPrompts(sessionId))

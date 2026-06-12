@@ -885,6 +885,7 @@ export const IPC = {
   bridgeSave: 'bridge:save', // ({cwd, slug, title, content}) → { ok, slug }
   bridgeDelete: 'bridge:delete', // ({cwd, slug}) → ok
   bridgeReveal: 'bridge:reveal', // (cwd) → open the hub folder in the OS
+  bridgeConnect: 'bridge:connect', // (cwd) → register the MCP server in .mcp.json
   // webhook: post a message to a Discord/Slack incoming webhook (from main, no CORS)
   webhookPost: 'webhook:post',
 

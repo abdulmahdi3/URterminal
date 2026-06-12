@@ -55,6 +55,7 @@ const FONT2 = {
   G: [' ####', '#    ', '#    ', '#  ##', '#   #', '#   #', ' ####'],
   H: ['#   #', '#   #', '#   #', '#####', '#   #', '#   #', '#   #'],
   I: ['#####', '  #  ', '  #  ', '  #  ', '  #  ', '  #  ', '#####'],
+  J: ['    #', '    #', '    #', '    #', '#   #', '#   #', ' ### '],
   K: ['#   #', '#  # ', '# #  ', '##   ', '# #  ', '#  # ', '#   #'],
   L: ['#    ', '#    ', '#    ', '#    ', '#    ', '#    ', '#####'],
   M: ['#   #', '## ##', '# # #', '#   #', '#   #', '#   #', '#   #'],
@@ -431,13 +432,45 @@ function sceneBridgegraph(i, N) {
   return buf
 }
 
+// BridgeMemory MCP — several agents reading + writing the SAME hub, with data
+// pulses flowing along each connection.
+function sceneBridgemcp(i, N) {
+  const buf = frame()
+  const cx = 240, cy = 70
+  const agents = [
+    { x: 92, y: 44, label: 'CLAUDE', dir: 1 },
+    { x: 388, y: 44, label: 'CODEX', dir: -1 },
+    { x: 240, y: 124, label: 'JARVIS', dir: 1 }
+  ]
+  for (const ag of agents) line(buf, cx, cy, ag.x, ag.y, C.border)
+  // hub
+  disc(buf, cx, cy, 14, C.okDim)
+  disc(buf, cx, cy, 9, C.ok)
+  disc(buf, cx, cy, 5, C.white)
+  // agents + flowing pulse
+  agents.forEach((ag, idx) => {
+    // agent node
+    rect(buf, ag.x - 26, ag.y - 9, 52, 18, C.panel)
+    rectOutline(buf, ag.x - 26, ag.y - 9, 52, 18, C.border, 1)
+    textCenter(buf, ag.x, ag.y - 4, ag.label, C.text, 1)
+    // pulse travelling along the line
+    let t = ((i / N) * 1.3 + idx * 0.33) % 1
+    if (ag.dir < 0) t = 1 - t
+    const dotx = cx + (ag.x - cx) * t
+    const doty = cy + (ag.y - cy) * t
+    disc(buf, Math.round(dotx), Math.round(doty), 3, C.accent)
+  })
+  return buf
+}
+
 const SCENES = {
   crossplatform: sceneCrossplatform,
   diffreview: sceneDiffreview,
   streamcards: sceneStreamcards,
   dashboard: sceneDashboard,
   bridgememory: sceneBridgememory,
-  bridgegraph: sceneBridgegraph
+  bridgegraph: sceneBridgegraph,
+  bridgemcp: sceneBridgemcp
 }
 
 // Optional PNG preview (frame snapshot) + a single-frame GIF, for visual review.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Network, Search, Plus, Save, Trash2, FolderOpen, X, Link2, ArrowUpRight, List, Share2 } from 'lucide-react'
+import { Network, Search, Plus, Save, Trash2, FolderOpen, X, Link2, ArrowUpRight, List, Share2, Plug } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useWorkspace } from '@renderer/store/workspace'
 import { toast } from '@renderer/store/toasts'
@@ -151,6 +151,22 @@ export default function BridgeMemoryModal(): JSX.Element | null {
                   <Share2 size={14} />
                 </button>
               </div>
+            )}
+            {cwd && (
+              <button
+                className="icon-btn"
+                title="Make this hub available to agents in this folder (writes .mcp.json)"
+                onClick={() =>
+                  void window.api.bridge.connect(cwd).then((r) =>
+                    toast(
+                      r.ok ? 'Agents in this folder can now read + write these notes' : r.error || 'Could not connect',
+                      r.ok ? 'ok' : 'error'
+                    )
+                  )
+                }
+              >
+                <Plug size={14} />
+              </button>
             )}
             {dir && (
               <button className="icon-btn" title={dir} onClick={() => window.api.bridge.reveal(cwd)}>
