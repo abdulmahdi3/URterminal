@@ -220,6 +220,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowRooms(true)
     },
     {
+      id: 'app.tasks',
+      title: 'Task board (this project)…',
+      group: 'App',
+      shortcut: 'Ctrl+Shift+B',
+      run: () => ui().setShowTasks(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'Connect to SSH server…',
       group: 'Panes',

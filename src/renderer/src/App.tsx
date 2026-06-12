@@ -24,6 +24,7 @@ import OrchestratorModal from './components/OrchestratorModal'
 import DiffReviewModal from './components/DiffReviewModal'
 import BridgeMemoryModal from './components/BridgeMemoryModal'
 import RoomsModal from './components/RoomsModal'
+import TaskBoardModal from './components/TaskBoardModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
@@ -148,6 +149,7 @@ export default function App(): JSX.Element {
       <DiffReviewModal />
       <BridgeMemoryModal />
       <RoomsModal />
+      <TaskBoardModal />
       <WhatsNewModal />
       <SearchBar />
       <ShortcutsModal />

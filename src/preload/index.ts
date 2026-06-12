@@ -121,7 +121,10 @@ const api = {
     reveal: (cwd: string): Promise<void> => ipcRenderer.invoke(IPC.bridgeReveal, cwd),
     /** Register the BridgeMemory MCP server in this folder's .mcp.json. */
     connect: (cwd: string): Promise<{ ok: boolean; error?: string }> =>
-      ipcRenderer.invoke(IPC.bridgeConnect, cwd)
+      ipcRenderer.invoke(IPC.bridgeConnect, cwd),
+    tasksRead: (cwd: string): Promise<unknown> => ipcRenderer.invoke(IPC.bridgeTasksRead, cwd),
+    tasksWrite: (cwd: string, board: unknown): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.bridgeTasksWrite, { cwd, board })
   },
   postWebhook: (url: string, text: string): void => ipcRenderer.send(IPC.webhookPost, url, text),
   promptsGet: (sessionId: string): Promise<string[]> =>

@@ -23,6 +23,7 @@ import bridgememoryGif from '../assets/whatsnew/bridgememory.gif'
 import bridgegraphGif from '../assets/whatsnew/bridgegraph.gif'
 import bridgemcpGif from '../assets/whatsnew/bridgemcp.gif'
 import roomsGif from '../assets/whatsnew/rooms.gif'
+import taskboardGif from '../assets/whatsnew/taskboard.gif'
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
 export type WhatsNewDemo =
@@ -88,6 +89,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.4': {
+    version: '0.4.4',
+    headline: 'A task board that feeds the workroom',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Task → Workspace, one click',
+        media: taskboardGif,
+        body:
+          'Ctrl+Shift+B. A local kanban stored in .bridgespace/tasks.json next to your repo — commit it ' +
+          'like any project asset. Capture tasks in Backlog, move them across columns, and hit Start: ' +
+          'URterminal opens a fresh agent in the folder, seeds it with the task, and slides the card to ' +
+          'In progress. Start from a task, not a pile of tabs.'
+      }
+    ]
+  },
+
   '0.4.3': {
     version: '0.4.3',
     headline: 'Rooms — a focused space for each part of the work',

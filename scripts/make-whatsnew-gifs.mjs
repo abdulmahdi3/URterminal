@@ -493,6 +493,41 @@ function sceneRooms(i, N) {
   return buf
 }
 
+// Task board — three kanban columns; a task card travels Backlog → In progress
+// (Task → Workspace), turning accent as it lands.
+function sceneTaskboard(i, N) {
+  const buf = frame()
+  const cols = [{ label: 'BACKLOG' }, { label: 'DOING' }, { label: 'DONE' }]
+  const cw = 146, gap = 12, colH = 116
+  const total = cols.length * cw + (cols.length - 1) * gap
+  const x0 = Math.round((W - total) / 2)
+  const y = 14
+  const colX = cols.map((_, idx) => x0 + idx * (cw + gap))
+  cols.forEach((c, idx) => {
+    rect(buf, colX[idx], y, cw, colH, C.panel)
+    rectOutline(buf, colX[idx], y, cw, colH, C.border, 1)
+    textCenter(buf, colX[idx] + cw / 2, y + 8, c.label, C.dim, 1)
+    rect(buf, colX[idx], y + 22, cw, 1, C.border)
+  })
+  // static cards
+  const cardW = cw - 20
+  const drawCard = (cx, cy, accent) => {
+    rect(buf, cx, cy, cardW, 20, C.panel2)
+    rectOutline(buf, cx, cy, cardW, 20, accent ? C.accent : C.border, accent ? 2 : 1)
+    rect(buf, cx + 8, cy + 7, cardW - 40, 5, accent ? C.accentDim : C.border)
+  }
+  drawCard(colX[0] + 10, y + 64, false) // a resting backlog card
+  drawCard(colX[1] + 10, y + 30, false) // an in-progress card
+  drawCard(colX[2] + 10, y + 30, false) // a done card
+  // travelling card: backlog top slot → doing second slot
+  const t = i / N
+  const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+  const sx = colX[0] + 10, sy = y + 30
+  const ex = colX[1] + 10, ey = y + 60
+  drawCard(Math.round(sx + (ex - sx) * ease), Math.round(sy + (ey - sy) * ease), true)
+  return buf
+}
+
 const SCENES = {
   crossplatform: sceneCrossplatform,
   diffreview: sceneDiffreview,
@@ -501,7 +536,8 @@ const SCENES = {
   bridgememory: sceneBridgememory,
   bridgegraph: sceneBridgegraph,
   bridgemcp: sceneBridgemcp,
-  rooms: sceneRooms
+  rooms: sceneRooms,
+  taskboard: sceneTaskboard
 }
 
 // Optional PNG preview (frame snapshot) + a single-frame GIF, for visual review.

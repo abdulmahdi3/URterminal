@@ -25,6 +25,19 @@ export function discoverHub(cwd: string): string {
   return join(cwd, HUB)
 }
 
+/** The project root for a working folder (where `.bridgespace/` etc. live). */
+export function discoverRoot(cwd: string): string {
+  if (!cwd || !isAbsolute(cwd)) return ''
+  let dir = cwd
+  for (let i = 0; i < 12; i++) {
+    if (existsSync(join(dir, '.bridgespace')) || existsSync(join(dir, HUB)) || existsSync(join(dir, '.git'))) return dir
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return cwd
+}
+
 export interface HubInfo {
   dir: string
   exists: boolean
