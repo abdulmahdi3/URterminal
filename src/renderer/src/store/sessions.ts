@@ -57,6 +57,9 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
         sessionId: clone.agent.sessionId,
         sshTarget: clone.agent.sshTarget
       }
+    // Stream panes carry only their command + folder; the live transcript lives
+    // in the (non-persisted) stream store, so a restore opens a fresh view.
+    if (clone.stream) clone.stream = { command: clone.stream.command, cwd: clone.stream.cwd }
     out[id] = clone
   }
   return out

@@ -5,7 +5,7 @@ import type { DiffHunk } from './diff'
 
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio'
 
-export type PaneType = 'ai' | 'shell' | 'empty'
+export type PaneType = 'ai' | 'shell' | 'empty' | 'stream'
 
 export interface ShellPaneState {
   shell: string
@@ -39,6 +39,18 @@ export interface AgentPaneState {
   sessionId?: string
 }
 
+/**
+ * A "stream pane" runs Claude in `--output-format stream-json` and renders the
+ * event stream as native cards (tool calls, diffs, todos) instead of raw xterm
+ * text. Each prompt spawns a fresh `claude -p` turn; continuity is kept in the
+ * renderer's stream store via the captured session id (`--resume`).
+ */
+export interface StreamPaneState {
+  /** the agent CLI to drive in stream-json mode (Claude only, for now) */
+  command: string
+  cwd?: string
+}
+
 /** A single checkable item in a pane's to-do list. */
 export interface TodoItem {
   id: string
@@ -52,6 +64,7 @@ export interface Pane {
   title: string
   agent?: AgentPaneState
   shell?: ShellPaneState
+  stream?: StreamPaneState
   /** chat id this pane forwards output to, if linked */
   telegramChatId?: string
   /** pane IDs this pane pipes its output into (supports fan-out to multiple) */

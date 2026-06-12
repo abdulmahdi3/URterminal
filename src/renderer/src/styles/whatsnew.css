@@ -1562,6 +1562,63 @@
   }
 }
 
+/* "streamcards" demo — a turn streaming in as cards, then a done pill */
+.wn-demo-stream {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+}
+.wn-sc-card,
+.wn-sc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  /* Base = visible so reduced-motion shows a complete turn. */
+  opacity: 1;
+}
+.wn-sc-card {
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 10px;
+}
+.wn-sc-card.tool b {
+  color: var(--accent);
+}
+.wn-sc-detail {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dim);
+}
+.wn-sc-pill {
+  color: var(--ok, #22c55e);
+  background: color-mix(in srgb, var(--ok, #22c55e) 14%, transparent);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+}
+.wn-sc-card.c1 {
+  animation: wn-sc-in 3s ease-in-out infinite;
+}
+.wn-sc-card.c2 {
+  animation: wn-sc-in 3s ease-in-out infinite 0.4s;
+}
+.wn-sc-pill.c3 {
+  animation: wn-sc-in 3s ease-in-out infinite 0.8s;
+}
+@keyframes wn-sc-in {
+  0% {
+    opacity: 0.15;
+    transform: translateY(6px);
+  }
+  22%, 100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* "diffreview" demo — a red/green diff settling as an "applied" check pulses on */
 .wn-demo-diff {
   display: flex;
@@ -1728,6 +1785,8 @@
   .wn-xplat-tile,
   .wn-diff-line,
   .wn-diff-apply,
+  .wn-sc-card,
+  .wn-sc-pill,
   .wn-demo-loader .spin {
     animation: none;
   }

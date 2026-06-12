@@ -175,6 +175,10 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
         cwd
       }
     }
+  } else if (type === 'stream') {
+    // A "stream pane" drives Claude in stream-json mode and renders cards.
+    base.title = init?.label ?? 'claude · stream'
+    base.stream = { command: init?.agentCommand ?? 'claude', cwd: init?.agentCwd }
   } else {
     base.title = `Pane ${paneCounter}`
   }
@@ -251,6 +255,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       np.title = src.title
     } else if (src.type === 'shell' && src.shell) {
       np.shell = { shell: src.shell.shell, args: src.shell.args, cwd: src.shell.cwd }
+      np.title = src.title
+    } else if (src.type === 'stream' && src.stream) {
+      np.stream = { command: src.stream.command, cwd: src.stream.cwd }
       np.title = src.title
     }
     set((s) => {
@@ -337,6 +344,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     revived.title = last.title
     // reopen = a new conversation; mint a fresh session id rather than reusing the closed one
     if (last.agent) revived.agent = withSessionId({ command: last.agent.command, cwd: last.agent.cwd })
+    if (last.stream) revived.stream = { command: last.stream.command, cwd: last.stream.cwd }
     set((s) => {
       const leaves = getLeaves(s.layout)
       const target = s.activePaneId && leaves.includes(s.activePaneId) ? s.activePaneId : leaves[0]
@@ -387,7 +395,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => {
       const existing = s.panes[id]
       if (!existing) return s
-      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined }
+      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined, stream: undefined }
       if (type === 'ai') {
         const command = init?.agentCommand ?? DEFAULT_AGENT
         replacement.agent = withSessionId({ command })
@@ -395,6 +403,12 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       } else if (type === 'shell') {
         replacement.shell = { shell: init?.shell ?? '', args: init?.shellArgs }
         replacement.title = init?.label ?? existing.title.replace(/^Pane/, 'Shell')
+      } else if (type === 'stream') {
+        replacement.stream = {
+          command: init?.agentCommand ?? 'claude',
+          cwd: init?.agentCwd ?? existing.agent?.cwd ?? existing.shell?.cwd
+        }
+        replacement.title = init?.label ?? 'claude · stream'
       }
       return { panes: { ...s.panes, [id]: replacement } }
     }),

@@ -487,6 +487,22 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'streamcards') {
+    // A turn streaming in: a text card, then a tool card, then a done pill.
+    return (
+      <div className="wn-demo wn-demo-stream">
+        <div className="wn-sc-card c1">
+          <Bot size={12} /> Running the tests…
+        </div>
+        <div className="wn-sc-card c2 tool">
+          <Terminal size={12} /> <b>Bash</b> <span className="wn-sc-detail">npm test</span>
+        </div>
+        <div className="wn-sc-pill c3">
+          <Check size={12} /> done · 4.2s
+        </div>
+      </div>
+    )
+  }
   if (kind === 'diffreview') {
     // A red/green diff settling as a green "applied" check pulses on.
     return (

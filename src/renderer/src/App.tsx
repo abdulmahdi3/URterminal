@@ -50,6 +50,7 @@ import { useWhatsNew } from './hooks/useWhatsNew'
 import { useBudgetWarnings } from './hooks/useBudgetWarnings'
 import { useAgentDoctor } from './hooks/useAgentDoctor'
 import { useNotificationFeed } from './hooks/useNotificationFeed'
+import { useStreamData } from './hooks/useStreamData'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
 import { primeOsInfo } from './lib/osInfo'
@@ -74,6 +75,7 @@ export default function App(): JSX.Element {
   useBudgetWarnings()
   useAgentDoctor()
   useNotificationFeed()
+  useStreamData()
 
   // Mirror the theme class onto <body> too, so popovers/menus that portal out
   // of the .app root (HeaderPopover, etc.) still inherit the themed CSS vars

@@ -47,6 +47,7 @@ export type WhatsNewDemo =
   | 'orchestrate'
   | 'crossplatform'
   | 'diffreview'
+  | 'streamcards'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -76,6 +77,25 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.30': {
+    version: '0.3.30',
+    headline: 'A structured “stream” view of Claude — tool calls & diffs as cards',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Stream pane: Claude as native cards',
+        demo: 'streamcards',
+        body:
+          'New pane type. Open it from the pane chooser (“Claude (stream)”) or Ctrl+K → “New stream ' +
+          'pane”, pick a folder, and chat. URterminal runs Claude in stream-json mode and renders each ' +
+          'turn as cards — assistant text, tool calls (Bash, Read, Grep…), file edits shown as green/red ' +
+          'diffs, to-do lists, and a result footer with time, tokens and cost. A “Full access” toggle ' +
+          'lets Claude actually edit files and run commands; leave it off for a safe, read-only view.'
+      }
+    ]
+  },
+
   '0.3.29': {
     version: '0.3.29',
     headline: 'Apply an agent’s code edits without leaving the terminal',

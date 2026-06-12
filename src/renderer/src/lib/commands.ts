@@ -130,6 +130,12 @@ export function getCommands(): Command[] {
       run: () => ws().addPane('shell')
     },
     {
+      id: 'pane.newStream',
+      title: 'New stream pane (Claude, structured cards)',
+      group: 'Panes',
+      run: () => ws().addPane('stream', undefined, { agentCommand: 'claude', label: 'claude · stream' })
+    },
+    {
       id: 'nav.quickSwitch',
       title: 'Switch to pane…',
       group: 'Panes',

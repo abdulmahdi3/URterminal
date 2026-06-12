@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
-import { Clock, RotateCcw } from 'lucide-react'
+import { Clock, RotateCcw, Sparkles } from 'lucide-react'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useSessions } from '@renderer/store/sessions'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
@@ -51,6 +51,22 @@ export default function EmptyPane({ paneId }: { paneId: string }): JSX.Element {
                 </button>
               )
             })}
+          </div>
+        </section>
+
+        <section className="empty-group">
+          <div className="empty-group-title">Structured view</div>
+          <div className="empty-grid">
+            <button
+              className="empty-card"
+              title="Claude in stream-json mode — tool calls, diffs and results as cards"
+              onClick={() =>
+                setPaneType(paneId, 'stream', { agentCommand: 'claude', label: 'claude · stream' })
+              }
+            >
+              <Sparkles size={20} />
+              <span className="empty-card-label">Claude (stream)</span>
+            </button>
           </div>
         </section>
 

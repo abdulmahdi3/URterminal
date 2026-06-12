@@ -4,6 +4,7 @@ import { usePaneStatus } from '@renderer/store/paneStatus'
 import EmptyPane from './EmptyPane'
 import AiPane from './AiPane'
 import ShellPane from './ShellPane'
+import StreamPane from './StreamPane'
 
 export default function PaneView({ paneId }: { paneId: string }): JSX.Element {
   const pane = useWorkspace((s) => s.panes[paneId])
@@ -37,6 +38,7 @@ export default function PaneView({ paneId }: { paneId: string }): JSX.Element {
       {pane.type === 'empty' && <EmptyPane paneId={paneId} />}
       {pane.type === 'ai' && <AiPane pane={pane} />}
       {pane.type === 'shell' && <ShellPane pane={pane} />}
+      {pane.type === 'stream' && <StreamPane pane={pane} />}
     </div>
   )
 }
