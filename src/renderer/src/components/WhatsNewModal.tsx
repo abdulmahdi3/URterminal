@@ -599,7 +599,11 @@ export default function WhatsNewModal(): JSX.Element | null {
         out.push({ version: v, headline: n.headline, releaseKind: n.kind, step: s })
       }
     }
-    return out
+    // Cap a big catch-up jump (e.g. 0.3.13 → 0.4.6 = dozens of steps) to the most
+    // recent ones, so the tour stays digestible and the dot strip never spills
+    // out of the panel.
+    const MAX_STEPS = 12
+    return out.length > MAX_STEPS ? out.slice(out.length - MAX_STEPS) : out
   }, [versions])
 
   // Reset to the first step whenever a tour opens (the component stays mounted).
@@ -615,7 +619,9 @@ export default function WhatsNewModal(): JSX.Element | null {
     cur.step.kind ?? (cur.releaseKind === 'fix' ? 'fix' : 'feature')
   const isLast = idx >= flat.length - 1
   const isFirst = idx <= 0
-  const multi = versions.length > 1
+  const firstVer = flat[0].version
+  const lastVer = flat[flat.length - 1].version
+  const multi = firstVer !== lastVer
 
   // Record the real app version so nothing re-shows until the next update
   // (falls back to the newest shown version if the app info call fails).
@@ -638,11 +644,11 @@ export default function WhatsNewModal(): JSX.Element | null {
             <span>
               {multi ? (
                 <>
-                  What&apos;s new <b>·</b> {versions[0]} → {versions[versions.length - 1]}
+                  What&apos;s new <b>·</b> {firstVer} → {lastVer}
                 </>
               ) : (
                 <>
-                  What&apos;s new <b>·</b> URterminal {versions[0]}
+                  What&apos;s new <b>·</b> URterminal {firstVer}
                 </>
               )}
             </span>

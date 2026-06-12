@@ -1290,7 +1290,13 @@
 }
 .whatsnew-dots {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 7px;
+  flex: 1;
+  min-width: 0;
+  max-height: 40px;
+  overflow: hidden;
 }
 .whatsnew-dot {
   width: 8px;

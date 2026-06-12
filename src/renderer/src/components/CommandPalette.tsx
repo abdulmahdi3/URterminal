@@ -28,6 +28,16 @@ interface Section {
   items: Command[]
 }
 
+/** Newest features, pinned to the top of a cold-open palette (most recent first). */
+const NEW_FEATURE_IDS = [
+  'app.timeline',
+  'app.tasks',
+  'app.rooms',
+  'app.bridge',
+  'pane.newStream',
+  'pane.reviewDiff'
+]
+
 /** Held modifiers as a partial combo, e.g. "Ctrl+", "Ctrl+Shift+" (Meta shows as Ctrl). */
 function heldModifiers(e: KeyboardEvent): string {
   const parts: string[] = []
@@ -160,7 +170,12 @@ export default function CommandPalette(): JSX.Element | null {
   }, [commands])
 
   // Filter + score, then group by category (groups ordered by their best score).
+  // When the palette opens cold (no query, no group filter) the newest features
+  // are pinned to the top in a "✨ New" section so they're easy to discover.
   const { sections, flat } = useMemo(() => {
+    const showNew = !query.trim() && !groupFilter
+    const newSet = new Set(showNew ? NEW_FEATURE_IDS : [])
+
     const scored: { cmd: Command; score: number }[] = []
     for (const cmd of commands) {
       if (groupFilter && cmd.group !== groupFilter) continue
@@ -172,6 +187,7 @@ export default function CommandPalette(): JSX.Element | null {
     const order: string[] = []
     const byGroup = new Map<string, Command[]>()
     for (const { cmd } of scored) {
+      if (newSet.has(cmd.id)) continue // surfaced in the New section instead
       if (!byGroup.has(cmd.group)) {
         byGroup.set(cmd.group, [])
         order.push(cmd.group)
@@ -179,6 +195,13 @@ export default function CommandPalette(): JSX.Element | null {
       byGroup.get(cmd.group)!.push(cmd)
     }
     const secs: Section[] = order.map((g) => ({ group: g, items: byGroup.get(g)! }))
+
+    if (showNew) {
+      const newItems = NEW_FEATURE_IDS.map((id) => commands.find((c) => c.id === id)).filter(
+        (c): c is Command => !!c
+      )
+      if (newItems.length) secs.unshift({ group: '✨ New', items: newItems })
+    }
     return { sections: secs, flat: secs.flatMap((s) => s.items) }
   }, [commands, query, groupFilter])
 
