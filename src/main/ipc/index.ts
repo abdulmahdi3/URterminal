@@ -15,10 +15,13 @@ import type {
   FileSaveResult,
   DiffApplyRequest,
   DiffApplyResult,
+  DashboardState,
+  PtyDataEvent,
   GoogleTask,
   ProviderId
 } from '@shared/types'
 import { applyPatch } from '@shared/diff'
+import { stripAnsi } from '../learning/ansi'
 import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget } from '../ssh/sshPty'
 import { SshAgentBridge } from '../ssh/agentBridge'
@@ -123,8 +126,16 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   // is driven from the renderer (useTelegramForwarding), which extracts the
   // submitted prompt and the agent's answer blocks from the rendered screen
   // instead of streaming raw escape-code redraws.
+  // Latest workspace/pane snapshot the renderer pushes, served to the dashboard.
+  let dashState: DashboardState = { workspaces: [], panes: [], activePaneId: null }
+
   const pty = new PtyManager((channel, payload) => {
     emit(channel, payload)
+    // Tap pane output for the web dashboard's live feed (ANSI stripped for HTML).
+    if (channel === 'pty:data') {
+      const p = payload as PtyDataEvent
+      control.pushOutput(p.paneId, stripAnsi(p.data))
+    }
   })
 
   // A prior run may have left ~/.claude.json corrupt (concurrent `claude` writes
@@ -157,7 +168,16 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       pty.write(ptyId, data)
       return true
     },
-    openPane: (spec) => emitFocused(IPC.controlOpenPane, spec)
+    openPane: (spec) => emitFocused(IPC.controlOpenPane, spec),
+    // ---- dashboard (#25) ----
+    closePane: (paneId) => emitFocused(IPC.controlClosePane, paneId),
+    switchWorkspace: (id) => emitFocused(IPC.controlSwitchWorkspace, id),
+    dashboardState: () => dashState,
+    paneOutput: (paneId) => {
+      const text = stripAnsi(transcripts.read(paneId))
+      return text.length > 40000 ? text.slice(-40000) : text
+    },
+    ptyIdForPane: (paneId) => pty.list().find((p) => p.paneId === paneId)?.ptyId
   })
   const startControl = (): Promise<unknown> => {
     const p = settings.getPrefs()
@@ -902,6 +922,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
 
   // ---- pane registry (renderer → main sync for Telegram /panes command) ----
   ipcMain.handle(IPC.panesUpdate, (_e, panes) => telegram.setPaneRegistry(panes))
+
+  // ---- dashboard state (renderer → main sync for the web dashboard) ----
+  ipcMain.handle(IPC.controlDashboardSync, (_e, state: DashboardState) => {
+    dashState = state
+    control.notifyState()
+  })
 
   // ---- screenshots → Telegram ----
   ipcMain.handle(IPC.screenshotPane, (_e, paneId: string) => telegram.screenshotPane(paneId))

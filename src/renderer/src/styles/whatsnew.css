@@ -1562,6 +1562,73 @@
   }
 }
 
+/* "dashboard" demo — a loopback browser frame with a live-streaming pane row */
+.wn-demo-dash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wn-dash-device {
+  width: 180px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-elev-2);
+}
+.wn-dash-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.wn-dash-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok, #22c55e);
+  animation: wn-dash-pulse 2.4s ease-in-out infinite;
+}
+.wn-dash-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text);
+}
+.wn-dash-row + .wn-dash-row {
+  border-top: 1px solid var(--border);
+}
+.wn-dash-stream {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent) 30%, transparent 30%);
+  background-size: 16px 100%;
+  /* Base = a filled accent bar so reduced-motion still reads as "live". */
+  animation: wn-dash-flow 1.2s linear infinite;
+}
+@keyframes wn-dash-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--ok, #22c55e);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 5px 1px var(--ok, #22c55e);
+  }
+}
+@keyframes wn-dash-flow {
+  to {
+    background-position: 16px 0;
+  }
+}
+
 /* "streamcards" demo — a turn streaming in as cards, then a done pill */
 .wn-demo-stream {
   display: flex;
@@ -1787,6 +1854,8 @@
   .wn-diff-apply,
   .wn-sc-card,
   .wn-sc-pill,
+  .wn-dash-dot,
+  .wn-dash-stream,
   .wn-demo-loader .spin {
     animation: none;
   }

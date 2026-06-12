@@ -487,6 +487,24 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'dashboard') {
+    // A loopback browser frame with panes and a live-streaming row.
+    return (
+      <div className="wn-demo wn-demo-dash">
+        <div className="wn-dash-device">
+          <div className="wn-dash-bar">
+            <span className="wn-dash-dot" /> 127.0.0.1
+          </div>
+          <div className="wn-dash-row live">
+            <Bot size={11} /> claude <span className="wn-dash-stream" />
+          </div>
+          <div className="wn-dash-row">
+            <Terminal size={11} /> shell
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'streamcards') {
     // A turn streaming in: a text card, then a tool card, then a done pill.
     return (

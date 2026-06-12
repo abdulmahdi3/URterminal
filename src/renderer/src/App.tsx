@@ -40,6 +40,7 @@ import { useChainForwarding } from './hooks/useChainForwarding'
 import { useTelegramForwarding } from './hooks/useTelegramForwarding'
 import { useControlServer } from './hooks/useControlServer'
 import { usePaneRegistry } from './hooks/usePaneRegistry'
+import { useDashboardSync } from './hooks/useDashboardSync'
 import { useBroadcast } from './hooks/useBroadcast'
 import { usePaneActivity } from './hooks/usePaneActivity'
 import { useDoneNotifications } from './hooks/useDoneNotifications'
@@ -65,6 +66,7 @@ export default function App(): JSX.Element {
   useTelegramForwarding()
   useControlServer()
   usePaneRegistry()
+  useDashboardSync()
   useBroadcast()
   usePaneActivity()
   useDoneNotifications()

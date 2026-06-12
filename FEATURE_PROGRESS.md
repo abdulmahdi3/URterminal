@@ -8,7 +8,7 @@ Full roadmap reference: `~/.claude/plans/suggest-25-features-that-fluttering-sea
 
 ## Summary
 
-- **~24 / 25** roadmap features done (several were already present in the codebase). Since this report was first written at 0.3.17, **#6 Prompt enhancer**, **#3 Shared cross-agent memory**, **#14 Macros**, **#17 Local HTTP/CLI control**, **#2 Orchestrator pane**, **#19 macOS / Linux support**, **#5 Inline diff review & apply**, and **#4 Structured stream-json pane** have shipped. Only **#25 Web / mobile dashboard** remains.
+- **25 / 25 roadmap features done.** 🎉 Since this report was first written at 0.3.17, **#6 Prompt enhancer**, **#3 Shared cross-agent memory**, **#14 Macros**, **#17 Local HTTP/CLI control**, **#2 Orchestrator pane**, **#19 macOS / Linux support**, **#5 Inline diff review & apply**, **#4 Structured stream-json pane**, and **#25 Web / mobile dashboard** have shipped. The roadmap is complete.
 - **6 releases shipped** this effort: **0.3.13 → 0.3.17** (all published to GitHub with installer + `latest.yml` auto-update).
 - A **What's New tour** convention was established: every shipped feature adds an animated step, and **each version shows only its own new features** (dynamic multi-version: a 0.3.14→0.3.17 jump shows all versions between; a first install shows only the latest).
 
@@ -53,18 +53,14 @@ Full roadmap reference: `~/.claude/plans/suggest-25-features-that-fluttering-sea
 | 19 | macOS / Linux support | 0.3.28 | platform plumbed via `app:info` → `osInfo.platform()`; per-OS shells in `lib/shells.ts` (`builtinShells`); `system/processes.ts` `ps` path + parsers; `ssh/sshfs.ts` POSIX FUSE backend (macFUSE/fusermount, dir mountpoints); `electron-builder.yml` mac (dmg+zip) + linux (AppImage+deb) targets; CI release matrix `.github/workflows/release.yml`; What's New `crossplatform` demo |
 | 5 | Inline diff review & apply | 0.3.29 | `shared/diff.ts` pure `parsePatches`/`applyPatch` (drift-tolerant, new-file/delete) + tests; `IPC.diffApply` handler (atomic write, cwd-scoped) + preload `applyDiff`; `store/diffReview.ts`; `DiffReviewModal.tsx` (per-file accept + colored preview); cmd `pane.reviewDiff` + SelectionTranslate action; What's New `diffreview` demo |
 | 4 | Structured stream-json pane | 0.3.30 | new `PaneType` 'stream' + `StreamPaneState`; `shared/streamJson.ts` pure NDJSON→cards parser (+ `summarizeTool`/`editPreview`) + tests; `store/streams.ts` + `hooks/useStreamData.ts` (turn transcript, `--resume` continuity); `StreamPane.tsx` cards (text, tool calls, edit diffs reuse `.diff-line`, todos, result footer); spawns `claude -p --output-format stream-json` w/ optional `--dangerously-skip-permissions`; EmptyPane + `pane.newStream`; What's New `streamcards` demo |
+| 25 | Web / mobile dashboard | 0.3.31 | extends the control server (`main/control/server.ts`): serves `dashboard.ts` web UI at `/`, SSE `/events` live output (ANSI-stripped), `/state`, `/pane/output`, input by paneId, `/panes/close`, `/workspaces/switch` + tests; `pty:data` tap → `pushOutput`; `controlDashboardSync`/`controlClosePane`/`controlSwitchWorkspace` IPC; `hooks/useDashboardSync.ts` + `useControlServer` close/switch; Settings “Open dashboard”; What's New `dashboard` demo |
 | — | Prompt minimap (extra) | 0.3.16 | `components/PromptMinimap.tsx`, per-chat persistence `main/prompts/store.ts` + `prompts:get/append` IPC |
 
 ---
 
 ## Remaining (not started)
 
-All remaining items are heavier — large, architecturally risky, or dependent on the learning layer. Listed roughly easiest → hardest.
-
-| # | Feature | Effort | Notes / risk |
-|---|---------|--------|--------------|
-| 4 | Structured stream-json pane | L | Render Claude's `--output-format stream-json` (tool calls, diffs, todos) as native UI cards. New `Pane.type` + renderer; biggest visual leap. |
-| 25 | Web / mobile dashboard | L | Authenticated web view to see panes + send prompts remotely. Generalize the Telegram bridge into an HTTP+WS service. |
+None — all 25 roadmap features have shipped (0.3.13 → 0.3.31).
 
 ### Deferred
 - **#9 Saved layouts / "projects"** — overlaps the existing named session snapshots + pane templates; would be a near-duplicate. Revisit only if a distinct "blueprint" behavior is wanted.

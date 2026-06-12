@@ -19,6 +19,7 @@ import type {
   TelegramCreatePane,
   ControlCreatePane,
   ControlServerStatus,
+  DashboardState,
   PerfSample,
   ClaudeUsage,
   FileSaveRequest,
@@ -302,10 +303,17 @@ const api = {
   onTelegramStatusChanged: (cb: (s: TelegramStatus) => void): (() => void) =>
     on<TelegramStatus>(IPC.telegramStatusChanged, cb),
 
-  // ---- local control server ----
+  // ---- local control server / web dashboard ----
   controlStatus: (): Promise<ControlServerStatus> => ipcRenderer.invoke(IPC.controlStatus),
   onControlOpenPane: (cb: (e: ControlCreatePane) => void): (() => void) =>
     on<ControlCreatePane>(IPC.controlOpenPane, cb),
+  onControlClosePane: (cb: (paneId: string) => void): (() => void) =>
+    on<string>(IPC.controlClosePane, cb),
+  onControlSwitchWorkspace: (cb: (id: string) => void): (() => void) =>
+    on<string>(IPC.controlSwitchWorkspace, cb),
+  /** Push the current workspace/pane snapshot to main for the web dashboard. */
+  dashboardSync: (state: DashboardState): Promise<void> =>
+    ipcRenderer.invoke(IPC.controlDashboardSync, state),
 
   // ---- perf ----
   getPerfSample: (): Promise<PerfSample> => ipcRenderer.invoke(IPC.perfSample),

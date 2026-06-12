@@ -708,6 +708,21 @@ export interface ControlServerStatus {
   error?: string
 }
 
+/** One workspace tab, as shown in the web dashboard. */
+export interface DashboardWorkspace {
+  id: string
+  name: string
+  active: boolean
+}
+
+/** Snapshot the renderer pushes to main so the web dashboard can render + drive
+ *  the app: the workspace tabs, the active workspace's panes, and the focus. */
+export interface DashboardState {
+  workspaces: DashboardWorkspace[]
+  panes: PaneInfo[]
+  activePaneId: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Perf
 // ---------------------------------------------------------------------------
@@ -967,6 +982,9 @@ export const IPC = {
 
   // local control server (drive panes from scripts over 127.0.0.1)
   controlOpenPane: 'control:open-pane', // main -> renderer (event): open a pane on request
+  controlClosePane: 'control:close-pane', // main -> renderer (event): close a pane (dashboard)
+  controlSwitchWorkspace: 'control:switch-workspace', // main -> renderer (event): switch workspace
+  controlDashboardSync: 'control:dashboard-sync', // renderer -> main: push workspace/pane state
   controlStatus: 'control:status', // renderer -> main: running state for Settings
 
   // telegram

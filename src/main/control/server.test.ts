@@ -4,9 +4,11 @@ import {
   isAuthorized,
   parseOpenSpec,
   generateControlToken,
+  sseFrame,
+  strField,
   type ControlHooks
 } from './server'
-import type { ControlCreatePane } from '@shared/types'
+import type { ControlCreatePane, DashboardState } from '@shared/types'
 
 describe('isAuthorized', () => {
   it('accepts a matching bearer header', () => {
@@ -53,12 +55,36 @@ describe('generateControlToken', () => {
   })
 })
 
+describe('sseFrame', () => {
+  it('serializes a payload as a single data frame', () => {
+    expect(sseFrame({ type: 'data', paneId: 'x', data: 'hi' })).toBe(
+      'data: {"type":"data","paneId":"x","data":"hi"}\n\n'
+    )
+  })
+})
+
+describe('strField', () => {
+  it('trims string fields and returns "" for non-strings', () => {
+    expect(strField({ id: '  w1 ' }, 'id')).toBe('w1')
+    expect(strField({ id: 7 }, 'id')).toBe('')
+    expect(strField({}, 'id')).toBe('')
+  })
+})
+
 describe('ControlServer (loopback)', () => {
   const TOKEN = 'test-token-123'
   let server: ControlServer
   let base: string
   let opened: ControlCreatePane[]
   let inputs: Array<{ ptyId: string; data: string }>
+  let closed: string[]
+  let switched: string[]
+
+  const DASH: DashboardState = {
+    workspaces: [{ id: 'w1', name: 'Main', active: true }],
+    panes: [{ number: 1, id: 'pane1', type: 'ai', title: 'claude' }],
+    activePaneId: 'pane1'
+  }
 
   const hooks: ControlHooks = {
     version: () => '9.9.9',
@@ -68,12 +94,19 @@ describe('ControlServer (loopback)', () => {
       inputs.push({ ptyId, data })
       return true
     },
-    openPane: (spec) => opened.push(spec)
+    openPane: (spec) => opened.push(spec),
+    closePane: (paneId) => closed.push(paneId),
+    switchWorkspace: (id) => switched.push(id),
+    dashboardState: () => DASH,
+    paneOutput: (paneId) => (paneId === 'pane1' ? 'OUTPUT' : ''),
+    ptyIdForPane: (paneId) => (paneId === 'pane1' ? 'p1' : undefined)
   }
 
   beforeEach(async () => {
     opened = []
     inputs = []
+    closed = []
+    switched = []
     server = new ControlServer(hooks)
     const status = await server.start({ enabled: true, port: 0, token: TOKEN })
     expect(status.running).toBe(true)
@@ -129,6 +162,69 @@ describe('ControlServer (loopback)', () => {
     })
     expect(r.status).toBe(202)
     expect(opened).toEqual([{ type: 'ai', command: 'claude', cwd: '/repo', shell: undefined }])
+  })
+
+  it('serves the dashboard HTML at / without auth', async () => {
+    const r = await fetch(`${base}/`)
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toContain('text/html')
+    expect(await r.text()).toContain('URterminal')
+  })
+
+  it('returns dashboard state at /state', async () => {
+    const r = await fetch(`${base}/state?token=${TOKEN}`)
+    expect(r.status).toBe(200)
+    const body = (await r.json()) as DashboardState
+    expect(body.workspaces[0].id).toBe('w1')
+    expect(body.activePaneId).toBe('pane1')
+  })
+
+  it('returns a pane output snapshot', async () => {
+    const r = await fetch(`${base}/pane/output?paneId=pane1&token=${TOKEN}`)
+    expect(await r.json()).toEqual({ output: 'OUTPUT' })
+  })
+
+  it('routes /input by paneId through ptyIdForPane', async () => {
+    const r = await fetch(`${base}/input?token=${TOKEN}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ paneId: 'pane1', text: 'hi' })
+    })
+    expect(r.status).toBe(200)
+    expect(inputs[0].data).toBe('\x1b[200~hi\x1b[201~\r')
+  })
+
+  it('closes a pane and switches a workspace', async () => {
+    await fetch(`${base}/panes/close?token=${TOKEN}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ paneId: 'pane1' })
+    })
+    await fetch(`${base}/workspaces/switch?token=${TOKEN}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'w1' })
+    })
+    expect(closed).toEqual(['pane1'])
+    expect(switched).toEqual(['w1'])
+  })
+
+  it('streams live output to an SSE client via pushOutput', async () => {
+    const r = await fetch(`${base}/events?token=${TOKEN}`)
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toContain('text/event-stream')
+    const reader = (r.body as ReadableStream<Uint8Array>).getReader()
+    // the connection is registered by the time headers arrive; push now
+    server.pushOutput('pane1', 'hello')
+    const dec = new TextDecoder()
+    let buf = ''
+    while (!buf.includes('"data":"hello"')) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += dec.decode(value)
+    }
+    expect(buf).toContain('"paneId":"pane1"')
+    await reader.cancel()
   })
 
   it('stop() frees the port and disabled start does not listen', async () => {

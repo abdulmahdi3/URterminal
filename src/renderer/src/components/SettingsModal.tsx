@@ -1650,8 +1650,10 @@ export default function SettingsModal(): JSX.Element | null {
               <section className="settings-section" ref={sectionRef('control')}>
                 <Head id="control" title="Local control" />
                 <span className="hint settings-block-hint">
-                  A loopback HTTP server (127.0.0.1 only) so local scripts can list panes, open
-                  panes, and send prompts. Token-gated and never exposed to the network.
+                  A loopback HTTP server (127.0.0.1 only) so local scripts — and the built-in web
+                  dashboard — can view live output, send prompts, and open/close panes & switch
+                  workspaces. Token-gated and never exposed to the network; to reach it from your
+                  phone, forward the port over your own SSH tunnel.
                 </span>
                 <ToggleCard
                   icon={<Server size={16} />}
@@ -1708,6 +1710,24 @@ export default function SettingsModal(): JSX.Element | null {
                             <RefreshCw size={13} /> New
                           </button>
                         </div>
+                      }
+                    />
+                    <SettingCard
+                      icon={<Monitor size={16} />}
+                      title="Web dashboard"
+                      desc="Opens the token-linked dashboard in your browser — view output, send prompts, manage panes."
+                      control={
+                        <button
+                          className="btn primary"
+                          disabled={!controlStat?.running || !prefs.controlServerToken}
+                          onClick={() =>
+                            window.open(
+                              `http://127.0.0.1:${controlStat?.port ?? prefs.controlServerPort}/?token=${encodeURIComponent(prefs.controlServerToken)}`
+                            )
+                          }
+                        >
+                          <Monitor size={13} /> Open dashboard
+                        </button>
                       }
                     />
                     <pre className="snippet-preview">{`curl -H "Authorization: Bearer ${prefs.controlServerToken || '<token>'}" http://127.0.0.1:${prefs.controlServerPort}/panes`}</pre>

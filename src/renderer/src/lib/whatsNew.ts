@@ -48,6 +48,7 @@ export type WhatsNewDemo =
   | 'crossplatform'
   | 'diffreview'
   | 'streamcards'
+  | 'dashboard'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -77,6 +78,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.3.31': {
+    version: '0.3.31',
+    headline: 'Drive URterminal from your browser — the web dashboard',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Web dashboard (loopback + token)',
+        demo: 'dashboard',
+        body:
+          'Settings → Local control → “Open dashboard”. A browser view of your panes served on ' +
+          '127.0.0.1 and gated by your access token: watch live output stream in, send prompts, open ' +
+          'and close panes, and switch workspaces — from a second screen or, over your own SSH tunnel, ' +
+          'your phone. It never touches the network on its own; loopback-only, token-required.'
+      }
+    ]
+  },
+
   '0.3.30': {
     version: '0.3.30',
     headline: 'A structured “stream” view of Claude — tool calls & diffs as cards',
