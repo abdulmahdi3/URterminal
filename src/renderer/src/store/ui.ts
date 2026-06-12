@@ -35,6 +35,8 @@ interface UiState {
   showRooms: boolean
   /** Task board (local kanban) open */
   showTasks: boolean
+  /** Build timeline (the live loop view) open */
+  showTimeline: boolean
   linkingPaneId: string | null
   /** when set, only this pane is rendered (zoom / maximize) */
   zoomedPaneId: string | null
@@ -84,6 +86,7 @@ interface UiState {
   setShowBridge: (v: boolean) => void
   setShowRooms: (v: boolean) => void
   setShowTasks: (v: boolean) => void
+  setShowTimeline: (v: boolean) => void
   setLinkingPaneId: (id: string | null) => void
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
@@ -121,6 +124,7 @@ const ALL_CLOSED = {
   showBridge: false,
   showRooms: false,
   showTasks: false,
+  showTimeline: false,
   showSshPrompt: false,
   showNotes: false,
   linkingPaneId: null as string | null
@@ -145,6 +149,7 @@ export const useUi = create<UiState>((set, get) => ({
   showBridge: false,
   showRooms: false,
   showTasks: false,
+  showTimeline: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -207,6 +212,7 @@ export const useUi = create<UiState>((set, get) => ({
   setShowBridge: (v) => set(v ? { ...ALL_CLOSED, showBridge: true } : { showBridge: false }),
   setShowRooms: (v) => set(v ? { ...ALL_CLOSED, showRooms: true } : { showRooms: false }),
   setShowTasks: (v) => set(v ? { ...ALL_CLOSED, showTasks: true } : { showTasks: false }),
+  setShowTimeline: (v) => set(v ? { ...ALL_CLOSED, showTimeline: true } : { showTimeline: false }),
   setLinkingPaneId: (id) => set(id ? { ...ALL_CLOSED, linkingPaneId: id } : { linkingPaneId: null }),
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),

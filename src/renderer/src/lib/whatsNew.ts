@@ -24,6 +24,7 @@ import bridgegraphGif from '../assets/whatsnew/bridgegraph.gif'
 import bridgemcpGif from '../assets/whatsnew/bridgemcp.gif'
 import roomsGif from '../assets/whatsnew/rooms.gif'
 import taskboardGif from '../assets/whatsnew/taskboard.gif'
+import buildmoveGif from '../assets/whatsnew/buildmove.gif'
 
 /** Built-in animated illustrations shown when a step has no recorded `media`. */
 export type WhatsNewDemo =
@@ -89,6 +90,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.5': {
+    version: '0.4.5',
+    headline: 'Watch the build move',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'The build loop, made visible',
+        media: buildmoveGif,
+        body:
+          'Ctrl+K → “Build timeline”. A live view of the daily rhythm: Set the vibe → Open the room → Run ' +
+          'the crew → Review the work. The stepper lights up from what’s actually open and running, with a ' +
+          'session strip (panes, agents, events) and the live event feed. The point isn’t to hide ' +
+          'complexity — it’s to keep the moving parts visible enough that you can steer them.'
+      }
+    ]
+  },
+
   '0.4.4': {
     version: '0.4.4',
     headline: 'A task board that feeds the workroom',

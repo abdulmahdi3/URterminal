@@ -528,6 +528,38 @@ function sceneTaskboard(i, N) {
   return buf
 }
 
+// Build timeline — the loop moving through its four stages, the progress filling
+// left to right (Vibe → Room → Crew → Ship).
+function sceneBuildmove(i, N) {
+  const buf = frame()
+  const stages = ['VIBE', 'ROOM', 'CREW', 'SHIP']
+  const y = 64
+  const xs = stages.map((_, idx) => 60 + idx * ((W - 120) / (stages.length - 1)))
+  const reached = Math.floor((i / N) * stages.length) % stages.length
+  // base + filled connector line
+  line(buf, xs[0], y, xs[stages.length - 1], y, C.border)
+  if (reached > 0) {
+    for (let s = 0; s < reached; s++) {
+      const col = C.ok
+      // thick filled segment
+      for (let yy = -1; yy <= 1; yy++) line(buf, xs[s], y + yy, xs[s + 1], y + yy, col)
+    }
+  }
+  stages.forEach((label, idx) => {
+    const done = idx < reached
+    const active = idx === reached
+    const col = done ? C.ok : active ? C.accent : C.dim
+    if (active) {
+      const pulse = 0.5 + 0.5 * Math.sin((i / N) * Math.PI * 8)
+      disc(buf, Math.round(xs[idx]), y, Math.round(9 + pulse * 4), C.accentDim)
+    }
+    disc(buf, Math.round(xs[idx]), y, 8, col)
+    if (done) disc(buf, Math.round(xs[idx]), y, 4, C.white)
+    textCenter(buf, Math.round(xs[idx]), y + 18, label, done || active ? C.text : C.dim, 1)
+  })
+  return buf
+}
+
 const SCENES = {
   crossplatform: sceneCrossplatform,
   diffreview: sceneDiffreview,
@@ -537,7 +569,8 @@ const SCENES = {
   bridgegraph: sceneBridgegraph,
   bridgemcp: sceneBridgemcp,
   rooms: sceneRooms,
-  taskboard: sceneTaskboard
+  taskboard: sceneTaskboard,
+  buildmove: sceneBuildmove
 }
 
 // Optional PNG preview (frame snapshot) + a single-frame GIF, for visual review.

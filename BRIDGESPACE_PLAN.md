@@ -1,5 +1,8 @@
 # BridgeSpace — implementation plan
 
+**Status: all 6 features shipped (0.4.0 → 0.4.5), each committed + pushed to main with a bespoke What's New GIF.**
+
+
 Source: 5 vision screenshots (BridgeMind / BridgeSpace / BridgeMemory). The loop is
 **Task → Workspace → Agents → Review**. Build each feature as its own release +
 GitHub push (convention: pure core + tests → IPC/preload → UI → command + What's

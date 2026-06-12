@@ -1185,6 +1185,131 @@
   color: var(--err, #ef4444);
 }
 
+/* ── Build timeline ────────────────────────────────────────────────────── */
+.modal.timeline {
+  width: 760px;
+}
+.tl-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-md, 14px);
+}
+.tl-loop {
+  display: flex;
+  gap: 0;
+  padding: 16px;
+}
+.tl-phase {
+  position: relative;
+  flex: 1;
+  padding: 0 14px;
+  opacity: 0.5;
+}
+.tl-phase.done,
+.tl-phase.active {
+  opacity: 1;
+}
+.tl-dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  margin-bottom: 8px;
+}
+.tl-phase.done .tl-dot {
+  background: var(--ok, #22c55e);
+  border-color: var(--ok, #22c55e);
+}
+.tl-phase.active .tl-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.tl-phase-name {
+  font-size: var(--fs-sm, 13px);
+  font-weight: 600;
+}
+.tl-phase-hint {
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.tl-arrow {
+  position: absolute;
+  top: 0;
+  right: -6px;
+  color: var(--text-dim);
+}
+.tl-vibe {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 0 18px 12px;
+  font-size: var(--fs-xs, 12px);
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.tl-vibe b {
+  color: var(--text);
+}
+.tl-vibe .tl-last {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+}
+.tl-feed {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 10px 16px;
+}
+.tl-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: var(--fs-xs, 12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.tl-event-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+  flex: 0 0 64px;
+}
+.tl-event-icon {
+  color: var(--text-dim);
+  display: flex;
+}
+.tl-event.answer .tl-event-icon {
+  color: var(--accent);
+}
+.tl-event-pane {
+  flex: 0 0 110px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-event-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+}
+
 /* consistent field width so every input/select/textarea + button group aligns */
 .settings-content {
   --settings-field-w: 380px;

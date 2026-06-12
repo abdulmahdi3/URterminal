@@ -227,6 +227,12 @@ export function getCommands(): Command[] {
       run: () => ui().setShowTasks(true)
     },
     {
+      id: 'app.timeline',
+      title: 'Build timeline (watch the loop)…',
+      group: 'App',
+      run: () => ui().setShowTimeline(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'Connect to SSH server…',
       group: 'Panes',
