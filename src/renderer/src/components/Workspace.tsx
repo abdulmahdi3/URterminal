@@ -18,7 +18,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Columns2, Rows2, X, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
@@ -249,7 +249,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   ref
 ): JSX.Element {
   const title = useWorkspace((s) => s.panes[paneId]?.title ?? paneId)
-  const linked = useWorkspace((s) => !!s.panes[paneId]?.telegramChatId)
   const activePaneId = useWorkspace((s) => s.activePaneId)
   const paneType = useWorkspace((s) => s.panes[paneId]?.type)
   const layout = useWorkspace((s) => s.layout)
@@ -277,7 +276,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const setActive = useWorkspace((s) => s.setActive)
   const togglePaneSelected = useWorkspace((s) => s.togglePaneSelected)
   const selected = useWorkspace((s) => s.selectedPaneIds.includes(paneId))
-  const setLinkingPaneId = useUi((s) => s.setLinkingPaneId)
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const toggleZoom = useUi((s) => s.toggleZoom)
 
@@ -588,13 +586,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
             <Bot size={13} />
           </button>
         )}
-        <button
-          className={clsx('icon-btn', linked && 'linked')}
-          title="Link to Telegram"
-          onClick={() => setLinkingPaneId(paneId)}
-        >
-          <Send size={13} />
-        </button>
         <button
           className="icon-btn"
           title={paneCount >= 9 ? 'Max 9 panes reached' : 'Split right (duplicate session)'}

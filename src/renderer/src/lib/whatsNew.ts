@@ -95,6 +95,22 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.5.2': {
+    version: '0.5.2',
+    headline: 'A tidier pane header',
+    kind: 'fix',
+    steps: [
+      {
+        kind: 'fix',
+        title: 'Removed the per-pane Telegram button',
+        body:
+          'The “Link to Telegram” button on each pane header is gone — once the app is connected to ' +
+          'Telegram from Settings, the per-pane link was redundant clutter. Telegram setup lives in ' +
+          'Settings → Telegram.'
+      }
+    ]
+  },
+
   '0.5.1': {
     version: '0.5.1',
     headline: 'See why a command matched',
