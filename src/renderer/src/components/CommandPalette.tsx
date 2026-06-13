@@ -23,6 +23,37 @@ function fuzzy(query: string, text: string): number | null {
   return qi === q.length ? score : null
 }
 
+/**
+ * Wrap the query's matched characters (in-order subsequence) in an accent mark
+ * so the reason a command matched is highlighted in the theme accent color.
+ */
+function highlightMatch(text: string, query: string): (string | JSX.Element)[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return [text]
+  const out: (string | JSX.Element)[] = []
+  let qi = 0
+  let buf = ''
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (qi < q.length && ch.toLowerCase() === q[qi]) {
+      if (buf) {
+        out.push(buf)
+        buf = ''
+      }
+      out.push(
+        <mark key={i} className="palette-hl">
+          {ch}
+        </mark>
+      )
+      qi++
+    } else {
+      buf += ch
+    }
+  }
+  if (buf) out.push(buf)
+  return out
+}
+
 interface Section {
   group: string
   items: Command[]
@@ -292,7 +323,7 @@ export default function CommandPalette(): JSX.Element | null {
                     onMouseEnter={() => setActive(i)}
                     onClick={() => run(cmd)}
                   >
-                    <span className="palette-title">{cmd.title}</span>
+                    <span className="palette-title">{highlightMatch(cmd.title, query)}</span>
                     <ShortcutCell
                       builtin={cmd.shortcut}
                       custom={custom[cmd.id]}

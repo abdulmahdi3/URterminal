@@ -240,6 +240,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* matched query characters — tinted with the theme accent to draw focus */
+.palette-hl {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
 .palette-shortcut {
   flex: 0 0 auto;
   font-family: var(--mono);

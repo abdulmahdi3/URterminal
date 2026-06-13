@@ -95,6 +95,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.5.1': {
+    version: '0.5.1',
+    headline: 'See why a command matched',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Matched letters light up in the palette',
+        demo: 'palette',
+        body:
+          'As you type in the command palette, the characters your query matched in each command are now ' +
+          'tinted with your theme accent — so the reason a result showed up jumps right out and the best ' +
+          'match is easy to spot. Open it with Ctrl+Shift+K and start typing.'
+      }
+    ]
+  },
+
   '0.5.0': {
     version: '0.5.0',
     headline: 'The whole window, in motion',
