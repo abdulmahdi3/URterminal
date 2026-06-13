@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { LayoutGrid, Cpu, MemoryStick, Zap, Clock, Bot, Settings, Command as CommandIcon, GitBranch } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Clock, Bot, Command as CommandIcon, GitBranch } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
@@ -9,8 +9,6 @@ import { useUi } from '@renderer/store/ui'
 import { usePaneStatus } from '@renderer/store/paneStatus'
 import { useGitStatus } from '@renderer/hooks/useGitStatus'
 import NotificationBell from './NotificationBell'
-import { LAYOUT_PRESETS } from '@renderer/lib/layoutPresets'
-import type { LayoutPreset } from '@renderer/lib/layoutPresets'
 import LearningStatus from './LearningStatus'
 
 function formatChars(n: number): string {
@@ -24,34 +22,8 @@ function formatMem(mb: number): string {
   return mb >= 1000 ? `${(mb / 1024).toFixed(2)} GB` : `${mb} MB`
 }
 
-
-function LayoutTile({ preset, onClick }: { preset: LayoutPreset; onClick: () => void }): JSX.Element {
-  return (
-    <button className="lp-tile" title={preset.label} onClick={onClick}>
-      <div className="lp-grid">
-        {preset.tiles.map((tile, i) => (
-          <div
-            key={i}
-            className="lp-pane"
-            style={{
-              left: `${tile.l}%`,
-              top: `${tile.t}%`,
-              width: `${tile.w}%`,
-              height: `${tile.h}%`
-            }}
-          />
-        ))}
-      </div>
-      <span className="lp-label">{preset.label}</span>
-    </button>
-  )
-}
-
 export default function StatusBar(): JSX.Element {
-  const paneCount = useWorkspace((s) => Object.keys(s.panes).length)
-  const layout = useWorkspace((s) => s.layout)
   const panes = useWorkspace((s) => s.panes)
-  const applyLayoutPreset = useWorkspace((s) => s.applyLayoutPreset)
 
   const statusMap = usePaneStatus((s) => s.status)
   const aiPaneIds = Object.keys(panes).filter((id) => panes[id]?.type === 'ai')
@@ -69,7 +41,6 @@ export default function StatusBar(): JSX.Element {
   const gitChanges = git ? git.staged + git.unstaged + git.untracked : 0
 
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
-  const setShowSettings = useUi((s) => s.setShowSettings)
   const openSettings = useUi((s) => s.openSettings)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
 
@@ -90,23 +61,9 @@ export default function StatusBar(): JSX.Element {
     void window.api.getAppInfo().then((i) => setVersion(i.version)).catch(() => {})
   }, [])
 
-  const [layoutOpen, setLayoutOpen] = useState(false)
-  const layoutCloseRef = useRef<number>(0)
-
-  const openLayout = (): void => {
-    window.clearTimeout(layoutCloseRef.current)
-    setLayoutOpen(true)
-  }
-  const closeLayout = (): void => {
-    layoutCloseRef.current = window.setTimeout(() => setLayoutOpen(false), 180)
-  }
-
   return (
     <footer className="statusbar">
-      {/* App controls (moved here from the title bar) */}
-      <button className="sb-item sb-icon-btn" title="Settings (Ctrl+,)" onClick={() => setShowSettings(true)}>
-        <Settings size={12} />
-      </button>
+      {/* Command palette */}
       <button
         className="sb-item sb-icon-btn"
         title="Command palette (Ctrl+Shift+K)"
@@ -114,29 +71,6 @@ export default function StatusBar(): JSX.Element {
       >
         <CommandIcon size={12} />
       </button>
-
-      {/* Layout preset picker */}
-      <div
-        className={clsx('sb-layout-wrap', layoutOpen && 'open')}
-        onMouseEnter={openLayout}
-        onMouseLeave={closeLayout}
-      >
-        <span className="sb-item sb-layout-btn">
-          <LayoutGrid size={12} />
-          <span className="sb-layout-count">{paneCount}</span>
-        </span>
-        <div className="sb-layout-popup" onMouseEnter={openLayout} onMouseLeave={closeLayout}>
-          <div className="sb-layout-grid">
-            {LAYOUT_PRESETS.map((preset) => (
-              <LayoutTile
-                key={preset.id}
-                preset={preset}
-                onClick={() => { applyLayoutPreset(preset.id); setLayoutOpen(false) }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* Always-visible working count */}
       <span className={clsx('sb-item', streaming && 'accent')}>
@@ -174,9 +108,9 @@ export default function StatusBar(): JSX.Element {
         onClick={toggleTaskManager}
         title="Open task manager"
       >
-        <Cpu size={12} /> {cpu ? `${cpu}%` : '0%'}
+        <span className="sb-res-label">cpu</span> {cpu ? `${cpu}%` : '0%'}
         <span className="sb-resource-sep">·</span>
-        <MemoryStick size={12} /> {ram ? formatMem(ram) : '—'}
+        <span className="sb-res-label">ram</span> {ram ? formatMem(ram) : '—'}
       </button>
 
       {/* Claude session output (raw terminal chars, not API tokens) */}

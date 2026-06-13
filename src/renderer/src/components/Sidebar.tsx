@@ -1,15 +1,12 @@
-import { useMemo } from 'react'
 import clsx from 'clsx'
 import {
   Plus,
-  Layers,
   Network,
   KanbanSquare,
   DoorOpen,
   GitBranch,
   History,
   Settings,
-  Palette,
   Server,
   NotebookPen
 } from 'lucide-react'
@@ -17,6 +14,7 @@ import { useWorkspaces } from '@renderer/store/workspaces'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useSidebar } from '@renderer/store/sidebar'
+import SessionsMenu from './SessionsMenu'
 
 /** One rail row: a centred icon (collapsed) that reveals a label + trailing meta on expand. */
 function Row({
@@ -84,17 +82,6 @@ export default function Sidebar(): JSX.Element {
   const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
   const toggleNotes = useUi((s) => s.toggleNotes)
   const openSettings = useUi((s) => s.openSettings)
-  const cycleAppTheme = useUi((s) => s.cycleAppTheme)
-  const appTheme = useUi((s) => s.appTheme)
-
-  const totalBadges = Object.values(badges).reduce((n, b) => n + (b ?? 0), 0)
-
-  // Total panes across all workspaces (active is live; others are snapshots).
-  const totalPanes = useMemo(() => {
-    let n = livePaneCount
-    for (const w of list) if (w.id !== activeId) n += Object.keys(w.panes ?? {}).length
-    return n
-  }, [livePaneCount, list, activeId])
 
   return (
     <aside className={clsx('sidebar', pinned && 'pinned')}>
@@ -137,6 +124,7 @@ export default function Sidebar(): JSX.Element {
           {/* tools */}
           <Section title="Tools" />
           <div className="sb-group">
+            <SessionsMenu />
             <Row icon={<Network size={18} />} label="BridgeMemory" onClick={() => setShowBridge(true)} />
             <Row icon={<KanbanSquare size={18} />} label="Task board" onClick={() => setShowTasks(true)} />
             <Row icon={<DoorOpen size={18} />} label="Rooms" onClick={() => setShowRooms(true)} />
@@ -149,19 +137,6 @@ export default function Sidebar(): JSX.Element {
 
         {/* footer */}
         <div className="sb-foot">
-          <Row
-            icon={<Layers size={18} />}
-            label="Panes open"
-            meta={<span className="sb-count">{totalPanes}</span>}
-            title={`${totalPanes} pane${totalPanes !== 1 ? 's' : ''} open · ${totalBadges} finished`}
-          />
-          <Row
-            icon={<Palette size={18} />}
-            label="Theme"
-            meta={<span className="sb-theme-name">{appTheme}</span>}
-            title="Cycle theme"
-            onClick={cycleAppTheme}
-          />
           <Row
             icon={<Settings size={18} />}
             label="Settings"

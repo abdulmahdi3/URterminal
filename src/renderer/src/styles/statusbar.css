@@ -382,6 +382,15 @@
   opacity: 0.5;
   margin: 0 1px;
 }
+/* text labels in place of the cpu/ram icons */
+.sb-res-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
 
 /* ---- layout preset picker ---- */
 .sb-layout-wrap {
