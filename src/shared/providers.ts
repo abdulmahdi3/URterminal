@@ -4,11 +4,19 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   gemini: 'Google Gemini',
+  openrouter: 'OpenRouter',
   ollama: 'Ollama (local)',
   lmstudio: 'LM Studio (local)'
 }
 
-export const PROVIDER_IDS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama', 'lmstudio']
+export const PROVIDER_IDS: ProviderId[] = [
+  'anthropic',
+  'openai',
+  'gemini',
+  'openrouter',
+  'ollama',
+  'lmstudio'
+]
 
 /** Providers backed by a local server (configurable base URL, no API key, live
  *  model discovery). Used by the settings UI, the learning runner, and the
@@ -26,6 +34,17 @@ export const DEFAULT_MODELS: Record<ProviderId, string[]> = {
   anthropic: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
   gemini: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+  // OpenRouter exposes 200+ models under one key; ids are namespaced
+  // `vendor/model`. This is just a curated shortlist — the model field is
+  // free-text in Settings, so any OpenRouter id works.
+  openrouter: [
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+    'google/gemini-2.0-flash-001',
+    'meta-llama/llama-3.3-70b-instruct',
+    'deepseek/deepseek-chat'
+  ],
   // Local providers discover their real model list at runtime; these are only a
   // fallback shown when the server is unreachable (Ollama) / empty (LM Studio).
   ollama: ['llama3.1', 'qwen2.5', 'mistral'],

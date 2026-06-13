@@ -4,7 +4,7 @@
 import type { DiffHunk } from './diff'
 export type { BridgeNote, BridgeNode, BridgeEdge, BridgeGraphData } from './bridge'
 
-export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'lmstudio'
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama' | 'lmstudio'
 
 export type PaneType = 'ai' | 'shell' | 'empty' | 'stream'
 
@@ -153,6 +153,7 @@ export interface ProviderSettingsPublic {
   anthropic: { keySet: boolean; keyPreview?: string }
   openai: { keySet: boolean; keyPreview?: string }
   gemini: { keySet: boolean; keyPreview?: string }
+  openrouter: { keySet: boolean; keyPreview?: string }
   ollama: { baseUrl: string }
   lmstudio: { baseUrl: string }
 }

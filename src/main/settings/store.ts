@@ -22,6 +22,7 @@ interface RawSettings {
     anthropic: { keyEnc?: string }
     openai: { keyEnc?: string }
     gemini: { keyEnc?: string }
+    openrouter: { keyEnc?: string }
     ollama: { baseUrl: string }
     lmstudio: { baseUrl: string }
   }
@@ -58,6 +59,7 @@ const DEFAULTS: RawSettings = {
     anthropic: {},
     openai: {},
     gemini: {},
+    openrouter: {},
     ollama: { baseUrl: DEFAULT_OLLAMA_URL },
     lmstudio: { baseUrl: DEFAULT_LMSTUDIO_URL }
   },
@@ -122,6 +124,7 @@ export class SettingsStore {
         anthropic: { ...s.providers?.anthropic },
         openai: { ...s.providers?.openai },
         gemini: { ...s.providers?.gemini },
+        openrouter: { ...s.providers?.openrouter },
         ollama: { baseUrl: s.providers?.ollama?.baseUrl || DEFAULT_OLLAMA_URL },
         lmstudio: { baseUrl: s.providers?.lmstudio?.baseUrl || DEFAULT_LMSTUDIO_URL }
       },
@@ -163,12 +166,14 @@ export class SettingsStore {
     const aKey = decrypt(s.providers.anthropic.keyEnc)
     const oKey = decrypt(s.providers.openai.keyEnc)
     const gKey = decrypt(s.providers.gemini.keyEnc)
+    const orKey = decrypt(s.providers.openrouter.keyEnc)
     const tToken = decrypt(s.telegram.tokenEnc)
     return {
       providers: {
         anthropic: { keySet: !!aKey, keyPreview: preview(aKey) },
         openai: { keySet: !!oKey, keyPreview: preview(oKey) },
         gemini: { keySet: !!gKey, keyPreview: preview(gKey) },
+        openrouter: { keySet: !!orKey, keyPreview: preview(orKey) },
         ollama: { baseUrl: s.providers.ollama.baseUrl },
         lmstudio: { baseUrl: s.providers.lmstudio.baseUrl }
       },
@@ -233,6 +238,7 @@ export class SettingsStore {
     if (provider === 'anthropic') return decrypt(s.providers.anthropic.keyEnc)
     if (provider === 'openai') return decrypt(s.providers.openai.keyEnc)
     if (provider === 'gemini') return decrypt(s.providers.gemini.keyEnc)
+    if (provider === 'openrouter') return decrypt(s.providers.openrouter.keyEnc)
     return undefined
   }
 

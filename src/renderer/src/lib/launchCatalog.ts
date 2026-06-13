@@ -34,9 +34,16 @@ export interface LaunchAgent {
   featured?: boolean
   /** Show a small spark by the name (the flagship). */
   spark?: boolean
+  /**
+   * A provider-gateway card rather than a launchable CLI (OpenRouter has no
+   * standalone binary). Clicking it opens Settings → Providers to set the key,
+   * instead of spawning a pane.
+   */
+  configure?: boolean
 }
 
-/** The 12 agents, in grid order (4 columns × 3 rows). */
+/** The agents, in grid order (4 columns). The last entry, OpenRouter, is a
+ *  provider gateway (no CLI) — its card opens Settings rather than launching. */
 export const LAUNCH_AGENTS: LaunchAgent[] = [
   { command: 'claude',       name: 'Claude',         cli: 'claude-code',  badge: 'C',   color: '#e8b53e', model: 'Sonnet 4.5 · 200K ctx',  status: 'ready',  kind: 'cloud', featured: true, spark: true },
   { command: 'codex',        name: 'ChatGPT',        cli: 'codex-cli',    badge: 'GPT', color: '#19c37d', model: 'GPT-5 Codex · 256K ctx', status: 'ready',  kind: 'cloud' },
@@ -49,7 +56,8 @@ export const LAUNCH_AGENTS: LaunchAgent[] = [
   { command: 'goose',        name: 'Goose',          cli: 'goose',        badge: 'Go',  color: '#f0688a', model: 'multi-model',            status: 'signin', kind: 'local' },
   { command: 'qwen-code',    name: 'Qwen Coder',     cli: 'qwen-code',    badge: 'Qw',  color: '#b06bf0', model: 'Qwen3 Coder · 256K',     status: 'ready',  kind: 'local' },
   { command: 'q',            name: 'Amazon Q',       cli: 'q-cli',        badge: 'Q',   color: '#46c6e6', model: 'Q Developer',            status: 'signin', kind: 'cloud' },
-  { command: 'continue',     name: 'Continue',       cli: 'continue',     badge: 'Cn',  color: '#4d8bf0', model: 'any provider',           status: 'update', kind: 'local' }
+  { command: 'continue',     name: 'Continue',       cli: 'continue',     badge: 'Cn',  color: '#4d8bf0', model: 'any provider',           status: 'update', kind: 'local' },
+  { command: 'openrouter',   name: 'OpenRouter',     cli: 'openrouter.ai', badge: 'OR', color: '#6566f1', model: '200+ models · one key',   status: 'signin', kind: 'cloud', configure: true }
 ]
 
 export const STATUS_LABEL: Record<AgentStatus, string> = {

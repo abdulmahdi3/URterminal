@@ -26,6 +26,7 @@ import {
   ArrowDown,
   CheckCircle2,
   Server,
+  KeyRound,
   Workflow,
   Monitor,
   Laptop,
@@ -666,6 +667,26 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
           ))}
         </div>
         <div className="wn-sb-hint">Ctrl B</div>
+      </div>
+    )
+  }
+  if (kind === 'openrouter') {
+    // One key on the left routes out to many model chips that light up in turn.
+    const models = ['Claude', 'GPT-4o', 'Gemini', 'Llama']
+    return (
+      <div className="wn-demo wn-demo-or">
+        <div className="wn-or-key">
+          <KeyRound size={15} />
+          <span>1 key</span>
+        </div>
+        <span className="wn-or-route" />
+        <div className="wn-or-models">
+          {models.map((m, i) => (
+            <span key={m} className="wn-or-model" style={{ ['--d' as string]: `${i * 0.5}s` }}>
+              {m}
+            </span>
+          ))}
+        </div>
       </div>
     )
   }

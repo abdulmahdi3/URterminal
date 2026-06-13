@@ -104,12 +104,13 @@ function AgentCard({
   onLaunch: () => void
 }): JSX.Element {
   const status: AgentStatus = installed ? 'ready' : a.status
+  const statusLabel = a.configure ? 'Set up' : STATUS_LABEL[status]
   return (
     <button
       type="button"
-      className={clsx('lc-card', a.featured && 'featured')}
+      className={clsx('lc-card', a.featured && 'featured', a.configure && 'configure')}
       style={{ ['--b' as string]: a.color, ['--i' as string]: index }}
-      title={`Open ${a.name} in a folder`}
+      title={a.configure ? 'Configure OpenRouter — one key, 200+ models' : `Open ${a.name} in a folder`}
       onClick={onLaunch}
     >
       <div className="lc-card-top">
@@ -125,14 +126,14 @@ function AgentCard({
         </div>
         <span className={clsx('lc-stat', status)}>
           <span className="d" />
-          {STATUS_LABEL[status]}
+          {statusLabel}
         </span>
       </div>
       <div className="lc-card-model">{a.model}</div>
       <div className="lc-card-foot">
-        <span className="lc-card-hint">opens in a folder</span>
+        <span className="lc-card-hint">{a.configure ? 'configure once' : 'opens in a folder'}</span>
         <span className="lc-card-launch">
-          Launch <ChevronRight size={13} />
+          {a.configure ? 'Set up key' : 'Launch'} <ChevronRight size={13} />
         </span>
       </div>
     </button>
@@ -147,6 +148,7 @@ export default function LaunchConsole(): JSX.Element {
   const sessions = useSessions((s) => s.sessions)
   const restore = useSessions((s) => s.restore)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
+  const openSettings = useUi((s) => s.openSettings)
   const custom = useShortcuts((s) => s.custom)
 
   // Real total across EVERY workspace — the active one is empty here, so this
@@ -221,6 +223,12 @@ export default function LaunchConsole(): JSX.Element {
   const commandCount = useMemo(() => getCommands().filter((c) => !c.hidden).length, [])
 
   const launchAgent = (a: LaunchAgent): void => {
+    // OpenRouter is a provider gateway, not a CLI — its card opens Settings so
+    // you can paste the one key your "any provider" agents then share.
+    if (a.configure) {
+      openSettings('providers')
+      return
+    }
     addPane('ai', undefined, { agentCommand: a.command, label: a.name })
   }
   const openShell = (spec: ShellSpec): void => {

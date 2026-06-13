@@ -66,6 +66,7 @@ export type WhatsNewDemo =
   | 'palette'
   | 'settings'
   | 'chrome'
+  | 'openrouter'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -95,6 +96,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.6.0': {
+    version: '0.6.0',
+    headline: 'OpenRouter — one key, 200+ models',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'OpenRouter is now a built-in provider',
+        demo: 'openrouter',
+        body:
+          'Settings → Providers gains OpenRouter: paste one key (sk-or-…), pick it as your default ' +
+          'provider, then type any of its 200+ model ids in Defaults → Model (e.g. ' +
+          'anthropic/claude-3.5-sonnet). The launch console gets an OpenRouter card too — since it’s a ' +
+          'gateway, not a CLI, the card opens Settings to set the key in one click. One account, every model.'
+      }
+    ]
+  },
+
   '0.5.3': {
     version: '0.5.3',
     headline: 'Cleaner chrome, tidier rail',

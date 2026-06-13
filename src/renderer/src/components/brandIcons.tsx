@@ -11,6 +11,7 @@ import qwenSvg from '@renderer/assets/qwen.svg'
 import amazonqSvg from '@renderer/assets/amazonq.svg'
 import goosePng from '@renderer/assets/goose.png'
 import continuePng from '@renderer/assets/continue.png'
+import openrouterSvg from '@renderer/assets/openrouter.svg'
 import ubuntuPng from '@renderer/assets/ubuntu.png'
 import linuxPng from '@renderer/assets/linux.png'
 import powershellPng from '@renderer/assets/powershell.png'
@@ -75,7 +76,8 @@ const AGENT_MARKS: Record<string, Mark> = {
   qwen: { src: qwenSvg },
   'qwen-code': { src: qwenSvg },
   q: { src: amazonqSvg },
-  continue: { src: continuePng }
+  continue: { src: continuePng },
+  openrouter: { src: openrouterSvg }
 }
 
 /** Whether we have a real brand logo for an agent command (vs. the generic mark). */

@@ -75,8 +75,8 @@ const THEME_OPTIONS = [
   { value: 'custom', label: 'Custom…' }
 ]
 
-type KeyProvider = 'anthropic' | 'openai' | 'gemini'
-const KEY_PROVIDERS: KeyProvider[] = ['anthropic', 'openai', 'gemini']
+type KeyProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter'
+const KEY_PROVIDERS: KeyProvider[] = ['anthropic', 'openai', 'gemini', 'openrouter']
 
 /** Pref keys reset by each section's "Reset" button. */
 const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
@@ -781,7 +781,7 @@ export default function SettingsModal(): JSX.Element | null {
 
   // ---- section metadata (sidebar nav + search filtering) ----
   const labels: Record<string, string[]> = {
-    providers: [PROVIDER_LABELS.anthropic, PROVIDER_LABELS.openai, PROVIDER_LABELS.gemini, PROVIDER_LABELS.ollama, PROVIDER_LABELS.lmstudio],
+    providers: [PROVIDER_LABELS.anthropic, PROVIDER_LABELS.openai, PROVIDER_LABELS.gemini, PROVIDER_LABELS.openrouter, PROVIDER_LABELS.ollama, PROVIDER_LABELS.lmstudio],
     defaults: [t('settings.defaultProvider'), t('settings.defaultModel'), 'Default agent', 'Default terminal'],
     terminal: [
       'Cursor style', 'Cursor blink', 'Line height', 'Letter spacing', 'Scrollback',
@@ -917,13 +917,27 @@ export default function SettingsModal(): JSX.Element | null {
                       stacked
                       icon={<KeyRound size={16} />}
                       title={PROVIDER_LABELS[p]}
-                      desc={meta.keySet ? 'A key is saved for this provider.' : 'No key set yet.'}
+                      desc={
+                        p === 'openrouter'
+                          ? meta.keySet
+                            ? 'Your OpenRouter key is saved — one key, 200+ models.'
+                            : 'One key for 200+ models — create one at openrouter.ai/keys.'
+                          : meta.keySet
+                            ? 'A key is saved for this provider.'
+                            : 'No key set yet.'
+                      }
                       control={
                         <>
                           <input
                             className="input"
                             type="password"
-                            placeholder={meta.keySet ? `•••• ${meta.keyPreview ?? ''}` : t('settings.apiKey')}
+                            placeholder={
+                              meta.keySet
+                                ? `•••• ${meta.keyPreview ?? ''}`
+                                : p === 'openrouter'
+                                  ? 'sk-or-…'
+                                  : t('settings.apiKey')
+                            }
                             value={keyInputs[p] ?? ''}
                             onChange={(e) => setKeyInputs((s) => ({ ...s, [p]: e.target.value }))}
                           />
@@ -1011,44 +1025,64 @@ export default function SettingsModal(): JSX.Element | null {
                     icon={<Cpu size={16} />}
                     title={t('settings.defaultModel')}
                     desc={
-                      isLocalProvider(settings.defaultProvider)
-                        ? 'Discovered live from your local server.'
-                        : 'Defaults to the latest model; updates as new ones ship.'
+                      settings.defaultProvider === 'openrouter'
+                        ? 'Any of 200+ models — type the id (e.g. anthropic/claude-3.5-sonnet) or pick a suggestion.'
+                        : isLocalProvider(settings.defaultProvider)
+                          ? 'Discovered live from your local server.'
+                          : 'Defaults to the latest model; updates as new ones ship.'
                     }
                     control={
-                      <>
-                        <div className="settings-actions">
-                          <select
-                            className="select"
+                      settings.defaultProvider === 'openrouter' ? (
+                        <>
+                          <input
+                            className="input"
+                            list="or-models"
                             value={settings.defaultModel}
+                            placeholder="anthropic/claude-3.5-sonnet"
+                            spellCheck={false}
                             onChange={(e) => patch({ defaultModel: e.target.value })}
-                          >
-                            {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
-                              <option value={settings.defaultModel}>{settings.defaultModel}</option>
-                            )}
-                            {defaultModels.map((m, i) => (
-                              <option key={m} value={m}>
-                                {m}{!isLocalProvider(settings.defaultProvider) && i === 0 ? ' — latest' : ''}
-                              </option>
+                          />
+                          <datalist id="or-models">
+                            {DEFAULT_MODELS.openrouter.map((m) => (
+                              <option key={m} value={m} />
                             ))}
-                          </select>
-                          {isLocalProvider(settings.defaultProvider) && (
-                            <button
-                              className="btn"
-                              onClick={() => void refreshModels()}
-                              disabled={modelsLoading}
-                              title="Re-scan the local server for installed models"
+                          </datalist>
+                        </>
+                      ) : (
+                        <>
+                          <div className="settings-actions">
+                            <select
+                              className="select"
+                              value={settings.defaultModel}
+                              onChange={(e) => patch({ defaultModel: e.target.value })}
                             >
-                              <RefreshCw size={14} className={modelsLoading ? 'spin' : undefined} />
-                            </button>
+                              {!defaultModels.includes(settings.defaultModel) && settings.defaultModel && (
+                                <option value={settings.defaultModel}>{settings.defaultModel}</option>
+                              )}
+                              {defaultModels.map((m, i) => (
+                                <option key={m} value={m}>
+                                  {m}{!isLocalProvider(settings.defaultProvider) && i === 0 ? ' — latest' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            {isLocalProvider(settings.defaultProvider) && (
+                              <button
+                                className="btn"
+                                onClick={() => void refreshModels()}
+                                disabled={modelsLoading}
+                                title="Re-scan the local server for installed models"
+                              >
+                                <RefreshCw size={14} className={modelsLoading ? 'spin' : undefined} />
+                              </button>
+                            )}
+                          </div>
+                          {isLocalProvider(settings.defaultProvider) && !modelsLoading && !modelsLive && (
+                            <span className="hint">
+                              Couldn’t reach {PROVIDER_LABELS[settings.defaultProvider]} — showing defaults. Start the server, then Refresh.
+                            </span>
                           )}
-                        </div>
-                        {isLocalProvider(settings.defaultProvider) && !modelsLoading && !modelsLive && (
-                          <span className="hint">
-                            Couldn’t reach {PROVIDER_LABELS[settings.defaultProvider]} — showing defaults. Start the server, then Refresh.
-                          </span>
-                        )}
-                      </>
+                        </>
+                      )
                     }
                   />
                 )}
