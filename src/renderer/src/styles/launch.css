@@ -405,6 +405,18 @@
   border: 1px solid color-mix(in srgb, var(--b, #888) 26%, transparent);
   transition: transform 0.16s ease;
 }
+/* an agent's real logo sits inside the tinted badge; cap it so it never
+   overflows the 34px square (the Aider wordmark scales down by its width). */
+.lc-badge .brand-img {
+  max-width: 22px;
+  max-height: 20px;
+}
+.lc-badge .brand-img-wide {
+  width: auto;
+  height: auto;
+  max-width: 30px;
+  max-height: 20px;
+}
 .lc-card:hover .lc-badge {
   transform: scale(1.06);
 }

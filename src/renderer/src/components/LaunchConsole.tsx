@@ -23,7 +23,7 @@ import { toast } from '@renderer/store/toasts'
 import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { getCommands, runCommand } from '@renderer/lib/commands'
-import { ShellLogo } from './brandIcons'
+import { ShellLogo, AgentLogo, hasAgentLogo } from './brandIcons'
 import logoPng from '@renderer/assets/logo.png'
 import {
   LAUNCH_AGENTS,
@@ -113,7 +113,9 @@ function AgentCard({
       onClick={onLaunch}
     >
       <div className="lc-card-top">
-        <span className="lc-badge">{a.badge}</span>
+        <span className="lc-badge">
+          {hasAgentLogo(a.command) ? <AgentLogo command={a.command} size={20} /> : a.badge}
+        </span>
         <div className="lc-card-id">
           <div className="lc-card-name">
             {a.name}

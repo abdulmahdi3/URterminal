@@ -511,6 +511,36 @@
   color: var(--accent);
   animation: pane-spin 1s linear infinite;
 }
+/* the launching agent's own logo, front and center while the CLI boots */
+.booting-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  animation: booting-logo-pulse 1.8s ease-in-out infinite;
+}
+.booting-logo .brand-img {
+  filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent));
+}
+.booting-logo .brand-img-invert {
+  filter: invert(1) drop-shadow(0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent));
+}
+@keyframes booting-logo-pulse {
+  0%,
+  100% {
+    opacity: 0.92;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .booting-logo {
+    animation: none;
+  }
+}
 .booting-text {
   font-size: var(--fs-sm);
 }
@@ -567,8 +597,10 @@
   color: var(--accent);
   font-family: var(--mono);
 }
-.launcher-spark {
-  color: var(--accent);
+.launcher-logo {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 .launcher-hint {
   margin: 6px 0 14px;

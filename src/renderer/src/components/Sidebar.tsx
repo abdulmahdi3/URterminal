@@ -8,7 +8,8 @@ import {
   History,
   Settings,
   Server,
-  NotebookPen
+  NotebookPen,
+  Command as CommandIcon
 } from 'lucide-react'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import { useWorkspace } from '@renderer/store/workspace'
@@ -81,6 +82,7 @@ export default function Sidebar(): JSX.Element {
   const toggleSessionSearch = useUi((s) => s.toggleSessionSearch)
   const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
   const toggleNotes = useUi((s) => s.toggleNotes)
+  const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
   const openSettings = useUi((s) => s.openSettings)
 
   return (
@@ -137,6 +139,12 @@ export default function Sidebar(): JSX.Element {
 
         {/* footer */}
         <div className="sb-foot">
+          <Row
+            icon={<CommandIcon size={18} />}
+            label="Command palette"
+            title="Command palette (Ctrl+Shift+K)"
+            onClick={toggleCommandPalette}
+          />
           <Row
             icon={<Settings size={18} />}
             label="Settings"

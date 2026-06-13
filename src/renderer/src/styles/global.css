@@ -280,6 +280,10 @@ select {
 .brand-img-invert {
   filter: invert(1);
 }
+/* wide wordmarks (e.g. Aider) keep their natural aspect ratio at a fixed height */
+.brand-img-wide {
+  width: auto;
+}
 
 /* ---- action buttons — icon-only with idle glow animation ---- */
 .action-btn {

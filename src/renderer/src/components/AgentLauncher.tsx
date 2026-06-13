@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
-import { FolderOpen, Sparkles, ArrowRight } from 'lucide-react'
+import { FolderOpen, ArrowRight } from 'lucide-react'
 import {
   getAgents,
   getAgentDescriptor,
@@ -8,6 +8,7 @@ import {
   getAvailableAgents,
   refreshAgentAvailability
 } from '@renderer/lib/agents'
+import { AgentLogo } from './brandIcons'
 
 interface Props {
   command: string
@@ -60,7 +61,9 @@ export default function AgentLauncher({
     <div className="agent-launcher">
       <div className="launcher-card">
         <div className="launcher-head">
-          <Sparkles size={16} className="launcher-spark" />
+          <span className="launcher-logo">
+            <AgentLogo command={command} size={20} />
+          </span>
           <span>
             Open <b>{label}</b> in a folder
           </span>

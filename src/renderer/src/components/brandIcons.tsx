@@ -2,6 +2,15 @@ import { Bot, Terminal, ShieldCheck } from 'lucide-react'
 import claudePng from '@renderer/assets/claude.png'
 import chatgptPng from '@renderer/assets/chatgpt.png'
 import geminiPng from '@renderer/assets/gemini.png'
+import aiderSvg from '@renderer/assets/aider.svg'
+import opencodeSvg from '@renderer/assets/opencode.svg'
+import copilotSvg from '@renderer/assets/copilot.svg'
+import cursorSvg from '@renderer/assets/cursor.svg'
+import clineSvg from '@renderer/assets/cline.svg'
+import qwenSvg from '@renderer/assets/qwen.svg'
+import amazonqSvg from '@renderer/assets/amazonq.svg'
+import goosePng from '@renderer/assets/goose.png'
+import continuePng from '@renderer/assets/continue.png'
 import ubuntuPng from '@renderer/assets/ubuntu.png'
 import linuxPng from '@renderer/assets/linux.png'
 import powershellPng from '@renderer/assets/powershell.png'
@@ -14,37 +23,71 @@ import powershellPng from '@renderer/assets/powershell.png'
 function BrandImg({
   src,
   size,
-  invert
+  invert,
+  wide
 }: {
   src: string
   size: number
   /** invert a black logo to white for the dark UI (ChatGPT) */
   invert?: boolean
+  /** a wide wordmark (e.g. Aider): keep its aspect ratio, only fix the height */
+  wide?: boolean
 }): JSX.Element {
+  const cls = ['brand-img']
+  if (invert) cls.push('brand-img-invert')
+  if (wide) cls.push('brand-img-wide')
   return (
     <img
       src={src}
-      width={size}
+      width={wide ? undefined : size}
       height={size}
       alt=""
       draggable={false}
-      className={invert ? 'brand-img brand-img-invert' : 'brand-img'}
+      className={cls.join(' ')}
     />
   )
 }
 
+interface Mark {
+  src: string
+  /** invert a black logo to white for the dark UI (ChatGPT) */
+  invert?: boolean
+  /** a wide wordmark (Aider) — keep its aspect ratio, fix only the height */
+  wide?: boolean
+}
+
+/**
+ * Official logo per agent CLI, keyed by the command spawned on PATH. The launch
+ * console uses a few longer command ids (`cursor-agent`, `qwen-code`, `q`) so
+ * those are aliased to the same mark as their short name.
+ */
+const AGENT_MARKS: Record<string, Mark> = {
+  claude: { src: claudePng },
+  codex: { src: chatgptPng, invert: true },
+  gemini: { src: geminiPng },
+  copilot: { src: copilotSvg },
+  opencode: { src: opencodeSvg },
+  aider: { src: aiderSvg, wide: true },
+  cursor: { src: cursorSvg },
+  'cursor-agent': { src: cursorSvg },
+  cline: { src: clineSvg },
+  goose: { src: goosePng },
+  qwen: { src: qwenSvg },
+  'qwen-code': { src: qwenSvg },
+  q: { src: amazonqSvg },
+  continue: { src: continuePng }
+}
+
+/** Whether we have a real brand logo for an agent command (vs. the generic mark). */
+export function hasAgentLogo(command: string | undefined): boolean {
+  return !!command && command in AGENT_MARKS
+}
+
 /** Icon for an agent CLI by its command. */
 export function AgentLogo({ command, size = 14 }: { command: string; size?: number }): JSX.Element {
-  switch (command) {
-    case 'claude':
-      return <BrandImg src={claudePng} size={size} />
-    case 'codex':
-      return <BrandImg src={chatgptPng} size={size} invert />
-    case 'gemini':
-      return <BrandImg src={geminiPng} size={size} />
-    default:
-      return <Bot size={size} className="pane-icon ai" />
-  }
+  const mark = AGENT_MARKS[command]
+  if (mark) return <BrandImg src={mark.src} size={size} invert={mark.invert} wide={mark.wide} />
+  return <Bot size={size} className="pane-icon ai" />
 }
 
 /** The WSL distro name from a shell's args (e.g. ["-d","Ubuntu"] → "Ubuntu"). */

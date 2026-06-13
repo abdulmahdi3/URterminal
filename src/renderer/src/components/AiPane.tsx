@@ -9,6 +9,7 @@ import { enhancePromptFor } from '@renderer/lib/enhance'
 import TerminalPane from './TerminalPane'
 import AgentLauncher from './AgentLauncher'
 import PromptMinimap from './PromptMinimap'
+import { AgentLogo } from './brandIcons'
 
 /**
  * Floating "enhance prompt" action: sits inside the pane at the center-right,
@@ -98,7 +99,10 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
     <div className="agent-pane">
       {booting && !bootFailed && (
         <div className="agent-booting">
-          <Loader2 size={26} className="spin" />
+          <span className="booting-logo">
+            <AgentLogo command={command} size={56} />
+          </span>
+          <Loader2 size={22} className="spin" />
           <div className="booting-text">
             Launching <b>{command}</b>…
           </div>

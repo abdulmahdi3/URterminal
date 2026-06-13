@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Clock, Bot, Command as CommandIcon, GitBranch } from 'lucide-react'
+import { Clock, Bot, GitBranch } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useMetrics } from '@renderer/store/metrics'
@@ -42,7 +42,6 @@ export default function StatusBar(): JSX.Element {
 
   const toggleTaskManager = useUi((s) => s.toggleTaskManager)
   const openSettings = useUi((s) => s.openSettings)
-  const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
 
   const [clock, setClock] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -63,15 +62,6 @@ export default function StatusBar(): JSX.Element {
 
   return (
     <footer className="statusbar">
-      {/* Command palette */}
-      <button
-        className="sb-item sb-icon-btn"
-        title="Command palette (Ctrl+Shift+K)"
-        onClick={toggleCommandPalette}
-      >
-        <CommandIcon size={12} />
-      </button>
-
       {/* Always-visible working count */}
       <span className={clsx('sb-item', streaming && 'accent')}>
         <span className={clsx('sb-dot', streaming && 'live', streaming && 'streaming')} />
