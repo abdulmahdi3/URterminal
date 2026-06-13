@@ -18,7 +18,7 @@ function clampSplits(node: MosaicNode<string> | null): MosaicNode<string> | null
     second: clampSplits(node.second) as MosaicNode<string>
   }
 }
-import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, History, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
+import { Bot, Terminal, SquareDashed, Send, Columns2, Rows2, X, Copy, StickyNote, Radio, Share2, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
@@ -26,25 +26,13 @@ import { usePaneStatus, type PaneStatus } from '@renderer/store/paneStatus'
 import { useUi } from '@renderer/store/ui'
 import { useTokens } from '@renderer/store/tokens'
 import { useClaudeUsage, formatResetIn } from '@renderer/store/claudeUsage'
-import { useSessions } from '@renderer/store/sessions'
 import { toast } from '@renderer/store/toasts'
 import { getFullText, getScreenText } from '@renderer/lib/terminalPool'
 import { answerBlocks } from '@renderer/hooks/useChainForwarding'
-import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
-import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import PaneView from './PaneView'
+import LaunchConsole from './LaunchConsole'
 import { AgentLogo, ShellLogo } from './brandIcons'
 import 'react-mosaic-component/react-mosaic-component.css'
-
-function relTime(ts: number): string {
-  const s = Math.floor((Date.now() - ts) / 1000)
-  if (s < 60) return 'just now'
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
 
 const STATUS_LABEL: Record<PaneStatus, string> = {
   working: 'Working',
@@ -710,128 +698,10 @@ export default function Workspace(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
   const zoomedPaneId = useUi((s) => s.zoomedPaneId)
   const setZoomedPaneId = useUi((s) => s.setZoomedPaneId)
-  const sessions = useSessions((s) => s.sessions)
-  const restore = useSessions((s) => s.restore)
 
-  // Device-installed agents + shells/WSL distros, detected asynchronously.
-  const [agents, setAgents] = useState(getAgents())
-  const [availAgents, setAvailAgents] = useState<Set<string>>(getAvailableAgents())
-  const [shellSpecs, setShellSpecs] = useState<ShellSpec[]>(getShellSpecs())
-  useEffect(() => {
-    void refreshAgentAvailability().then((s) => {
-      setAgents([...getAgents()])
-      setAvailAgents(new Set(s))
-    })
-    void refreshWslDistros().then(() => setShellSpecs(getShellSpecs()))
-  }, [])
-
+  // The no-panes state is the full-screen launch console.
   if (layout === null) {
-    const recentSessions = sessions.slice(0, 4)
-    const agentList = agents // show all; uninstalled render greyed for discoverability
-    return (
-      <div className="workspace-empty">
-        <div className="empty-hero">
-          <div className="empty-icon-wrap">
-            <Bot size={28} strokeWidth={1.3} />
-          </div>
-          <h2 className="empty-title">URterminal</h2>
-          <p className="empty-sub">AI agent + shell workspace</p>
-        </div>
-        <div className="empty-actions">
-          <button className="empty-action-card agent" onClick={() => addPane('ai')}>
-            <Bot size={18} strokeWidth={1.4} className="eac-icon" />
-            <span className="eac-label">Agent</span>
-            <span className="eac-hint">Claude Code session</span>
-            <span className="eac-key">Ctrl+Shift+A</span>
-          </button>
-          <button className="empty-action-card shell" onClick={() => addPane('shell')}>
-            <Terminal size={18} strokeWidth={1.4} className="eac-icon" />
-            <span className="eac-label">Shell</span>
-            <span className="eac-hint">Interactive terminal</span>
-            <span className="eac-key">Ctrl+Shift+S</span>
-          </button>
-        </div>
-
-        <div className="empty-discover">
-          <div className="empty-disc-group">
-            <div className="empty-disc-title">Agents on this device</div>
-            <div className="empty-chips">
-              {agentList.map((a) => {
-                const unavailable = availAgents.size > 0 && !availAgents.has(a.id)
-                return (
-                  <button
-                    key={a.id}
-                    className={clsx('empty-chip', unavailable && 'unavailable')}
-                    title={unavailable ? `${a.label} — not installed (opens setup)` : `New ${a.label} pane`}
-                    onClick={() => addPane('ai', undefined, { agentCommand: a.id, label: a.label })}
-                  >
-                    <AgentLogo command={a.id} size={15} />
-                    {a.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="empty-disc-group">
-            <div className="empty-disc-title">Shells &amp; WSL distros</div>
-            <div className="empty-chips">
-              {shellSpecs.map((spec) => (
-                <button
-                  key={spec.id}
-                  className="empty-chip"
-                  title={`New ${spec.label}`}
-                  onClick={() =>
-                    addPane('shell', undefined, {
-                      shell: spec.file,
-                      shellArgs: spec.args,
-                      label: spec.label
-                    })
-                  }
-                >
-                  <ShellLogo shell={spec.file} args={spec.args} size={15} />
-                  {spec.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="empty-disc-group">
-            <div className="empty-disc-title">Things you can do</div>
-            <ul className="empty-tips">
-              <li>Split & tile up to 9 panes — drag borders to resize</li>
-              <li>Link any pane to Telegram, or screenshot it with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></li>
-              <li>Open an agent in a shell's folder (and vice-versa) from the pane header</li>
-              <li>Save & restore whole workspaces as sessions</li>
-            </ul>
-          </div>
-        </div>
-
-        {recentSessions.length > 0 && (
-          <div className="empty-sessions">
-            <div className="es-header">
-              <History size={13} />
-              <span>Recent sessions</span>
-            </div>
-            <div className="es-list">
-              {recentSessions.map(s => (
-                <button
-                  key={s.id}
-                  className="es-row"
-                  onClick={() => { restore(s.id); toast(`Restored: ${s.name}`, 'ok') }}
-                >
-                  <span className="es-name">{s.name}</span>
-                  <span className="es-meta">{s.paneCount} pane{s.paneCount !== 1 ? 's' : ''} · {relTime(s.savedAt)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="empty-footer">
-          <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> command palette</span>
-        </div>
-      </div>
-    )
+    return <LaunchConsole />
   }
 
   // Zoom: render only the focused pane, full-bleed.

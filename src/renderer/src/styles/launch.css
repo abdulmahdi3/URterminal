@@ -1,0 +1,842 @@
+/* ===========================================================================
+   Launch console — the full-screen view shown when a workspace has no panes.
+   A gold-accented "mission control": hero + agent grid + recent sessions /
+   shells + footer. The gold tones are intentional and local to this view, so it
+   matches the design regardless of the user's chosen app accent.
+   =========================================================================== */
+.launch-console {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* `safe center` keeps the console centered when it fits but scrolls from the
+     top (instead of clipping it) when the window is too short. */
+  justify-content: safe center;
+  background: var(--bg);
+
+  /* Accent — follows the ACTIVE THEME accent (blue by default, amber on dusk,
+     cyan on ocean, green on forest, …). Named `--gold*` for historical reasons;
+     the values now derive from the theme's --accent so the New agent button, app
+     icon, Claude ring, Launch hover and session thumbnails recolor with it.
+     `-2` is a lighter tint (gradient top), `-deep` the darker accent (bottom). */
+  --gold: var(--accent);
+  --gold-2: color-mix(in srgb, var(--accent) 78%, white);
+  --gold-deep: var(--accent-strong);
+  --gold-soft: var(--accent-soft);
+  --gold-line: color-mix(in srgb, var(--accent) 55%, transparent);
+
+  /* Surfaces follow the ACTIVE THEME so the console re-colors with it. Each is
+     mapped to a raised elevation step with a strong border, so cards/panels stay
+     clearly separated from the background on every theme (light, amoled, ocean,
+     forest, dusk) — re-coloring without washing back into a flat background. */
+  --lc-card: var(--bg-elev);
+  --lc-card-2: var(--bg-elev-2);
+  /* panels share the agent-card surface so they follow the theme identically */
+  --lc-panel: var(--bg-elev);
+  --lc-line: var(--border-strong);
+  --lc-line-soft: var(--border);
+
+  /* shared hover easing — a smooth, slightly eased-out curve so transforms
+     settle instead of snapping */
+  --lc-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.lc-inner {
+  width: min(1360px, 94%);
+  flex: none;
+  padding: 44px 0 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  animation: lc-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes lc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- hero ---------- */
+.lc-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.lc-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.lc-app-icon {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  /* the real app logo (no synthetic background or glow) */
+  transition: transform 0.2s ease;
+}
+.lc-app-icon:hover {
+  transform: translateY(-1px) rotate(-2deg);
+}
+.lc-title {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  line-height: 1.05;
+}
+.lc-subtitle {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+.lc-status-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--lc-card);
+  border: 1px solid var(--lc-line);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.lc-status-pill b {
+  color: var(--text);
+  font-weight: 600;
+}
+.lc-status-pill .sep {
+  color: var(--text-faint);
+}
+.lc-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.5);
+  animation: lc-pulse 2.4s ease-out infinite;
+}
+@keyframes lc-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.45);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px rgba(63, 185, 80, 0);
+  }
+}
+
+.lc-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lc-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 4px;
+  transition: color 0.15s ease, transform 0.18s var(--lc-ease);
+}
+.lc-cmd:hover {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+.lc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid var(--lc-line);
+  color: var(--text);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease,
+    border-color 0.16s ease, filter 0.16s ease;
+}
+.lc-btn.shell {
+  background: var(--lc-card-2);
+}
+.lc-btn.shell:hover {
+  background: var(--bg-elev-3);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.lc-btn.agent {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(150deg, var(--gold-2), var(--gold-deep));
+}
+.lc-btn.agent:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.lc-btn.agent:active {
+  transform: translateY(0);
+}
+
+/* keycap chips */
+.lc-keys {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 3px;
+}
+.lc-keys kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+}
+.lc-cmd .lc-keys kbd {
+  background: rgba(255, 255, 255, 0.04);
+}
+.lc-btn.agent .lc-keys kbd {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.26);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* ---------- agents section ---------- */
+.lc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.lc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.lc-sh-left {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+}
+.lc-sh-left h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.lc-count {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.lc-sh-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lc-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  width: 232px;
+  padding: 0 11px;
+  border-radius: 9px;
+  background: var(--lc-card);
+  border: 1px solid var(--lc-line);
+  color: var(--text-faint);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lc-search:focus-within {
+  border-color: var(--gold-line);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+.lc-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.lc-search input::placeholder {
+  color: var(--text-faint);
+}
+.lc-search kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+}
+.lc-filters {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--lc-card);
+  border: 1px solid var(--lc-line);
+}
+.lc-filter {
+  padding: 5px 13px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  transition: color 0.14s ease, background 0.14s ease,
+    transform 0.16s var(--lc-ease);
+}
+.lc-filter:hover:not(.active) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-elev-3) 55%, transparent);
+  transform: translateY(-1px);
+}
+.lc-filter:active {
+  transform: translateY(0);
+}
+.lc-filter.active {
+  background: var(--bg-elev-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* ---------- agent grid ---------- */
+.lc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.lc-grid-empty {
+  grid-column: 1 / -1;
+  padding: 28px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+.lc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* `<button>` flex containers don't stretch children to full width by default —
+     without this the card's rows (status pill, model, footer divider) shrink-wrap
+     to ~60% and hug the left edge. */
+  align-items: stretch;
+  gap: 13px;
+  padding: 15px 16px 12px;
+  border-radius: 13px;
+  background: var(--lc-card);
+  border: 1px solid var(--lc-line);
+  text-align: left;
+  cursor: pointer;
+  will-change: transform;
+  transition: transform 0.22s var(--lc-ease), border-color 0.2s ease,
+    box-shadow 0.22s var(--lc-ease), background 0.2s ease;
+  animation: lc-rise 0.4s ease both;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+.lc-card:hover {
+  transform: translateY(-4px) scale(1.012);
+  background: var(--lc-card-2);
+  border-color: var(--border-strong);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
+}
+.lc-card:active {
+  transform: translateY(-2px) scale(0.998);
+  transition-duration: 0.08s;
+}
+.lc-card.featured {
+  border-color: var(--gold-line);
+  box-shadow: 0 0 0 1px var(--gold-soft);
+}
+.lc-card.featured:hover {
+  border-color: var(--gold-line);
+  box-shadow: 0 0 0 1px var(--gold-line), 0 16px 36px var(--accent-glow);
+}
+
+.lc-card-top {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.lc-badge {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--b, var(--text));
+  background: color-mix(in srgb, var(--b, #888) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--b, #888) 26%, transparent);
+  transition: transform 0.16s ease;
+}
+.lc-card:hover .lc-badge {
+  transform: scale(1.06);
+}
+.lc-card-id {
+  flex: 1;
+  min-width: 0;
+}
+.lc-card-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-spark {
+  color: var(--gold);
+  flex: none;
+}
+.lc-card-cli {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-stat {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.lc-stat .d {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.lc-stat.ready {
+  color: #57c98c;
+}
+.lc-stat.ready .d {
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.7);
+}
+.lc-stat.update {
+  color: #3fb8d6;
+}
+.lc-stat.signin {
+  color: #e0a93b;
+}
+
+.lc-card-model {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 11px;
+  border-top: 1px solid var(--lc-line-soft);
+}
+.lc-card-hint {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.lc-card-launch {
+  /* pinned to the right edge — robust even if `space-between` is ever defeated */
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  transition: color 0.15s ease, gap 0.15s ease;
+}
+.lc-card-launch svg {
+  transition: transform 0.15s ease;
+}
+.lc-card:hover .lc-card-launch {
+  color: var(--gold);
+  gap: 5px;
+}
+.lc-card:hover .lc-card-launch svg {
+  transform: translateX(2px);
+}
+.lc-card.featured .lc-card-launch {
+  color: var(--text);
+}
+
+/* ---------- bottom panels ---------- */
+.lc-bottom {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 16px;
+}
+.lc-panel {
+  border: 1px solid var(--lc-line);
+  border-radius: 13px;
+  background: var(--lc-panel);
+  overflow: hidden;
+}
+.lc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--lc-line-soft);
+}
+.lc-panel-head .ttl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.lc-panel-link {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-faint);
+  transition: color 0.14s ease, transform 0.18s var(--lc-ease);
+}
+.lc-panel-link:hover {
+  transform: translateX(-2px);
+  color: var(--gold);
+}
+.lc-panel-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.lc-panel-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lc-panel-empty {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* session row */
+.lc-srow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease,
+    transform 0.18s var(--lc-ease);
+}
+.lc-srow:hover {
+  background: var(--lc-card-2);
+  border-color: var(--lc-line);
+  transform: translateX(4px);
+}
+.lc-srow:active {
+  transform: translateX(2px) scale(0.995);
+  transition-duration: 0.08s;
+}
+.lc-thumb {
+  flex: none;
+  width: 40px;
+  height: 30px;
+  border-radius: 5px;
+  padding: 3px;
+  display: flex;
+  gap: 2px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--lc-line);
+  transition: transform 0.18s var(--lc-ease), border-color 0.18s ease;
+}
+.lc-srow:hover .lc-thumb {
+  transform: scale(1.08);
+  border-color: var(--border-strong);
+}
+.ml-split {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+}
+.ml-split.column {
+  flex-direction: column;
+}
+.ml-cell {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent) 42%, var(--bg-elev-2)),
+    var(--bg-elev)
+  );
+}
+.lc-srow-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lc-srow-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-srow-sub {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-srow-meta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.lc-srow-panes {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.lc-srow-ago {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* shell row */
+.lc-shrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease,
+    transform 0.18s var(--lc-ease);
+}
+.lc-shrow:hover {
+  background: var(--lc-card-2);
+  border-color: var(--lc-line);
+  transform: translateX(4px);
+}
+.lc-shrow:active {
+  transform: translateX(2px) scale(0.995);
+  transition-duration: 0.08s;
+}
+.lc-shrow-icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--lc-card);
+  border: 1px solid var(--lc-line);
+  transition: transform 0.18s var(--lc-ease), border-color 0.18s ease;
+}
+.lc-shrow:hover .lc-shrow-icon {
+  transform: scale(1.08);
+  border-color: var(--border-strong);
+}
+.lc-shrow-key {
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.lc-shrow:hover .lc-shrow-key {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-elev-3);
+}
+.lc-shrow-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lc-shrow-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.lc-shrow-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--bg-elev-3);
+  border: 1px solid var(--lc-line);
+  color: var(--text-dim);
+}
+.lc-shrow-sub {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+.lc-shrow-key {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+/* ---------- footer ---------- */
+.lc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+.lc-foot-hints {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.lc-foot-hints > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.lc-foot-hints svg {
+  color: var(--text-dim);
+}
+.lc-foot-sep {
+  width: 1px;
+  height: 13px;
+  background: var(--lc-line);
+}
+.lc-foot-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-faint);
+  transition: color 0.15s ease, transform 0.18s var(--lc-ease);
+}
+.lc-foot-cmd:hover {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1120px) {
+  .lc-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .lc-bottom {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 680px) {
+  .lc-grid {
+    grid-template-columns: 1fr;
+  }
+  .lc-hero {
+    gap: 16px;
+  }
+}
+
+/* ---------- reduced motion ----------
+   Honour the OS setting: drop the entrance + pulse animations and any positional
+   movement (translate / scale), but KEEP the colour/border/shadow transitions so
+   hovers still settle gently instead of snapping. */
+@media (prefers-reduced-motion: reduce) {
+  .lc-inner,
+  .lc-card,
+  .lc-live-dot {
+    animation: none;
+  }
+  .launch-console *:hover,
+  .launch-console *:active {
+    transform: none !important;
+  }
+}
