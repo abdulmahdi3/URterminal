@@ -126,7 +126,7 @@ export default function SessionSearchModal(): JSX.Element | null {
   }
 
   return (
-    <div className="palette-overlay ss-fullscreen" onMouseDown={() => setShow(false)}>
+    <div className="palette-overlay" onMouseDown={() => setShow(false)}>
       <div className="palette ss-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="palette-search">
           <Search size={15} className="palette-search-icon" />
