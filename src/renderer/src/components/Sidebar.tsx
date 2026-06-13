@@ -7,7 +7,6 @@ import {
   GitBranch,
   History,
   Settings,
-  Server,
   NotebookPen,
   Command as CommandIcon
 } from 'lucide-react'
@@ -80,7 +79,6 @@ export default function Sidebar(): JSX.Element {
   const setShowRooms = useUi((s) => s.setShowRooms)
   const setShowTimeline = useUi((s) => s.setShowTimeline)
   const toggleSessionSearch = useUi((s) => s.toggleSessionSearch)
-  const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
   const toggleNotes = useUi((s) => s.toggleNotes)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
   const openSettings = useUi((s) => s.openSettings)
@@ -132,7 +130,6 @@ export default function Sidebar(): JSX.Element {
             <Row icon={<DoorOpen size={18} />} label="Rooms" onClick={() => setShowRooms(true)} />
             <Row icon={<GitBranch size={18} />} label="Build timeline" onClick={() => setShowTimeline(true)} />
             <Row icon={<History size={18} />} label="Search history" onClick={toggleSessionSearch} />
-            <Row icon={<Server size={18} />} label="SSH connect" title="SSH connect…" onClick={() => setShowSshPrompt(true)} />
             <Row icon={<NotebookPen size={18} />} label="Notes" onClick={toggleNotes} />
           </div>
         </div>

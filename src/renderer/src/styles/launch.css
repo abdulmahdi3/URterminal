@@ -852,3 +852,61 @@
     transform: none !important;
   }
 }
+
+/* ===========================================================================
+   Sidebar Tools open FULL-SCREEN (not small centered modals or dropdowns).
+   =========================================================================== */
+.modal.bridge,
+.modal.taskboard,
+.modal.rooms,
+.modal.timeline,
+.modal.notes-modal,
+.modal.modal-full {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+/* let the body fill the height when the modal is full-screen */
+.modal.bridge > .modal-body,
+.modal.taskboard > .modal-body,
+.modal.rooms > .modal-body,
+.modal.timeline > .modal-body,
+.modal.notes-modal > .modal-body,
+.modal.modal-full > .modal-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Search history reuses the palette shell — full-screen that too */
+.palette-overlay.ss-fullscreen {
+  padding-top: 0 !important;
+  align-items: stretch !important;
+}
+.palette.ss-modal {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  border-radius: 0 !important;
+  border: none !important;
+  display: flex;
+  flex-direction: column;
+}
+.palette.ss-modal .palette-list {
+  max-height: none !important;
+  flex: 1;
+}
+
+/* Sessions full-screen body — readable centered column */
+.modal.modal-full .sessions-full-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 16px;
+}
+.modal.modal-full .sessions-full-inner {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}

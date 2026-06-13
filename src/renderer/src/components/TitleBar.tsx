@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Network } from 'lucide-react'
 import clsx from 'clsx'
 import logoPng from '@renderer/assets/logo.png'
 import { useWorkspace } from '@renderer/store/workspace'
@@ -24,6 +25,7 @@ export default function TitleBar(): JSX.Element {
   const movePanesToNew = useWorkspaces((s) => s.movePanesToNew)
   const draggingPaneIds = useUi((s) => s.draggingPaneIds)
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
+  const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
   const [agents, setAgents] = useState(getAgents())
@@ -137,6 +139,15 @@ export default function TitleBar(): JSX.Element {
               <ShellLogo shell={spec.file} args={spec.args} size={15} />
             </button>
           ))}
+
+        {/* SSH — opens a prompt pre-filled with the last host, Enter to connect */}
+        <button
+          className="icon-btn agent-icon-btn"
+          title="SSH connect…"
+          onClick={() => setShowSshPrompt(true)}
+        >
+          <Network size={15} />
+        </button>
       </div>
 
       <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />
