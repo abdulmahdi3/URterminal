@@ -95,6 +95,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.9': {
+    version: '0.4.9',
+    headline: 'Settings, smoothed out',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'A calmer, themed Settings',
+        demo: 'settings',
+        body:
+          'Settings got a polish pass: the section nav now marks the active page with an accent rail and ' +
+          'slides on hover, every card responds on hover, and the toggle switches glide instead of snapping. ' +
+          'It all follows your theme and respects reduced-motion. Open it with Ctrl+, — Notifications, ' +
+          'Appearance, Terminal, Behavior and the rest are unchanged underneath.'
+      }
+    ]
+  },
+
   '0.4.8': {
     version: '0.4.8',
     headline: 'A sharper command palette',

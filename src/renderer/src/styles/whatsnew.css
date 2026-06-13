@@ -2130,3 +2130,128 @@
     animation: none;
   }
 }
+
+/* ---- settings demo ---- */
+.wn-demo-settings {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.wn-st-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+.wn-st-navi {
+  width: 30px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-elev-3);
+}
+.wn-st-navi.active {
+  width: 38px;
+  background: var(--accent);
+}
+.wn-st-cards {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wn-st-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+.wn-st-ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--accent-soft);
+}
+.wn-st-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wn-st-l1 {
+  width: 58%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elev-3);
+}
+.wn-st-l2 {
+  width: 80%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-elev-3);
+  opacity: 0.6;
+}
+.wn-st-toggle {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border-strong);
+}
+.wn-st-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.wn-st-toggle.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: wn-st-toggle 3s ease-in-out infinite;
+}
+.wn-st-toggle.on::after {
+  background: #fff;
+  animation: wn-st-knob 3s ease-in-out infinite;
+}
+@keyframes wn-st-toggle {
+  0%,
+  20% {
+    background: var(--bg-elev-3);
+    border-color: var(--border-strong);
+  }
+  40%,
+  90% {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+}
+@keyframes wn-st-knob {
+  0%,
+  20% {
+    left: 2px;
+    background: var(--text-dim);
+  }
+  40%,
+  90% {
+    left: 17px;
+    background: #fff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-st-toggle.on,
+  .wn-st-toggle.on::after {
+    animation: none;
+  }
+  .wn-st-toggle.on::after {
+    left: 17px;
+  }
+}

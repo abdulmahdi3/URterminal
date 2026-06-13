@@ -576,6 +576,36 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'settings') {
+    // A settings card whose toggle slides on, with a nav rail beside it.
+    return (
+      <div className="wn-demo wn-demo-settings">
+        <div className="wn-st-nav">
+          <span className="wn-st-navi" />
+          <span className="wn-st-navi active" />
+          <span className="wn-st-navi" />
+        </div>
+        <div className="wn-st-cards">
+          <div className="wn-st-card">
+            <span className="wn-st-ico" />
+            <span className="wn-st-lines">
+              <span className="wn-st-l1" />
+              <span className="wn-st-l2" />
+            </span>
+            <span className="wn-st-toggle on" />
+          </div>
+          <div className="wn-st-card">
+            <span className="wn-st-ico" />
+            <span className="wn-st-lines">
+              <span className="wn-st-l1" />
+              <span className="wn-st-l2" />
+            </span>
+            <span className="wn-st-toggle" />
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'palette') {
     // A mini palette: query line, rows, the active row with an accent shortcut.
     return (
