@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import clsx from 'clsx'
 import TitleBar from './components/TitleBar'
+import Sidebar from './components/Sidebar'
 import Workspace from './components/Workspace'
 import StatusBar from './components/StatusBar'
 import CommandPalette from './components/CommandPalette'
@@ -125,9 +126,12 @@ export default function App(): JSX.Element {
   return (
     <div className={clsx('app', appTheme !== 'dark' && `theme-${appTheme}`)}>
       <TitleBar />
-      <main className="workspace-root">
-        <Workspace />
-      </main>
+      <div className="app-body">
+        <Sidebar />
+        <main className="workspace-root">
+          <Workspace />
+        </main>
+      </div>
       <StatusBar />
 
       <CommandPalette />

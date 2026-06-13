@@ -2,6 +2,7 @@ import type { Pane } from '@shared/types'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import { useUi } from '@renderer/store/ui'
+import { useSidebar } from '@renderer/store/sidebar'
 import { useBroadcastStore } from '@renderer/store/broadcast'
 import { useSettings } from '@renderer/store/settings'
 import { useActivity, activityToMarkdown } from '@renderer/store/activity'
@@ -134,6 +135,13 @@ export function getCommands(): Command[] {
       title: 'New stream pane (Claude, structured cards)',
       group: 'Panes',
       run: () => ws().addPane('stream', undefined, { agentCommand: 'claude', label: 'claude · stream' })
+    },
+    {
+      id: 'app.toggleSidebar',
+      title: 'Toggle sidebar (pin open / hover)',
+      group: 'View',
+      shortcut: 'Ctrl+B',
+      run: () => useSidebar.getState().togglePinned()
     },
     {
       id: 'nav.quickSwitch',

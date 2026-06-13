@@ -1,7 +1,13 @@
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
 .workspace-root {
   flex: 1;
   position: relative;
   min-height: 0;
+  min-width: 0;
   background: var(--bg-sunken);
 }
 

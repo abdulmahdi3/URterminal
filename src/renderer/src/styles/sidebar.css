@@ -1,0 +1,317 @@
+/* ===========================================================================
+   Sidebar — a hover-expanded icon rail (Ctrl+B pins it open).
+   Collapsed it reserves a 56px rail of centred icons; on hover it expands to an
+   overlay panel with labels + real meta. Pinned, it stays expanded in-layout.
+   Everything follows the active theme; every row eases on hover.
+   =========================================================================== */
+.sidebar {
+  flex: none;
+  position: relative;
+  width: 56px;
+  z-index: 40;
+  --sb-w: 248px;
+  --sb-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  transition: width 0.2s var(--sb-ease);
+}
+.sidebar.pinned {
+  width: var(--sb-w);
+}
+
+.sidebar-rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 56px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  transition: width 0.2s var(--sb-ease), box-shadow 0.2s var(--sb-ease);
+}
+.sidebar:hover .sidebar-rail,
+.sidebar.pinned .sidebar-rail {
+  width: var(--sb-w);
+}
+/* floating overlay shadow only while hover-expanded (not when pinned in-layout) */
+.sidebar:not(.pinned):hover .sidebar-rail {
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---- brand ---- */
+.sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 14px;
+  flex: none;
+  border-bottom: 1px solid var(--border-faint);
+}
+.sb-logo {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  object-fit: contain;
+}
+.sb-brand-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.sb-pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.16s ease, background 0.14s ease, color 0.14s ease;
+}
+.sb-pin:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
+.sb-pin.on {
+  color: var(--accent);
+}
+
+/* reveal labels / headers / trailing meta once the rail is wide */
+.sidebar:hover .sb-brand-name,
+.sidebar.pinned .sb-brand-name,
+.sidebar:hover .sb-pin,
+.sidebar.pinned .sb-pin,
+.sidebar:hover .sb-label,
+.sidebar.pinned .sb-label,
+.sidebar:hover .sb-meta,
+.sidebar.pinned .sb-meta,
+.sidebar:hover .sb-section,
+.sidebar.pinned .sb-section {
+  opacity: 1;
+}
+
+/* ---- scroll body ---- */
+.sb-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+}
+.sb-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sb-group {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 8px;
+  gap: 2px;
+}
+
+/* ---- a rail row ---- */
+.sb-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-dim);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s var(--sb-ease), color 0.15s ease, transform 0.15s var(--sb-ease);
+}
+.sb-row:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  transform: translateX(2px);
+}
+.sb-row:active {
+  transform: translateX(1px) scale(0.99);
+}
+.sb-row.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+/* accent rail marker on the active row */
+.sb-row.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+.sb-row.accent {
+  color: var(--accent);
+}
+.sb-row.accent:hover {
+  background: var(--accent-soft);
+}
+
+.sb-ico {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+}
+.sb-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.sb-meta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+/* workspace number chip */
+.sb-ws-num {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border);
+}
+.sb-row.active .sb-ws-num {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* trailing counts / badges / kbd */
+.sb-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+.sb-dot-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+}
+.sb-kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border);
+}
+.sb-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.sb-status.ok {
+  background: var(--ok);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ok) 70%, transparent);
+}
+.sb-status.off {
+  background: var(--text-faint);
+  opacity: 0.5;
+}
+.sb-theme-name {
+  font-size: 11px;
+  text-transform: capitalize;
+  color: var(--text-faint);
+}
+
+/* ---- section header ---- */
+.sb-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 5px;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.sb-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.sb-section-count {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-elev-3);
+  border: 1px solid var(--border-faint);
+}
+
+/* ---- footer ---- */
+.sb-foot {
+  flex: none;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ---- reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-rail,
+  .sb-row,
+  .sb-label,
+  .sb-meta,
+  .sb-section,
+  .sb-brand-name,
+  .sb-pin {
+    transition: none;
+  }
+  .sb-row:hover,
+  .sb-row:active {
+    transform: none;
+  }
+}

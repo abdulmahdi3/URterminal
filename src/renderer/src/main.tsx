@@ -12,6 +12,7 @@ import './i18n/i18n'
 import './styles/global.css'
 import './styles/titlebar.css'
 import './styles/workspace.css'
+import './styles/sidebar.css'
 import './styles/statusbar.css'
 import './styles/palette.css'
 import './styles/settings.css'
@@ -19,6 +20,7 @@ import './styles/notes.css'
 import './styles/whatsnew.css'
 import './styles/streampane.css'
 import './styles/themes.css'
+import './styles/launch.css'
 
 // Debug handles for the scripted smoke harness (see src/main/smoke.ts).
 const dbg = window as unknown as {
