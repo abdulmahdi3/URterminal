@@ -557,6 +557,41 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'launchconsole') {
+    // A staggered grid of agent cards, the first one featured (accent ring).
+    return (
+      <div className="wn-demo wn-demo-launch">
+        <div className="wn-lc-hero">
+          <span className="wn-lc-logo" />
+          <span className="wn-lc-bars">
+            <span className="wn-lc-bar b1" />
+            <span className="wn-lc-bar b2" />
+          </span>
+        </div>
+        <div className="wn-lc-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <span key={i} className={'wn-lc-card' + (i === 0 ? ' featured' : '')} style={{ ['--d' as string]: `${i * 90}ms` }} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'sidebar') {
+    // A rail that expands from icons to labelled rows, with an accent active row.
+    return (
+      <div className="wn-demo wn-demo-sidebar">
+        <div className="wn-sb-rail">
+          {['', 'active', '', '', ''].map((c, i) => (
+            <div key={i} className={'wn-sb-row ' + c}>
+              <span className="wn-sb-ico" />
+              <span className="wn-sb-lbl" />
+            </div>
+          ))}
+        </div>
+        <div className="wn-sb-hint">Ctrl B</div>
+      </div>
+    )
+  }
   // 'tour' — a floating rocket with pulsing sparkles
   return (
     <div className="wn-demo wn-demo-tour">

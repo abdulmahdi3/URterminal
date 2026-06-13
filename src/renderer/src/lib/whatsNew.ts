@@ -61,6 +61,11 @@ export type WhatsNewDemo =
   | 'diffreview'
   | 'streamcards'
   | 'dashboard'
+  | 'launchconsole'
+  | 'sidebar'
+  | 'palette'
+  | 'settings'
+  | 'chrome'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -90,6 +95,35 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.7': {
+    version: '0.4.7',
+    headline: 'A new home, and a rail to navigate it',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'The launch console',
+        demo: 'launchconsole',
+        body:
+          'The empty-workspace screen is now a real launch console: your 12 agents as cards with model, ' +
+          'context and live status; a search and All / Installed / Cloud / Local filter; Recent Sessions ' +
+          'with layout thumbnails; and Shells & WSL with one-key launch. It follows your theme, the accent ' +
+          'follows your accent, and every card lifts on hover. Press a shell’s letter (P, A, U, K…) to open ' +
+          'it instantly.'
+      },
+      {
+        kind: 'feature',
+        title: 'A hover-expanded sidebar',
+        demo: 'sidebar',
+        body:
+          'A new left rail sits as quiet icons and expands on hover — or pin it open with Ctrl+B. It carries ' +
+          'real data: every workspace with its live pane count and done-badges, your installed agents with a ' +
+          'status dot, and quick access to BridgeMemory, the task board, rooms, the build timeline and ' +
+          'history. Shortcuts shown on it come straight from the command registry, so they’re always true.'
+      }
+    ]
+  },
+
   '0.4.6': {
     version: '0.4.6',
     headline: 'Fix: the animated previews now render',
