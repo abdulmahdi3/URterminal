@@ -95,6 +95,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.4.8': {
+    version: '0.4.8',
+    headline: 'A sharper command palette',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Find it, run it, rebind it',
+        demo: 'palette',
+        body:
+          'The command palette got a redesign that follows your theme: rounded rows, an accent marker and ' +
+          'shortcut keycap on the active row, smoother hovers, and a cleaner search and category filter. ' +
+          'Every shortcut shown is the real binding — click any one to rebind it on the spot (it flashes if ' +
+          'the combo is already taken). Open it with Ctrl+Shift+K.'
+      }
+    ]
+  },
+
   '0.4.7': {
     version: '0.4.7',
     headline: 'A new home, and a rail to navigate it',

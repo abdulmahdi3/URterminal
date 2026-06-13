@@ -576,6 +576,31 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'palette') {
+    // A mini palette: query line, rows, the active row with an accent shortcut.
+    return (
+      <div className="wn-demo wn-demo-palette">
+        <div className="wn-pal-query">
+          <Search size={11} /> <span>new shell</span>
+          <span className="wn-caret" />
+        </div>
+        <div className="wn-pal-rows">
+          <div className="wn-pal-row active">
+            <span className="wn-pal-title">New shell pane</span>
+            <span className="wn-pal-kbd">⌃⇧5</span>
+          </div>
+          <div className="wn-pal-row">
+            <span className="wn-pal-title">New agent pane</span>
+            <span className="wn-pal-kbd">⌃T</span>
+          </div>
+          <div className="wn-pal-row">
+            <span className="wn-pal-title">Run in all shells</span>
+            <span className="wn-pal-kbd dim">set</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'sidebar') {
     // A rail that expands from icons to labelled rows, with an accent active row.
     return (

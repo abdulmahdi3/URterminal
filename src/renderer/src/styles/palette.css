@@ -3,30 +3,51 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(4, 6, 10, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(4, 6, 10, 0.5);
+  backdrop-filter: blur(3px);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding-top: 12vh;
+  animation: palette-overlay-in 0.16s ease both;
+}
+@keyframes palette-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .palette {
-  width: min(620px, 92vw);
+  width: min(640px, 92vw);
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: palette-in 0.2s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .palette-search {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 12px 14px;
+  gap: 11px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
 }
 .palette-search-icon {
   color: var(--accent);
+  flex: none;
 }
 .palette-input {
   flex: 1;
@@ -35,9 +56,13 @@
   outline: none;
   color: var(--text);
   caret-color: var(--accent);
-  font-size: 14px;
+  font-size: 15px;
 }
 .palette-input::placeholder {
+  color: var(--text-faint);
+}
+.palette-search kbd {
+  font-size: 10px;
   color: var(--text-faint);
 }
 /* colorful category filter tags under the search field */
@@ -52,12 +77,14 @@
   font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.2px;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: var(--r-pill);
   cursor: pointer;
   color: var(--text-dim);
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease,
+    transform 0.14s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 /* only the # is tinted with the selected accent (theme) color */
 .palette-tag-hash {
@@ -67,6 +94,7 @@
 .palette-tag:hover {
   color: var(--text);
   border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 .palette-tag.active {
   color: var(--text);
@@ -89,14 +117,15 @@
   margin-bottom: 2px;
 }
 .palette-section-title {
-  padding: 8px 11px 4px;
+  padding: 9px 12px 5px;
   font-size: var(--fs-2xs);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   color: var(--text-faint);
 }
 .palette-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -104,15 +133,32 @@
   text-align: left;
   background: transparent;
   border: none;
-  border-left: 3px solid transparent;
   border-radius: var(--r-md);
-  padding: 8px 11px;
-  color: var(--text);
+  padding: 9px 12px;
+  color: var(--text-dim);
   font-size: var(--fs-body);
+  transition: background 0.14s ease, color 0.14s ease,
+    transform 0.14s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.palette-item:hover {
+  color: var(--text);
 }
 .palette-item.active {
-  /* faint neutral fill only — no accent edge bar */
-  background: var(--bg-elev-2);
+  background: var(--accent-soft);
+  color: var(--text);
+  transform: translateX(3px);
+}
+/* accent rail marker on the active row */
+.palette-item.active::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 62%;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
 }
 .palette-item.active .palette-title {
   color: var(--text);
@@ -120,7 +166,8 @@
 }
 .palette-item.active .palette-shortcut {
   color: var(--accent);
-  border-color: var(--accent-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* per-row shortcut field (click to rebind) */
@@ -195,7 +242,14 @@
 }
 .palette-shortcut {
   flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
   color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
 }
 
 /* footer: nav hints + result count */
