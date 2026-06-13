@@ -20,7 +20,7 @@
   }
 }
 .palette {
-  width: min(640px, 92vw);
+  width: min(760px, 94vw);
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
