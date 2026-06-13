@@ -5,6 +5,7 @@ import type {
   SettingsPublic,
   SettingsPatch,
   ProviderId,
+  AgentRuntimeStatus,
   PtySpawnRequest,
   SshSpawnRequest,
   SshAgentResult,
@@ -94,6 +95,8 @@ const api = {
   checkCommands: (names: string[]): Promise<string[]> =>
     ipcRenderer.invoke(IPC.commandsCheck, names),
   discoverAgents: (): Promise<AgentDiscovery> => ipcRenderer.invoke(IPC.agentsDiscover),
+  agentStatuses: (commands: string[]): Promise<Record<string, AgentRuntimeStatus>> =>
+    ipcRenderer.invoke(IPC.agentsStatus, commands),
   installAgent: (command: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.agentsInstall, command),
   gitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke(IPC.gitStatus, cwd),

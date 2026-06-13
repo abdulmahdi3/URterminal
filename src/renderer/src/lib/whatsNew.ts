@@ -96,6 +96,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.6.1': {
+    version: '0.6.1',
+    headline: 'Real agent statuses',
+    kind: 'fix',
+    steps: [
+      {
+        kind: 'fix',
+        title: 'Every agent card shows its true state',
+        body:
+          'The status on each launch-console agent is now probed live instead of hard-coded: Ready ' +
+          '(installed and authenticated), Sign in (installed but not signed in), or Not installed — checked ' +
+          'against each CLI on your PATH and its credentials. Statuses we can’t verify default to Ready ' +
+          'rather than guessing, so no card lies. Also removed the Continue agent.'
+      }
+    ]
+  },
+
   '0.6.0': {
     version: '0.6.0',
     headline: 'OpenRouter — one key, 200+ models',

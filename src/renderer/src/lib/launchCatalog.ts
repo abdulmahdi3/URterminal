@@ -7,10 +7,12 @@
  * launches — or, if the CLI isn't installed, reports it just like any other).
  */
 import type { MosaicNode } from 'react-mosaic-component'
-import type { Pane } from '@shared/types'
+import type { Pane, AgentRuntimeStatus } from '@shared/types'
 import type { SavedSession } from '@renderer/store/sessions'
 
-export type AgentStatus = 'ready' | 'update' | 'signin'
+/** Display status: the real runtime states from the main-process probe, plus a
+ *  transient `checking` shown until that probe resolves. */
+export type AgentStatus = AgentRuntimeStatus | 'checking'
 export type AgentKind = 'cloud' | 'local'
 
 export interface LaunchAgent {
@@ -26,8 +28,6 @@ export interface LaunchAgent {
   color: string
   /** Model / context summary line. */
   model: string
-  /** Default presented status (overridden to 'ready' when really installed). */
-  status: AgentStatus
   /** Filter bucket for the All / Cloud / Local tabs. */
   kind: AgentKind
   /** The featured card (gold ring) — Claude. */
@@ -45,25 +45,26 @@ export interface LaunchAgent {
 /** The agents, in grid order (4 columns). The last entry, OpenRouter, is a
  *  provider gateway (no CLI) — its card opens Settings rather than launching. */
 export const LAUNCH_AGENTS: LaunchAgent[] = [
-  { command: 'claude',       name: 'Claude',         cli: 'claude-code',  badge: 'C',   color: '#e8b53e', model: 'Sonnet 4.5 · 200K ctx',  status: 'ready',  kind: 'cloud', featured: true, spark: true },
-  { command: 'codex',        name: 'ChatGPT',        cli: 'codex-cli',    badge: 'GPT', color: '#19c37d', model: 'GPT-5 Codex · 256K ctx', status: 'ready',  kind: 'cloud' },
-  { command: 'gemini',       name: 'Gemini',         cli: 'gemini-cli',   badge: 'G',   color: '#6f86ff', model: '2.5 Pro · 1M ctx',       status: 'ready',  kind: 'cloud' },
-  { command: 'copilot',      name: 'GitHub Copilot', cli: 'copilot-cli',  badge: 'GH',  color: '#c9d1d9', model: 'GPT-5 · 128K ctx',       status: 'ready',  kind: 'cloud' },
-  { command: 'aider',        name: 'Aider',          cli: 'aider',        badge: 'Ai',  color: '#a371f7', model: 'multi-model',            status: 'ready',  kind: 'local' },
-  { command: 'opencode',     name: 'OpenCode',       cli: 'opencode',     badge: 'OC',  color: '#e8973c', model: 'any provider',           status: 'ready',  kind: 'local' },
-  { command: 'cursor-agent', name: 'Cursor',         cli: 'cursor-agent', badge: 'Cu',  color: '#d3dae6', model: 'Composer · 128K ctx',    status: 'update', kind: 'cloud' },
-  { command: 'cline',        name: 'Cline',          cli: 'cline',        badge: 'CL',  color: '#2bb6a3', model: 'any provider',           status: 'ready',  kind: 'local' },
-  { command: 'goose',        name: 'Goose',          cli: 'goose',        badge: 'Go',  color: '#f0688a', model: 'multi-model',            status: 'signin', kind: 'local' },
-  { command: 'qwen-code',    name: 'Qwen Coder',     cli: 'qwen-code',    badge: 'Qw',  color: '#b06bf0', model: 'Qwen3 Coder · 256K',     status: 'ready',  kind: 'local' },
-  { command: 'q',            name: 'Amazon Q',       cli: 'q-cli',        badge: 'Q',   color: '#46c6e6', model: 'Q Developer',            status: 'signin', kind: 'cloud' },
-  { command: 'continue',     name: 'Continue',       cli: 'continue',     badge: 'Cn',  color: '#4d8bf0', model: 'any provider',           status: 'update', kind: 'local' },
-  { command: 'openrouter',   name: 'OpenRouter',     cli: 'openrouter.ai', badge: 'OR', color: '#6566f1', model: '200+ models · one key',   status: 'signin', kind: 'cloud', configure: true }
+  { command: 'claude',       name: 'Claude',         cli: 'claude-code',   badge: 'C',   color: '#e8b53e', model: 'Sonnet 4.5 · 200K ctx',  kind: 'cloud', featured: true, spark: true },
+  { command: 'codex',        name: 'ChatGPT',        cli: 'codex-cli',     badge: 'GPT', color: '#19c37d', model: 'GPT-5 Codex · 256K ctx', kind: 'cloud' },
+  { command: 'gemini',       name: 'Gemini',         cli: 'gemini-cli',    badge: 'G',   color: '#6f86ff', model: '2.5 Pro · 1M ctx',       kind: 'cloud' },
+  { command: 'copilot',      name: 'GitHub Copilot', cli: 'copilot-cli',   badge: 'GH',  color: '#c9d1d9', model: 'GPT-5 · 128K ctx',       kind: 'cloud' },
+  { command: 'aider',        name: 'Aider',          cli: 'aider',         badge: 'Ai',  color: '#a371f7', model: 'multi-model',            kind: 'local' },
+  { command: 'opencode',     name: 'OpenCode',       cli: 'opencode',      badge: 'OC',  color: '#e8973c', model: 'any provider',           kind: 'local' },
+  { command: 'cursor-agent', name: 'Cursor',         cli: 'cursor-agent',  badge: 'Cu',  color: '#d3dae6', model: 'Composer · 128K ctx',    kind: 'cloud' },
+  { command: 'cline',        name: 'Cline',          cli: 'cline',         badge: 'CL',  color: '#2bb6a3', model: 'any provider',           kind: 'local' },
+  { command: 'goose',        name: 'Goose',          cli: 'goose',         badge: 'Go',  color: '#f0688a', model: 'multi-model',            kind: 'local' },
+  { command: 'qwen-code',    name: 'Qwen Coder',     cli: 'qwen-code',     badge: 'Qw',  color: '#b06bf0', model: 'Qwen3 Coder · 256K',     kind: 'local' },
+  { command: 'q',            name: 'Amazon Q',       cli: 'q-cli',         badge: 'Q',   color: '#46c6e6', model: 'Q Developer',            kind: 'cloud' },
+  { command: 'openrouter',   name: 'OpenRouter',     cli: 'openrouter.ai', badge: 'OR',  color: '#6566f1', model: '200+ models · one key',  kind: 'cloud', configure: true }
 ]
 
 export const STATUS_LABEL: Record<AgentStatus, string> = {
   ready: 'Ready',
   update: 'Update',
-  signin: 'Sign in'
+  signin: 'Sign in',
+  missing: 'Not installed',
+  checking: 'Checking…'
 }
 
 // ---------------------------------------------------------------------------

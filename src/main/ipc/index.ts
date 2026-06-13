@@ -35,6 +35,7 @@ import { ControlServer } from '../control/server'
 import { listWslDistros } from '../pty/wsl'
 import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
+import { detectAgentStatuses } from '../agents/status'
 import { installAgent } from '../agents/install'
 import { discoverModels } from '../providers/discoverModels'
 import { getGitStatus } from '../git/status'
@@ -543,6 +544,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.commandsCheck, (_e, names: string[]) => filterAvailable(names))
   ipcMain.handle(IPC.agentsDiscover, () => discoverAgents(settings.getOllamaBaseUrl()))
   ipcMain.handle(IPC.agentsInstall, (_e, command: string) => installAgent(command))
+  ipcMain.handle(IPC.agentsStatus, (_e, commands: string[]) => detectAgentStatuses(commands))
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
   ipcMain.handle(IPC.sessionsSearch, (_e, query: string) => searchSessions(query))
   ipcMain.handle(IPC.referenceExpand, (_e, ref: string, cwd: string) => expandReference(ref, cwd))

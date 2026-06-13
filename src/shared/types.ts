@@ -6,6 +6,15 @@ export type { BridgeNote, BridgeNode, BridgeEdge, BridgeGraphData } from './brid
 
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama' | 'lmstudio'
 
+/**
+ * Real runtime state of an agent CLI, probed live in the main process:
+ *   `ready`   — installed on PATH and authenticated (ready to talk)
+ *   `signin`  — installed but not authenticated (needs sign-in / a key)
+ *   `update`  — installed but a newer version is available
+ *   `missing` — not installed (not on PATH)
+ */
+export type AgentRuntimeStatus = 'ready' | 'signin' | 'update' | 'missing'
+
 export type PaneType = 'ai' | 'shell' | 'empty' | 'stream'
 
 export interface ShellPaneState {
@@ -869,6 +878,8 @@ export const IPC = {
   agentsDiscover: 'agents:discover',
   // agents: run an agent's install command (one-click install from the doctor)
   agentsInstall: 'agents:install',
+  // agents: probe each agent CLI's real status (installed + authenticated) by command
+  agentsStatus: 'agents:status',
   // prompts: durable per-chat prompt history (rebuilds the prompt minimap on restore)
   promptsGet: 'prompts:get',
   promptsAppend: 'prompts:append',

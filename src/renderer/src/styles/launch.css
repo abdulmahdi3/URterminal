@@ -477,6 +477,29 @@
 .lc-stat.signin {
   color: #e0a93b;
 }
+.lc-stat.missing {
+  color: var(--text-faint);
+}
+.lc-stat.checking {
+  color: var(--text-faint);
+}
+.lc-stat.checking .d {
+  animation: lc-stat-pulse 1.1s ease-in-out infinite;
+}
+@keyframes lc-stat-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-stat.checking .d {
+    animation: none;
+  }
+}
 
 .lc-card-model {
   font-family: var(--mono);

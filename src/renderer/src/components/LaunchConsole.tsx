@@ -20,7 +20,8 @@ import type { SavedSession } from '@renderer/store/sessions'
 import { useUi } from '@renderer/store/ui'
 import { useShortcuts, effectiveCombo } from '@renderer/store/shortcuts'
 import { toast } from '@renderer/store/toasts'
-import { getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
+import type { AgentRuntimeStatus } from '@shared/types'
+import { useSettings } from '@renderer/store/settings'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
 import { getCommands, runCommand } from '@renderer/lib/commands'
 import { ShellLogo, AgentLogo, hasAgentLogo } from './brandIcons'
@@ -94,17 +95,16 @@ function MiniLayout({ node }: { node: MosaicNode<string> | null }): JSX.Element 
 
 function AgentCard({
   a,
-  installed,
+  status,
   index,
   onLaunch
 }: {
   a: LaunchAgent
-  installed: boolean
+  status: AgentStatus
   index: number
   onLaunch: () => void
 }): JSX.Element {
-  const status: AgentStatus = installed ? 'ready' : a.status
-  const statusLabel = a.configure ? 'Set up' : STATUS_LABEL[status]
+  const statusLabel = a.configure ? (status === 'ready' ? 'Ready' : 'Set up') : STATUS_LABEL[status]
   return (
     <button
       type="button"
@@ -131,9 +131,12 @@ function AgentCard({
       </div>
       <div className="lc-card-model">{a.model}</div>
       <div className="lc-card-foot">
-        <span className="lc-card-hint">{a.configure ? 'configure once' : 'opens in a folder'}</span>
+        <span className="lc-card-hint">
+          {a.configure ? 'one key · 200+ models' : 'opens in a folder'}
+        </span>
         <span className="lc-card-launch">
-          {a.configure ? 'Set up key' : 'Launch'} <ChevronRight size={13} />
+          {a.configure ? (status === 'ready' ? 'Manage' : 'Set up') : 'Launch'}{' '}
+          <ChevronRight size={13} />
         </span>
       </div>
     </button>
@@ -150,6 +153,7 @@ export default function LaunchConsole(): JSX.Element {
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
   const openSettings = useUi((s) => s.openSettings)
   const custom = useShortcuts((s) => s.custom)
+  const orKeySet = useSettings((s) => !!s.settings?.providers.openrouter.keySet)
 
   // Real total across EVERY workspace — the active one is empty here, so this
   // also reflects panes opened in other workspaces (which the old count missed).
@@ -170,10 +174,12 @@ export default function LaunchConsole(): JSX.Element {
   const newShellKeys = comboToKeys(effectiveCombo(custom, 'pane.newShell', cmdDefaults['pane.newShell']))
   const newAgentKeys = comboToKeys(effectiveCombo(custom, 'pane.newAi', cmdDefaults['pane.newAi']))
 
-  const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
+  const [statuses, setStatuses] = useState<Record<string, AgentRuntimeStatus>>({})
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
   useEffect(() => {
-    void refreshAgentAvailability().then((s) => setAvailable(new Set(s)))
+    void window.api
+      .agentStatuses(LAUNCH_AGENTS.filter((a) => !a.configure).map((a) => a.command))
+      .then(setStatuses)
     void refreshWslDistros().then(() => setShells(getShellSpecs()))
   }, [])
 
@@ -208,16 +214,24 @@ export default function LaunchConsole(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [shells, addPane])
 
+  // Real status per card: OpenRouter (a provider gateway) reflects whether its
+  // key is set; every real CLI uses the live install + auth probe and shows
+  // `checking` until that resolves.
+  const statusOf = (a: LaunchAgent): AgentStatus =>
+    a.configure ? (orKeySet ? 'ready' : 'signin') : statuses[a.command] ?? 'checking'
+
   const agents = useMemo(() => {
     const q = query.trim().toLowerCase()
     return LAUNCH_AGENTS.filter((a) => {
-      if (filter === 'installed' && !available.has(a.command)) return false
+      const st = statusOf(a)
+      if (filter === 'installed' && (st === 'missing' || st === 'checking')) return false
       if (filter === 'cloud' && a.kind !== 'cloud') return false
       if (filter === 'local' && a.kind !== 'local') return false
       if (q && !(`${a.name} ${a.cli} ${a.model}`.toLowerCase().includes(q))) return false
       return true
     })
-  }, [query, filter, available])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, filter, statuses, orKeySet])
 
   const recent = sessions.slice(0, 4)
   const commandCount = useMemo(() => getCommands().filter((c) => !c.hidden).length, [])
@@ -322,7 +336,7 @@ export default function LaunchConsole(): JSX.Element {
                 key={a.command}
                 a={a}
                 index={i}
-                installed={available.has(a.command)}
+                status={statusOf(a)}
                 onLaunch={() => launchAgent(a)}
               />
             ))}
