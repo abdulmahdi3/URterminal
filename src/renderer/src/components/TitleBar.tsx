@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, X, Network, NotebookPen } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
+import logoPng from '@renderer/assets/logo.png'
 import clsx from 'clsx'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
@@ -185,8 +186,6 @@ export default function TitleBar(): JSX.Element {
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const badges = useWorkspaces((s) => s.badges)
   const canCloseWorkspace = list.length > 1
-  const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
-  const toggleNotes = useUi((s) => s.toggleNotes)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
   const [agents, setAgents] = useState(getAgents())
@@ -267,7 +266,7 @@ export default function TitleBar(): JSX.Element {
         }}
       >
         {/* Brand */}
-        <span className="brand-name">URterminal</span>
+        <img className="brand-logo-img" src={logoPng} alt="URterminal" draggable={false} />
 
         <div className="titlebar-sep" />
 
@@ -317,23 +316,6 @@ export default function TitleBar(): JSX.Element {
           </button>
         ))}
 
-        {/* SSH — opens a prompt pre-filled with the last host, Enter to connect */}
-        <button
-          className="icon-btn agent-icon-btn"
-          title="SSH connect…"
-          onClick={() => setShowSshPrompt(true)}
-        >
-          <Network size={15} />
-        </button>
-
-        {/* Standalone notes panel (separate from per-pane notes) */}
-        <button
-          className="icon-btn agent-icon-btn"
-          title="Notes"
-          onClick={toggleNotes}
-        >
-          <NotebookPen size={15} />
-        </button>
       </div>
 
       <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />

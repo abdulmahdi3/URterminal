@@ -95,6 +95,32 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.5.3': {
+    version: '0.5.3',
+    headline: 'Cleaner chrome, tidier rail',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'The logo leads the title bar',
+        body:
+          'The “URterminal” word in the title bar is replaced by the app logo, and SSH connect and Notes ' +
+          'moved out of the title bar into the sidebar’s Tools section — so the top strip is just the logo, ' +
+          'your agents and shells.'
+      },
+      {
+        kind: 'feature',
+        title: 'A focused sidebar',
+        demo: 'sidebar',
+        body:
+          'The sidebar drops what already lived in the title bar — its brand/pin row, the New agent / New ' +
+          'shell / Command palette actions, and the Agents list — so it’s now Workspaces + Tools ' +
+          '(BridgeMemory, Task board, Rooms, Build timeline, Search history, SSH, Notes) + the footer. ' +
+          'Still hover to expand, Ctrl+B to pin.'
+      }
+    ]
+  },
+
   '0.5.2': {
     version: '0.5.2',
     headline: 'A tidier pane header',

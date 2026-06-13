@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import clsx from 'clsx'
 import {
-  Sparkles,
-  TerminalSquare,
-  Command as CommandIcon,
   Plus,
   Layers,
   Network,
@@ -13,38 +10,13 @@ import {
   History,
   Settings,
   Palette,
-  Pin,
-  PinOff
+  Server,
+  NotebookPen
 } from 'lucide-react'
 import { useWorkspaces } from '@renderer/store/workspaces'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useSidebar } from '@renderer/store/sidebar'
-import { useShortcuts, effectiveCombo } from '@renderer/store/shortcuts'
-import { getAgents, getAvailableAgents, refreshAgentAvailability } from '@renderer/lib/agents'
-import { getCommands, runCommand } from '@renderer/lib/commands'
-import { AgentLogo } from './brandIcons'
-import logoPng from '@renderer/assets/logo.png'
-
-/** Format a real shortcut combo ("Ctrl+Shift+5") into compact symbols ("⌃⇧5"). */
-function fmtCombo(combo: string | undefined): string {
-  if (!combo) return ''
-  const map: Record<string, string> = {
-    Ctrl: '⌃',
-    Shift: '⇧',
-    Alt: '⌥',
-    Meta: '⌘',
-    Enter: '⏎',
-    Up: '↑',
-    Down: '↓',
-    Left: '←',
-    Right: '→'
-  }
-  return combo
-    .split('+')
-    .map((p) => map[p] ?? p)
-    .join('')
-}
 
 /** One rail row: a centred icon (collapsed) that reveals a label + trailing meta on expand. */
 function Row({
@@ -52,7 +24,6 @@ function Row({
   label,
   meta,
   active,
-  accent,
   title,
   onClick,
   onAux
@@ -61,14 +32,13 @@ function Row({
   label: string
   meta?: JSX.Element | string
   active?: boolean
-  accent?: boolean
   title?: string
   onClick?: () => void
   onAux?: () => void
 }): JSX.Element {
   return (
     <button
-      className={clsx('sb-row', active && 'active', accent && 'accent')}
+      className={clsx('sb-row', active && 'active')}
       title={title ?? label}
       onClick={onClick}
       onAuxClick={(e) => {
@@ -96,7 +66,6 @@ function Section({ title, count }: { title: string; count?: number }): JSX.Eleme
 
 export default function Sidebar(): JSX.Element {
   const pinned = useSidebar((s) => s.pinned)
-  const togglePinned = useSidebar((s) => s.togglePinned)
 
   const list = useWorkspaces((s) => s.list)
   const activeId = useWorkspaces((s) => s.activeId)
@@ -105,7 +74,6 @@ export default function Sidebar(): JSX.Element {
   const addWorkspace = useWorkspaces((s) => s.add)
   const rename = useWorkspaces((s) => s.rename)
 
-  const addPane = useWorkspace((s) => s.addPane)
   const livePaneCount = useWorkspace((s) => Object.keys(s.panes).length)
 
   const setShowBridge = useUi((s) => s.setShowBridge)
@@ -113,43 +81,12 @@ export default function Sidebar(): JSX.Element {
   const setShowRooms = useUi((s) => s.setShowRooms)
   const setShowTimeline = useUi((s) => s.setShowTimeline)
   const toggleSessionSearch = useUi((s) => s.toggleSessionSearch)
-  const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
+  const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
+  const toggleNotes = useUi((s) => s.toggleNotes)
   const openSettings = useUi((s) => s.openSettings)
   const cycleAppTheme = useUi((s) => s.cycleAppTheme)
   const appTheme = useUi((s) => s.appTheme)
 
-  const custom = useShortcuts((s) => s.custom)
-
-  const [agents, setAgents] = useState(getAgents())
-  const [available, setAvailable] = useState<Set<string>>(getAvailableAgents())
-  useEffect(() => {
-    void refreshAgentAvailability().then((s) => {
-      setAgents([...getAgents()])
-      setAvailable(new Set(s))
-    })
-  }, [])
-
-  // Real shortcut hints, kept in sync with the command registry + any rebinds.
-  const sc = useMemo(() => {
-    const m = new Map<string, string | undefined>()
-    for (const c of getCommands()) m.set(c.id, c.shortcut)
-    const eff = (id: string): string => fmtCombo(effectiveCombo(custom, id, m.get(id)))
-    return {
-      newAi: eff('pane.newAi'),
-      newShell: eff('pane.newShell'),
-      palette: '⌃⇧K'
-    }
-  }, [custom])
-
-  // Agents that are actually installed (real). Fall back to the cloud flagships
-  // before discovery resolves, so the rail is never empty.
-  const agentRows = useMemo(() => {
-    const installed = agents.filter((a) => available.has(a.id))
-    const base = installed.length ? installed : agents.slice(0, 4)
-    return base.slice(0, 6)
-  }, [agents, available])
-
-  const readyCount = agents.filter((a) => available.has(a.id)).length
   const totalBadges = Object.values(badges).reduce((n, b) => n + (b ?? 0), 0)
 
   // Total panes across all workspaces (active is live; others are snapshots).
@@ -162,46 +99,7 @@ export default function Sidebar(): JSX.Element {
   return (
     <aside className={clsx('sidebar', pinned && 'pinned')}>
       <div className="sidebar-rail">
-        {/* brand + pin toggle */}
-        <div className="sb-brand">
-          <img className="sb-logo" src={logoPng} alt="" draggable={false} />
-          <span className="sb-brand-name">URterminal</span>
-          <button
-            className={clsx('sb-pin', pinned && 'on')}
-            title={pinned ? 'Unpin rail (Ctrl+B)' : 'Pin rail open (Ctrl+B)'}
-            onClick={togglePinned}
-          >
-            {pinned ? <PinOff size={14} /> : <Pin size={14} />}
-          </button>
-        </div>
-
         <div className="sb-scroll">
-          {/* create */}
-          <div className="sb-group">
-            <Row
-              icon={<Sparkles size={18} />}
-              label="New agent"
-              accent
-              meta={<kbd className="sb-kbd">{sc.newAi}</kbd>}
-              title="New agent pane"
-              onClick={() => runCommand('pane.newAi')}
-            />
-            <Row
-              icon={<TerminalSquare size={18} />}
-              label="New shell"
-              meta={<kbd className="sb-kbd">{sc.newShell}</kbd>}
-              title="New shell pane"
-              onClick={() => runCommand('pane.newShell')}
-            />
-            <Row
-              icon={<CommandIcon size={18} />}
-              label="Command palette"
-              meta={<kbd className="sb-kbd">{sc.palette}</kbd>}
-              title="Command palette"
-              onClick={toggleCommandPalette}
-            />
-          </div>
-
           {/* workspaces */}
           <Section title="Workspaces" count={list.length} />
           <div className="sb-group">
@@ -236,32 +134,16 @@ export default function Sidebar(): JSX.Element {
             />
           </div>
 
-          {/* agents */}
-          <Section title="Agents" count={readyCount || agentRows.length} />
-          <div className="sb-group">
-            {agentRows.map((a) => {
-              const ready = available.has(a.id)
-              return (
-                <Row
-                  key={a.id}
-                  icon={<AgentLogo command={a.id} size={18} />}
-                  label={a.label}
-                  title={ready ? `New ${a.label} pane` : `${a.label} — not installed`}
-                  meta={<span className={clsx('sb-status', ready ? 'ok' : 'off')} />}
-                  onClick={() => addPane('ai', undefined, { agentCommand: a.id, label: a.label })}
-                />
-              )
-            })}
-          </div>
-
-          {/* workspace tools */}
-          <Section title="Workspace" />
+          {/* tools */}
+          <Section title="Tools" />
           <div className="sb-group">
             <Row icon={<Network size={18} />} label="BridgeMemory" onClick={() => setShowBridge(true)} />
             <Row icon={<KanbanSquare size={18} />} label="Task board" onClick={() => setShowTasks(true)} />
             <Row icon={<DoorOpen size={18} />} label="Rooms" onClick={() => setShowRooms(true)} />
             <Row icon={<GitBranch size={18} />} label="Build timeline" onClick={() => setShowTimeline(true)} />
             <Row icon={<History size={18} />} label="Search history" onClick={toggleSessionSearch} />
+            <Row icon={<Server size={18} />} label="SSH connect" title="SSH connect…" onClick={() => setShowSshPrompt(true)} />
+            <Row icon={<NotebookPen size={18} />} label="Notes" onClick={toggleNotes} />
           </div>
         </div>
 
