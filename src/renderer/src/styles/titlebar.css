@@ -92,6 +92,7 @@
   cursor: pointer;
   white-space: nowrap;
   max-width: 180px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .ws-tab:hover:not(.active) {
   background: var(--bg-elev-2);
@@ -218,6 +219,23 @@
   box-shadow: var(--shadow-lg);
   min-width: 184px;
   z-index: 400;
+  transform-origin: top center;
+  animation: dd-menu-in 0.15s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes dd-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hover-dd-menu {
+    animation: none;
+  }
 }
 .hover-dd-menu.center {
   left: 50%;
@@ -234,10 +252,12 @@
   color: var(--text-dim);
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.13s ease, color 0.13s ease, transform 0.13s ease;
 }
 .hover-dd-item:hover {
   background: var(--bg-elev-3);
   color: var(--text);
+  transform: translateX(2px);
 }
 .hover-dd-item.active {
   color: var(--accent);
@@ -369,10 +389,12 @@
   cursor: pointer;
   flex-shrink: 0;
   margin-left: 2px;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 .ws-add-btn:hover {
   background: var(--bg-elev-2);
   color: var(--text);
+  transform: rotate(90deg);
 }
 /* dashed drop zone shown in place of the + button while dragging panes */
 .ws-new-drop {
@@ -407,6 +429,8 @@
   border-radius: var(--r-md);
   padding: 8px;
   box-shadow: var(--shadow-lg);
+  transform-origin: top left;
+  animation: dd-menu-in 0.15s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 .sessions-save {
   display: flex;

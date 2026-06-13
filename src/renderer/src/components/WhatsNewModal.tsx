@@ -576,6 +576,28 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'chrome') {
+    // A mini window: title bar with tabs + a status bar with chips, gently alive.
+    return (
+      <div className="wn-demo wn-demo-chrome">
+        <div className="wn-cr-title">
+          <span className="wn-cr-logo" />
+          <span className="wn-cr-tab active">Workspace</span>
+          <span className="wn-cr-tab">Workspace 2</span>
+          <span className="wn-cr-add">+</span>
+        </div>
+        <div className="wn-cr-body" />
+        <div className="wn-cr-status">
+          <span className="wn-cr-chip">
+            <span className="wn-cr-dot" /> 2 working
+          </span>
+          <span className="wn-cr-grow" />
+          <span className="wn-cr-chip mono">38%</span>
+          <span className="wn-cr-chip mono">1.6M</span>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'settings') {
     // A settings card whose toggle slides on, with a nav rail beside it.
     return (

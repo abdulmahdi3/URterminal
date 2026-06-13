@@ -95,6 +95,32 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.5.0': {
+    version: '0.5.0',
+    headline: 'The whole window, in motion',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Title bar & status bar, polished',
+        demo: 'chrome',
+        body:
+          'The chrome now moves with you: workspace tabs and the “+” ease and react on hover, dropdowns ' +
+          'spring open, and the status-bar buttons respond to clicks. All of it still shows real data — the ' +
+          'working count, CPU/RAM, output, git branch — and follows your theme.'
+      },
+      {
+        kind: 'feature',
+        title: 'Little animations, everywhere',
+        demo: 'tour',
+        body:
+          'Modals fade and lift in, toasts slide from the edge, buttons give a gentle press, the sidebar ' +
+          'rail and command palette ease open. Nothing is loud — just enough motion to make the app feel ' +
+          'alive. Every animation honors your system’s reduced-motion setting.'
+      }
+    ]
+  },
+
   '0.4.9': {
     version: '0.4.9',
     headline: 'Settings, smoothed out',

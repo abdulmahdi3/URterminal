@@ -155,6 +155,19 @@ select {
   padding: 5px 11px;
   font-size: var(--fs-sm);
   font-weight: 500;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease,
+    box-shadow 0.14s ease, transform 0.1s ease;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  .btn:active {
+    transform: none;
+  }
 }
 .btn:hover {
   background: var(--bg-elev-3);
@@ -386,10 +399,22 @@ select {
   width: 26px;
   height: 24px;
   border-radius: var(--r-sm);
+  transition: background 0.14s ease, color 0.14s ease, transform 0.1s ease;
 }
 .icon-btn:hover {
   background: var(--bg-elev-3);
   color: var(--text);
+}
+.icon-btn:active {
+  transform: scale(0.92);
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn {
+    transition: none;
+  }
+  .icon-btn:active {
+    transform: none;
+  }
 }
 .icon-btn:active {
 }

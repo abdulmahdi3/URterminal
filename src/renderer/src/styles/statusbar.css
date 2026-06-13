@@ -203,10 +203,22 @@
   padding: 2px 4px;
   border-radius: var(--r-sm);
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.1s ease;
 }
 .sb-icon-btn:hover {
   background: var(--bg-elev-2);
   color: var(--accent);
+}
+.sb-icon-btn:active {
+  transform: scale(0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-icon-btn {
+    transition: none;
+  }
+  .sb-icon-btn:active {
+    transform: none;
+  }
 }
 .sb-item.mono {
   font-family: var(--mono);
