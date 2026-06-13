@@ -30,13 +30,9 @@
   border-right: 1px solid var(--border);
   transition: width 0.2s var(--sb-ease), box-shadow 0.2s var(--sb-ease);
 }
-.sidebar:hover .sidebar-rail,
+/* The rail only expands when PINNED (Ctrl+B) — hover no longer widens it. */
 .sidebar.pinned .sidebar-rail {
   width: var(--sb-w);
-}
-/* floating overlay shadow only while hover-expanded (not when pinned in-layout) */
-.sidebar:not(.pinned):hover .sidebar-rail {
-  box-shadow: var(--shadow-lg);
 }
 
 /* ---- brand ---- */
@@ -88,16 +84,11 @@
   color: var(--accent);
 }
 
-/* reveal labels / headers / trailing meta once the rail is wide */
-.sidebar:hover .sb-brand-name,
+/* reveal labels / headers / trailing meta only when the rail is PINNED open */
 .sidebar.pinned .sb-brand-name,
-.sidebar:hover .sb-pin,
 .sidebar.pinned .sb-pin,
-.sidebar:hover .sb-label,
 .sidebar.pinned .sb-label,
-.sidebar:hover .sb-meta,
 .sidebar.pinned .sb-meta,
-.sidebar:hover .sb-section,
 .sidebar.pinned .sb-section {
   opacity: 1;
 }
@@ -146,27 +137,16 @@
 .sb-row:active {
   transform: translateX(1px) scale(0.99);
 }
+/* active = accent-coloured icon/label only, no background fill */
 .sb-row.active {
-  background: var(--accent-soft);
-  color: var(--text);
+  background: transparent;
+  color: var(--accent);
 }
-/* accent rail marker on the active row */
-.sb-row.active::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 18px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
+.sb-row.active:hover {
+  background: var(--bg-elev-2);
 }
 .sb-row.accent {
   color: var(--accent);
-}
-.sb-row.accent:hover {
-  background: var(--accent-soft);
 }
 
 .sb-ico {
@@ -211,7 +191,7 @@
 .sb-row.active .sb-ws-num {
   color: var(--accent);
   border-color: var(--accent);
-  background: var(--accent-soft);
+  background: transparent;
 }
 
 /* trailing counts / badges / kbd */
