@@ -102,6 +102,28 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.9.1': {
+    version: '0.9.1',
+    headline: 'Launcher polish',
+    kind: 'mixed',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Tab-complete folder paths',
+        body:
+          'In the launcher’s folder field, press Tab to complete the path to the matching folder — like a ' +
+          'shell — and keep pressing to drill in, instead of jumping into the dropdown.'
+      },
+      {
+        kind: 'fix',
+        title: 'Aider logo stays in its box',
+        body:
+          'The wide Aider wordmark no longer spills out of its badge in the agent dropdown, the Others ' +
+          'browser and other small logo spots.'
+      }
+    ]
+  },
+
   '0.9.0': {
     version: '0.9.0',
     headline: 'A faster way to open agents',

@@ -280,9 +280,13 @@ select {
 .brand-img-invert {
   filter: invert(1);
 }
-/* wide wordmarks (e.g. Aider) keep their natural aspect ratio at a fixed height */
+/* wide wordmarks (e.g. Aider) keep their natural aspect ratio at a fixed height,
+   but never spill out of their container — cap to it. `object-fit: contain`
+   (above) preserves the aspect ratio, so capping width letterboxes, not distorts. */
 .brand-img-wide {
   width: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* ---- action buttons — icon-only with idle glow animation ---- */

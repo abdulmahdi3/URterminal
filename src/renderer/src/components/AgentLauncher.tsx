@@ -69,6 +69,17 @@ function base(p: string): string {
   return p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p
 }
 
+/** Longest common prefix of a set of strings (for shell-style Tab completion). */
+function longestCommonPrefix(strs: string[]): string {
+  if (!strs.length) return ''
+  let p = strs[0]
+  for (const s of strs) {
+    while (p && !s.startsWith(p)) p = p.slice(0, -1)
+    if (!p) break
+  }
+  return p
+}
+
 /**
  * The agent launcher (shown before an AI pane has a folder): a searchable agent
  * dropdown, a folder field with Last-used / Frequently-used / live-autocomplete
@@ -249,8 +260,24 @@ export default function AgentLauncher({
               onFocus={() => setFolderOpen(true)}
               onBlur={() => window.setTimeout(() => setFolderOpen(false), 130)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') open()
-                if (e.key === 'Escape') setFolderOpen(false)
+                if (e.key === 'Enter') {
+                  open()
+                } else if (e.key === 'Escape') {
+                  setFolderOpen(false)
+                } else if (e.key === 'Tab' && matches.length) {
+                  // Shell-style completion: fill the path to the match(es) instead of
+                  // moving focus. Single match → complete it (+ separator to drill in);
+                  // multiple → advance to their common prefix and keep the list open.
+                  e.preventDefault()
+                  setFolderOpen(true)
+                  if (matches.length === 1) {
+                    const m = matches[0].replace(/[\\/]+$/, '')
+                    setPath(m + (m.includes('\\') ? '\\' : '/'))
+                  } else {
+                    const lcp = longestCommonPrefix(matches)
+                    if (lcp.length > path.length) setPath(lcp)
+                  }
+                }
               }}
             />
             <button
