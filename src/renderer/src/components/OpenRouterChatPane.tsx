@@ -29,6 +29,10 @@ function shortCtx(n?: number): string | null {
   if (!n) return null
   return n >= 1000 ? `${Math.round(n / 1000)}K ctx` : `${n} ctx`
 }
+/** A model is free when its id is tagged `:free` or both prices are zero. */
+function isFreeModel(m: OrModelInfo): boolean {
+  return m.id.endsWith(':free') || (m.promptPrice === 0 && (m.completionPrice ?? 0) === 0)
+}
 
 /** Searchable model picker, populated live from OpenRouter's /models (cached). */
 function ModelPicker({ model, onPick }: { model: string; onPick: (id: string) => void }): JSX.Element {
@@ -87,7 +91,11 @@ function ModelPicker({ model, onPick }: { model: string; onPick: (id: string) =>
                   <span className="or-picker-id">{m.id}</span>
                   <span className="or-picker-meta">
                     {shortCtx(m.contextLength) && <span>{shortCtx(m.contextLength)}</span>}
-                    {shortPrice(m.promptPrice) && <span>{shortPrice(m.promptPrice)} in</span>}
+                    {isFreeModel(m) ? (
+                      <span className="or-tag free">FREE</span>
+                    ) : (
+                      shortPrice(m.promptPrice) && <span>{shortPrice(m.promptPrice)} in</span>
+                    )}
                   </span>
                 </button>
               ))}

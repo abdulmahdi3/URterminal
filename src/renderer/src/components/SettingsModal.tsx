@@ -617,7 +617,7 @@ export default function SettingsModal(): JSX.Element | null {
   const setPref = (p: Partial<AppPrefs>): void => void patch({ prefs: p })
 
   const saveKey = (provider: ProviderId): void => {
-    const key = keyInputs[provider]
+    const key = keyInputs[provider]?.trim()
     if (!key) return
     void patch({ providerKey: { provider, key } })
     setKeyInputs((s) => ({ ...s, [provider]: '' }))

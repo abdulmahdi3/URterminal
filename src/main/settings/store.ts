@@ -166,7 +166,7 @@ export class SettingsStore {
     const aKey = decrypt(s.providers.anthropic.keyEnc)
     const oKey = decrypt(s.providers.openai.keyEnc)
     const gKey = decrypt(s.providers.gemini.keyEnc)
-    const orKey = decrypt(s.providers.openrouter.keyEnc)
+    const orKey = decrypt(s.providers.openrouter.keyEnc)?.trim() || undefined
     const tToken = decrypt(s.telegram.tokenEnc)
     return {
       providers: {
@@ -286,7 +286,10 @@ export class SettingsStore {
       if (provider === 'ollama' || provider === 'lmstudio') {
         // local providers use a baseUrl, not a key
       } else {
-        const enc = key ? encrypt(key) : undefined
+        // Trim so a stray space/newline from a paste never becomes a blank
+        // "Bearer " token (OpenRouter then rejects it as "Missing Authentication header").
+        const trimmed = key?.trim()
+        const enc = trimmed ? encrypt(trimmed) : undefined
         s.providers[provider] = enc ? { keyEnc: enc } : {}
       }
     }

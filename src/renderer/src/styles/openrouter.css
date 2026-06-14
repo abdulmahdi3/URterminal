@@ -360,10 +360,24 @@
 .or-picker-meta {
   flex: none;
   display: inline-flex;
+  align-items: center;
   gap: 8px;
   font-size: 10px;
   font-family: var(--mono);
   color: var(--text-faint);
+}
+.or-tag {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.or-tag.free {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
 }
 .or-picker-empty {
   padding: 14px;

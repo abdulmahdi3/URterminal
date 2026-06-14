@@ -99,6 +99,30 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.7.1': {
+    version: '0.7.1',
+    headline: 'OpenRouter chat: auth fix + free-model tags',
+    kind: 'mixed',
+    steps: [
+      {
+        kind: 'fix',
+        title: 'Fixed “Missing Authentication header” (HTTP 401)',
+        body:
+          'A stray space or newline in a saved OpenRouter key made the request send an empty “Bearer ” ' +
+          'token, which OpenRouter rejected. Keys are now trimmed when saved and sent, and a blank key ' +
+          'shows a clear “re-enter your key” message. If you hit this, open the OpenRouter panel and paste ' +
+          'your key once more — it’ll work.'
+      },
+      {
+        kind: 'feature',
+        title: 'Free models are tagged in the picker',
+        body:
+          'The model picker now shows a green FREE tag on no-cost models (and per-token pricing on the ' +
+          'rest), so you can spot the free ones at a glance — like OpenRouter’s own list.'
+      }
+    ]
+  },
+
   '0.7.0': {
     version: '0.7.0',
     headline: 'Chat with OpenRouter — 200+ models, in a pane',

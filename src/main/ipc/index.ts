@@ -560,17 +560,22 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     error: (paneId, message) => emit(IPC.openrouterError, { paneId, message })
   }
   ipcMain.handle(IPC.openrouterSend, (_e, req: OrSendRequest) => {
-    const key = settings.getApiKey('openrouter')
+    const key = settings.getApiKey('openrouter')?.trim()
     if (!key) {
-      orEmit.error(req.paneId, 'No OpenRouter API key set. Open the OpenRouter panel and add your key.')
+      orEmit.error(
+        req.paneId,
+        'Your OpenRouter API key is missing or empty — open the OpenRouter panel and paste it again.'
+      )
       return
     }
     void streamOpenRouter(key, req, orEmit)
   })
   ipcMain.on(IPC.openrouterStop, (_e, paneId: string) => stopOpenRouter(paneId))
-  ipcMain.handle(IPC.openrouterModels, () => fetchOpenRouterModels(settings.getApiKey('openrouter')))
+  ipcMain.handle(IPC.openrouterModels, () =>
+    fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
+  )
   ipcMain.handle(IPC.openrouterCredits, () => {
-    const key = settings.getApiKey('openrouter')
+    const key = settings.getApiKey('openrouter')?.trim()
     return key ? fetchOpenRouterCredits(key) : null
   })
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
