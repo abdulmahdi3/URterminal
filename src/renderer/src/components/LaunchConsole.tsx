@@ -31,12 +31,15 @@ import logoPng from '@renderer/assets/logo.png'
 import {
   LAUNCH_AGENTS,
   STATUS_LABEL,
+  TRENDING_COMMANDS,
   shellRowMeta,
   sessionDesc,
   countLeaves,
   type LaunchAgent,
   type AgentStatus
 } from '@renderer/lib/launchCatalog'
+import { useAgentUsage } from '@renderer/store/agentUsage'
+import OthersModal from './OthersModal'
 
 type Filter = 'all' | 'installed' | 'cloud' | 'local'
 const FILTERS: { id: Filter; label: string }[] = [
@@ -203,6 +206,8 @@ export default function LaunchConsole(): JSX.Element {
   const setShowOpenRouter = useUi((s) => s.setShowOpenRouter)
   const custom = useShortcuts((s) => s.custom)
   const orKeySet = useSettings((s) => !!s.settings?.providers.openrouter.keySet)
+  const usage = useAgentUsage((s) => s.counts)
+  const [showOthers, setShowOthers] = useState(false)
 
   // Real total across EVERY workspace — the active one is empty here, so this
   // also reflects panes opened in other workspaces (which the old count missed).
@@ -283,6 +288,61 @@ export default function LaunchConsole(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filter, statuses, orKeySet])
 
+  // installed = a real CLI on PATH (ready or sign-in needed); excludes the OR gateway.
+  const isInstalled = (a: LaunchAgent): boolean =>
+    !a.configure && (statusOf(a) === 'ready' || statusOf(a) === 'signin')
+
+  // Dynamic rows for the default (All, no-query) view: Most used (by launch count,
+  // installed-first as the no-data default) → Installed → a daily-rotated Trending
+  // set. De-duplicated so nothing repeats across rows.
+  const sections = useMemo(() => {
+    const ranked = [...LAUNCH_AGENTS].sort((a, b) => {
+      const d = (usage[b.command] ?? 0) - (usage[a.command] ?? 0)
+      if (d) return d
+      return (isInstalled(b) ? 1 : 0) - (isInstalled(a) ? 1 : 0)
+    })
+    const mostUsed = ranked.slice(0, 4)
+    const seen = new Set(mostUsed.map((a) => a.command))
+    const installed = LAUNCH_AGENTS.filter((a) => !seen.has(a.command) && isInstalled(a)).slice(0, 4)
+    installed.forEach((a) => seen.add(a.command))
+    const day = Math.floor(Date.now() / 86400000)
+    const pool = TRENDING_COMMANDS.map((c) => LAUNCH_AGENTS.find((a) => a.command === c)).filter(
+      (a): a is LaunchAgent => !!a && !seen.has(a.command)
+    )
+    const off = pool.length ? day % pool.length : 0
+    const rot = [...pool.slice(off), ...pool.slice(0, off)]
+    const fallback = LAUNCH_AGENTS.filter((a) => !seen.has(a.command))
+    const trending = (rot.length ? rot : fallback).slice(0, 3)
+    return { mostUsed, installed, trending }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usage, statuses, orKeySet])
+
+  // Live counts for the filter tabs (real status).
+  const filterCounts = useMemo(() => {
+    let installed = 0
+    let cloud = 0
+    let local = 0
+    for (const a of LAUNCH_AGENTS) {
+      if (isInstalled(a)) installed++
+      if (a.kind === 'cloud') cloud++
+      if (a.kind === 'local') local++
+    }
+    return { all: LAUNCH_AGENTS.length, installed, cloud, local } as Record<Filter, number>
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statuses, orKeySet])
+
+  const sectioned = filter === 'all' && !query.trim()
+  const renderCard = (a: LaunchAgent, i: number): JSX.Element => (
+    <AgentCard
+      key={a.command}
+      a={a}
+      index={i}
+      status={statusOf(a)}
+      installing={installing.has(a.command)}
+      onActivate={() => activate(a)}
+    />
+  )
+
   const recent = sessions.slice(0, 4)
   const commandCount = useMemo(() => getCommands().filter((c) => !c.hidden).length, [])
 
@@ -337,15 +397,24 @@ export default function LaunchConsole(): JSX.Element {
   const activate = (a: LaunchAgent): void => {
     if (a.configure) {
       // Key set → straight into a chat pane; otherwise open the setup modal first.
-      if (orKeySet) addPane('openrouter', undefined, { label: 'OpenRouter' })
-      else setShowOpenRouter(true)
+      if (orKeySet) {
+        useAgentUsage.getState().record(a.command)
+        addPane('openrouter', undefined, { label: 'OpenRouter' })
+      } else setShowOpenRouter(true)
       return
     }
     if (statusOf(a) === 'missing') {
       if (a.install) startInstall(a)
       return
     }
+    useAgentUsage.getState().record(a.command)
     launchAgent(a)
+  }
+
+  // Open an OpenRouter chat pane preset to a model id (from the Others browser).
+  const openModel = (id: string): void => {
+    useAgentUsage.getState().record('openrouter')
+    addPane('openrouter', undefined, { orModel: id, label: id.split('/').pop() || 'OpenRouter' })
   }
 
   const openShell = (spec: ShellSpec): void => {
@@ -427,27 +496,59 @@ export default function LaunchConsole(): JSX.Element {
                     onClick={() => setFilter(f.id)}
                   >
                     {f.label}
+                    <span className="lc-filter-n">{filterCounts[f.id]}</span>
                   </button>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="lc-grid">
-            {agents.map((a, i) => (
-              <AgentCard
-                key={a.command}
-                a={a}
-                index={i}
-                status={statusOf(a)}
-                installing={installing.has(a.command)}
-                onActivate={() => activate(a)}
-              />
-            ))}
-            {agents.length === 0 && (
-              <div className="lc-grid-empty">No agents match “{query}”.</div>
-            )}
-          </div>
+          {sectioned ? (
+            <>
+              <div className="lc-subhead">Most used</div>
+              <div className="lc-grid">{sections.mostUsed.map(renderCard)}</div>
+
+              {sections.installed.length > 0 && (
+                <>
+                  <div className="lc-subhead">Installed</div>
+                  <div className="lc-grid">{sections.installed.map(renderCard)}</div>
+                </>
+              )}
+
+              <div className="lc-subhead">Trending</div>
+              <div className="lc-grid">
+                {sections.trending.map(renderCard)}
+                <button
+                  className="lc-card lc-card-others"
+                  style={{ ['--i' as string]: sections.trending.length }}
+                  onClick={() => setShowOthers(true)}
+                  title="Browse all agents & 200+ OpenRouter models"
+                >
+                  <div className="lc-card-top">
+                    <span className="lc-badge others">
+                      <LayoutGrid size={18} />
+                    </span>
+                    <div className="lc-card-id">
+                      <div className="lc-card-name">Others</div>
+                      <div className="lc-card-cli">all agents</div>
+                    </div>
+                  </div>
+                  <div className="lc-card-model">installed · cloud · local · 200+ models</div>
+                  <div className="lc-card-foot">
+                    <span className="lc-card-hint">browse everything</span>
+                    <span className="lc-card-launch">
+                      Open <ChevronRight size={13} />
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="lc-grid">
+              {agents.map(renderCard)}
+              {agents.length === 0 && <div className="lc-grid-empty">No agents match “{query}”.</div>}
+            </div>
+          )}
         </section>
 
         {/* ---- recent sessions + shells ---- */}
@@ -542,6 +643,15 @@ export default function LaunchConsole(): JSX.Element {
           </button>
         </footer>
       </div>
+      {showOthers && (
+        <OthersModal
+          statusOf={statusOf}
+          orKeySet={orKeySet}
+          onActivate={activate}
+          onOpenModel={openModel}
+          onClose={() => setShowOthers(false)}
+        />
+      )}
     </div>
   )
 }

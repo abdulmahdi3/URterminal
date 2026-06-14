@@ -670,6 +670,32 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'consolegrid') {
+    // Three labelled rows of cards staggering in; the last card is the accented "Others".
+    const rows = [
+      { label: 'Most used', others: false },
+      { label: 'Installed', others: false },
+      { label: 'Trending', others: true }
+    ]
+    return (
+      <div className="wn-demo wn-demo-cgrid">
+        {rows.map((r, ri) => (
+          <div className="wn-cg-row" key={ri}>
+            <span className="wn-cg-label">{r.label}</span>
+            <div className="wn-cg-cards">
+              {Array.from({ length: 4 }).map((_, ci) => (
+                <span
+                  key={ci}
+                  className={'wn-cg-card' + (r.others && ci === 3 ? ' others' : '')}
+                  style={{ ['--d' as string]: `${(ri * 4 + ci) * 70}ms` }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
   if (kind === 'orchat') {
     // A mini chat: user bubble, then an assistant reply "types" in, cost fades in.
     return (

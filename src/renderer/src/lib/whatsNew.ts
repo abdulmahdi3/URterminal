@@ -70,6 +70,7 @@ export type WhatsNewDemo =
   | 'install'
   | 'orconfig'
   | 'orchat'
+  | 'consolegrid'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -99,6 +100,31 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.8.0': {
+    version: '0.8.0',
+    headline: 'A living launch console — most-used, installed, trending & 200+ models',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Agents organize themselves',
+        demo: 'consolegrid',
+        body:
+          'The console’s agent grid is now dynamic: a “Most used” row that reorders as you work, an ' +
+          '“Installed” row from the live PATH + auth probe, and a daily “Trending” row. The filter tabs ' +
+          '(All / Installed / Cloud / Local) show real counts and reflect true status.'
+      },
+      {
+        kind: 'feature',
+        title: 'Others — every agent & 200+ models',
+        body:
+          'The last card opens “Others”: every agent grouped by Installed / Needs sign-in / Not installed, ' +
+          'plus OpenRouter’s full 200+-model catalog — searchable, with context length and price (FREE ' +
+          'tags too). Pick any model to open it in a chat pane.'
+      }
+    ]
+  },
+
   '0.7.2': {
     version: '0.7.2',
     headline: 'OpenRouter chat: formatted replies, a lively loader, balance guard',
