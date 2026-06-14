@@ -99,6 +99,35 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.7.2': {
+    version: '0.7.2',
+    headline: 'OpenRouter chat: formatted replies, a lively loader, balance guard',
+    kind: 'mixed',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Replies render as Markdown',
+        body:
+          'OpenRouter (and Claude stream) replies now render Markdown — headings, bold/italic, lists, ' +
+          'inline code, links and rules — instead of showing raw ** and ## characters.'
+      },
+      {
+        kind: 'feature',
+        title: 'A lively “working” indicator',
+        body:
+          'While a reply is on its way, the loader cycles through “Thinking… Working… Reasoning…” with a ' +
+          'spinner and bouncing dots, so it’s clear the model is busy, not stuck.'
+      },
+      {
+        kind: 'fix',
+        title: 'Balance checked before paid models',
+        body:
+          'The header shows your real OpenRouter balance, and sending to a paid model with $0 credits now ' +
+          'stops with a clear “add credits or pick a FREE model” message instead of a billing error.'
+      }
+    ]
+  },
+
   '0.7.1': {
     version: '0.7.1',
     headline: 'OpenRouter chat: auth fix + free-model tags',

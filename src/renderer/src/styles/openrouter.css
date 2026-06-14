@@ -409,6 +409,73 @@
   border-radius: 7px;
   padding: 6px 10px;
 }
+
+/* ---- animated "working" loader (rotating verb + bouncing dots) ---- */
+.or-thinking {
+  align-items: center;
+}
+.or-thinking-word {
+  color: var(--text-dim);
+  font-size: 12px;
+  animation: or-think-fade 1.7s ease-in-out;
+}
+@keyframes or-think-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+.or-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.or-thinking-dots i {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: or-think-dot 1s ease-in-out infinite;
+}
+.or-thinking-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.or-thinking-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes or-think-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .or-thinking-word {
+    animation: none;
+    opacity: 1;
+  }
+  .or-thinking-dots i {
+    animation: none;
+    opacity: 0.6;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .or-picker-pop {
     animation: none;

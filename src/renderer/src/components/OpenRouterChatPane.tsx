@@ -33,6 +33,50 @@ function shortCtx(n?: number): string | null {
 function isFreeModel(m: OrModelInfo): boolean {
   return m.id.endsWith(':free') || (m.promptPrice === 0 && (m.completionPrice ?? 0) === 0)
 }
+/** Free-ness by id (checks the `:free` suffix, then the cached catalog). */
+function modelIsFree(id: string): boolean {
+  if (id.endsWith(':free')) return true
+  const m = MODELS_CACHE?.find((x) => x.id === id)
+  return m ? isFreeModel(m) : false
+}
+
+/** Rotating verbs so a long wait reads as "working", not "frozen". */
+const THINKING_WORDS = [
+  'Thinking',
+  'Working',
+  'Reasoning',
+  'Pondering',
+  'Cooking',
+  'Crunching',
+  'Composing',
+  'Synthesizing',
+  'Connecting the dots',
+  'Generating',
+  'Drafting',
+  'Considering'
+]
+
+/** Animated "working" indicator: spinner + a rotating verb + bouncing dots. */
+function ThinkingLoader(): JSX.Element {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => setI((n) => (n + 1) % THINKING_WORDS.length), 1700)
+    return () => window.clearInterval(t)
+  }, [])
+  return (
+    <div className="stream-working or-thinking">
+      <Loader2 size={14} className="spin" />
+      <span key={i} className="or-thinking-word">
+        {THINKING_WORDS[i]}
+      </span>
+      <span className="or-thinking-dots">
+        <i />
+        <i />
+        <i />
+      </span>
+    </div>
+  )
+}
 
 /** Searchable model picker, populated live from OpenRouter's /models (cached). */
 function ModelPicker({ model, onPick }: { model: string; onPick: (id: string) => void }): JSX.Element {
@@ -125,13 +169,16 @@ export default function OpenRouterChatPane({ pane }: { pane: Pane }): JSX.Elemen
   const [credits, setCredits] = useState<OrCredits | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Restore the persisted transcript into the live store on first mount, and
-  // fetch the account balance once.
+  // Restore the persisted transcript into the live store on first mount.
   useEffect(() => {
     if (pane.openrouter?.messages?.length) useOrChat.getState().seed(pane.id, pane.openrouter.messages)
-    void window.api.openrouter.credits().then(setCredits)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Keep the account balance fresh: on mount and whenever a turn settles.
+  useEffect(() => {
+    if (!streaming) void window.api.openrouter.credits().then(setCredits)
+  }, [streaming])
 
   // Persist the transcript into pane state when a turn settles (not per delta).
   useEffect(() => {
@@ -150,6 +197,19 @@ export default function OpenRouterChatPane({ pane }: { pane: Pane }): JSX.Elemen
   const send = (text?: string): void => {
     const prompt = (text ?? input).trim()
     if (!prompt || streaming) return
+    // Pre-flight: a paid model needs a positive balance — fail fast with a clear
+    // message instead of a confusing mid-stream billing error.
+    if (!modelIsFree(model) && credits && (credits.remaining ?? 0) <= 0) {
+      useOrChat.getState().beginTurn(pane.id, prompt)
+      useOrChat
+        .getState()
+        .failTurn(
+          pane.id,
+          'You have $0.00 OpenRouter credits. Add credits at openrouter.ai/credits, or switch to a model tagged FREE.'
+        )
+      setInput('')
+      return
+    }
     useOrChat.getState().beginTurn(pane.id, prompt)
     setInput('')
     const prior = useOrChat.getState().byPane[pane.id]?.messages ?? []
@@ -217,11 +277,7 @@ export default function OpenRouterChatPane({ pane }: { pane: Pane }): JSX.Elemen
                   <MarkdownLite text={m.content} />
                 </div>
               )}
-              {streaming && i === messages.length - 1 && (
-                <div className="stream-working">
-                  <Loader2 size={14} className="spin" /> thinking…
-                </div>
-              )}
+              {streaming && i === messages.length - 1 && !m.content && <ThinkingLoader />}
               {m.error && (
                 <div className="or-err">
                   <AlertTriangle size={12} /> {m.error}

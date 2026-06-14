@@ -59,14 +59,18 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<OrModelInf
 
 /** Account credit/usage snapshot (GET /api/v1/key). null on failure / no key. */
 export async function fetchOpenRouterCredits(apiKey: string): Promise<OrCredits | null> {
-  const data = (await getJson('https://openrouter.ai/api/v1/key', apiKey)) as {
+  // /credits returns the ACCOUNT balance (purchased credits − usage), which is
+  // what "do I have money to run a paid model?" actually depends on.
+  const data = (await getJson('https://openrouter.ai/api/v1/credits', apiKey)) as {
     data?: Record<string, unknown>
   } | null
   const d = data?.data
   if (!d || typeof d !== 'object') return null
+  const total = num(d.total_credits)
+  const used = num(d.total_usage)
   return {
-    usage: num(d.usage),
-    limit: d.limit === null ? null : num(d.limit) ?? null,
-    remaining: num(d.limit_remaining)
+    usage: used,
+    limit: total ?? null,
+    remaining: total != null && used != null ? total - used : undefined
   }
 }
