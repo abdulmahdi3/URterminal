@@ -410,9 +410,15 @@
   padding: 6px 10px;
 }
 
-/* ---- animated "working" loader (rotating verb + bouncing dots) ---- */
+/* ---- animated "working" loader (spinner + rotating verb + bouncing dots) ---- */
 .or-thinking {
   align-items: center;
+}
+/* `.spin` has no global rule in this app — it's scoped per context with the
+   shared `pane-spin` keyframe, so spin the loader's icon explicitly here. */
+.or-thinking .spin {
+  color: var(--accent);
+  animation: pane-spin 1s linear infinite;
 }
 .or-thinking-word {
   color: var(--text-dim);
@@ -466,16 +472,8 @@
     transform: translateY(-2px);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .or-thinking-word {
-    animation: none;
-    opacity: 1;
-  }
-  .or-thinking-dots i {
-    animation: none;
-    opacity: 0.6;
-  }
-}
+/* The working indicator is a deliberate "it's alive" signal — keep it animated
+   even under reduced-motion (it's subtle: a spin, a fade, three small dots). */
 @media (prefers-reduced-motion: reduce) {
   .or-picker-pop {
     animation: none;

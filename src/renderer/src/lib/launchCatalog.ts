@@ -65,6 +65,19 @@ export const LAUNCH_AGENTS: LaunchAgent[] = [
   { command: 'openrouter',   name: 'OpenRouter',     cli: 'openrouter.ai', badge: 'OR',  color: '#6566f1', model: '200+ models · one key',  kind: 'cloud', configure: true }
 ]
 
+/** Curated "trending" agent commands — a pool the launch console rotates 3/day
+ *  through so the Trending row feels fresh without a live data source. */
+export const TRENDING_COMMANDS: string[] = [
+  'cursor-agent',
+  'opencode',
+  'qwen-code',
+  'codex',
+  'gemini',
+  'aider',
+  'cline',
+  'goose'
+]
+
 export const STATUS_LABEL: Record<AgentStatus, string> = {
   ready: 'Ready',
   update: 'Update',
