@@ -97,6 +97,22 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.6.3': {
+    version: '0.6.3',
+    headline: 'OpenRouter card: a real next step',
+    kind: 'fix',
+    steps: [
+      {
+        kind: 'fix',
+        title: 'A connected OpenRouter card no longer loops back to the key',
+        body:
+          'Once your OpenRouter key is saved the card reads Ready — and clicking it now selects OpenRouter ' +
+          'as your provider and opens Defaults so you can pick a model and use it, instead of dropping you ' +
+          'back on the key field you just filled in.'
+      }
+    ]
+  },
+
   '0.6.2': {
     version: '0.6.2',
     headline: 'Install agents in one click',

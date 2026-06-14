@@ -114,7 +114,9 @@ function AgentCard({
   const disabled = installing || (isMissing && !a.install)
   const statusLabel = a.configure ? (status === 'ready' ? 'Ready' : 'Set up') : STATUS_LABEL[status]
   const title = a.configure
-    ? 'Configure OpenRouter — one key, 200+ models'
+    ? status === 'ready'
+      ? 'Use OpenRouter — choose a default model'
+      : 'Configure OpenRouter — add your key'
     : canInstall
       ? `Install ${a.name}  ·  ${a.install}`
       : isMissing
@@ -155,7 +157,9 @@ function AgentCard({
       <div className="lc-card-foot">
         <span className="lc-card-hint">
           {a.configure
-            ? 'one key · 200+ models'
+            ? status === 'ready'
+              ? 'key saved · 200+ models'
+              : 'one key · 200+ models'
             : installing
               ? 'fetching…'
               : isMissing
@@ -166,7 +170,7 @@ function AgentCard({
         </span>
         {a.configure ? (
           <span className="lc-card-launch">
-            {status === 'ready' ? 'Manage' : 'Set up'} <ChevronRight size={13} />
+            {status === 'ready' ? 'Choose model' : 'Set up'} <ChevronRight size={13} />
           </span>
         ) : installing ? (
           <span className="lc-card-launch install">
@@ -199,6 +203,7 @@ export default function LaunchConsole(): JSX.Element {
   const openSettings = useUi((s) => s.openSettings)
   const custom = useShortcuts((s) => s.custom)
   const orKeySet = useSettings((s) => !!s.settings?.providers.openrouter.keySet)
+  const patchSettings = useSettings((s) => s.patch)
 
   // Real total across EVERY workspace — the active one is empty here, so this
   // also reflects panes opened in other workspaces (which the old count missed).
@@ -338,7 +343,14 @@ export default function LaunchConsole(): JSX.Element {
   // A card click resolves to the right action for its state.
   const activate = (a: LaunchAgent): void => {
     if (a.configure) {
-      openSettings('providers')
+      // Key already saved → it's connected; take them forward to pick a model and
+      // use it, not back to the key field they just filled. Otherwise go add the key.
+      if (orKeySet) {
+        void patchSettings({ defaultProvider: 'openrouter' })
+        openSettings('defaults')
+      } else {
+        openSettings('providers')
+      }
       return
     }
     if (statusOf(a) === 'missing') {
