@@ -4,6 +4,7 @@ import type { Pane } from '@shared/types'
 import { DEFAULT_AGENT } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { getLastAgentCwd, setLastAgentCwd } from '@renderer/lib/agentPrefs'
+import { useFolderHistory } from '@renderer/store/folderHistory'
 import { isTerminalStarted, getInputLine, onTerminalInput } from '@renderer/lib/terminalPool'
 import { enhancePromptFor } from '@renderer/lib/enhance'
 import TerminalPane from './TerminalPane'
@@ -62,6 +63,7 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
   const updatePane = useWorkspace((s) => s.updatePane)
   const removePane = useWorkspace((s) => s.removePane)
   const setAgent = useWorkspace((s) => s.setAgent)
+  const applyLayoutPreset = useWorkspace((s) => s.applyLayoutPreset)
   const command = pane.agent?.command ?? DEFAULT_AGENT
   const cwd = pane.agent?.cwd
 
@@ -84,12 +86,16 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
       <AgentLauncher
         command={command}
         defaultCwd={getLastAgentCwd()}
+        onClose={() => removePane(pane.id)}
         // switching agent mints a fresh pinned session id (new conversation)
         onSelectAgent={(c) => setAgent(pane.id, c)}
-        onOpen={(dir) => {
+        onOpen={(dir, layout) => {
           setLastAgentCwd(dir)
+          useFolderHistory.getState().record(dir)
           // keep the pane's pinned sessionId (and sshTarget) — only add the folder
           updatePane(pane.id, { agent: { ...pane.agent, command, cwd: dir }, title: command })
+          // arrange the workspace into the chosen layout (single = leave as-is)
+          if (layout && layout !== 'single') applyLayoutPreset(layout)
         }}
       />
     )

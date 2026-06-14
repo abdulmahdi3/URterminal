@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   Plus,
@@ -58,9 +58,10 @@ function Row({
 /**
  * A workspace entry in the sidebar. Beyond switch-on-click it is a drag target:
  * dropping the panes currently being dragged onto a (non-active) workspace moves
- * them into it. It can be closed via a hover-revealed × button or a middle-click
- * (both route through the store's `remove`, which confirms first if an agent is
- * mid-turn). Double-click renames it inline.
+ * them into it. It can be closed via a middle-click, or via a × button that
+ * replaces the workspace number after 3s of hover — both route through the
+ * store's `remove`, which confirms first if an agent is mid-turn. Double-click
+ * renames it inline.
  */
 function WorkspaceRow({
   w,
@@ -90,6 +91,17 @@ function WorkspaceRow({
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(w.name)
+  // The × only appears after the cursor has rested on the row for 3s, so a
+  // quick pass over the workspaces never flashes close buttons.
+  const [closeReady, setCloseReady] = useState(false)
+  const hoverTimer = useRef<number | null>(null)
+  const clearHoverTimer = (): void => {
+    if (hoverTimer.current != null) {
+      clearTimeout(hoverTimer.current)
+      hoverTimer.current = null
+    }
+  }
+  useEffect(() => clearHoverTimer, [])
 
   const isDropInto = dragging != null && !isActive && dropTarget === w.id
 
@@ -101,7 +113,12 @@ function WorkspaceRow({
 
   return (
     <div
-      className={clsx('sb-row sb-ws-row', isActive && 'active', isDropInto && 'drop-into')}
+      className={clsx(
+        'sb-row sb-ws-row',
+        isActive && 'active',
+        isDropInto && 'drop-into',
+        closeReady && 'close-ready'
+      )}
       title={`${w.name} — ${paneCount} pane${paneCount !== 1 ? 's' : ''}`}
       onClick={() => {
         if (!editing) switchTo(w.id)
@@ -109,6 +126,15 @@ function WorkspaceRow({
       onDoubleClick={() => {
         setDraft(w.name)
         setEditing(true)
+      }}
+      onMouseEnter={() => {
+        if (!canClose) return
+        clearHoverTimer()
+        hoverTimer.current = window.setTimeout(() => setCloseReady(true), 3000)
+      }}
+      onMouseLeave={() => {
+        clearHoverTimer()
+        setCloseReady(false)
       }}
       onAuxClick={(e) => {
         // middle-click closes the workspace (like a browser tab)
@@ -139,8 +165,22 @@ function WorkspaceRow({
         setDraggingPanes(null)
       }}
     >
+      {/* number + close share the same slot — the × fades in over the number */}
       <span className="sb-ico">
         <span className="sb-ws-num">{index + 1}</span>
+        {canClose && !editing && (
+          <button
+            className="sb-ws-close"
+            title="Close workspace"
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation()
+              remove(w.id)
+            }}
+          >
+            <X size={12} />
+          </button>
+        )}
       </span>
       {editing ? (
         <input
@@ -168,18 +208,6 @@ function WorkspaceRow({
             <span className="sb-count">{paneCount}</span>
           </span>
         ) : null)}
-      {canClose && (
-        <button
-          className="sb-ws-close"
-          title="Close workspace"
-          onClick={(e) => {
-            e.stopPropagation()
-            remove(w.id)
-          }}
-        >
-          <X size={13} />
-        </button>
-      )}
     </div>
   )
 }
@@ -226,7 +254,7 @@ export default function Sidebar(): JSX.Element {
   const canClose = list.length > 1
 
   return (
-    <aside className={clsx('sidebar', pinned && 'pinned', draggingPaneIds && 'drag-target')}>
+    <aside className={clsx('sidebar', pinned && 'pinned')}>
       <div className="sidebar-rail">
         <div className="sb-scroll">
           {/* workspaces — drop a dragged pane on empty space to spin up a new one,

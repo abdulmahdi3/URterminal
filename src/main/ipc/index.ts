@@ -39,6 +39,7 @@ import { detectAgentStatuses } from '../agents/status'
 import { installAgent } from '../agents/install'
 import { streamOpenRouter, stopOpenRouter, type ChatEmit } from '../openrouter/chat'
 import { fetchOpenRouterModels, fetchOpenRouterCredits } from '../openrouter/models'
+import { listDirs } from '../fs/listDirs'
 import { discoverModels } from '../providers/discoverModels'
 import { getGitStatus } from '../git/status'
 import { getPrompts, appendPrompt } from '../prompts/store'
@@ -547,6 +548,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.agentsDiscover, () => discoverAgents(settings.getOllamaBaseUrl()))
   ipcMain.handle(IPC.agentsInstall, (_e, command: string) => installAgent(command))
   ipcMain.handle(IPC.agentsStatus, (_e, commands: string[]) => detectAgentStatuses(commands))
+  ipcMain.handle(IPC.fsListDirs, (_e, input: string) => listDirs(input))
   ipcMain.handle(IPC.appNotify, (_e, title: string, body: string) => {
     try {
       if (Notification.isSupported()) new Notification({ title, body, silent: false }).show()

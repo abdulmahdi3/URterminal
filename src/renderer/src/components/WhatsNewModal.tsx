@@ -670,6 +670,28 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'newlauncher') {
+    // A mini launcher: agent dropdown, a folder field with caret, layout tiles.
+    return (
+      <div className="wn-demo wn-demo-launcher2">
+        <div className="wn-nl-agent">
+          <span className="wn-nl-badge" />
+          <span className="wn-nl-name">Claude</span>
+          <span className="wn-nl-ready">Ready</span>
+          <span className="wn-nl-chev">⌄</span>
+        </div>
+        <div className="wn-nl-folder">
+          <span>C:\projects\app</span>
+          <span className="wn-caret" />
+        </div>
+        <div className="wn-nl-lays">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className={'wn-nl-lay' + (i === 0 ? ' active' : '')} />
+          ))}
+        </div>
+      </div>
+    )
+  }
   if (kind === 'consolegrid') {
     // Three labelled rows of cards staggering in; the last card is the accented "Others".
     const rows = [

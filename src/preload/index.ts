@@ -391,6 +391,7 @@ const api = {
 
   // ---- open a folder in the OS file manager ----
   openPath: (path: string): Promise<void> => ipcRenderer.invoke(IPC.shellOpenPath, path),
+  listDirs: (input: string): Promise<string[]> => ipcRenderer.invoke(IPC.fsListDirs, input),
 
   // ---- pane registry (keeps main process in sync for Telegram /panes) ----
   updatePaneRegistry: (panes: PaneInfo[]): Promise<void> =>

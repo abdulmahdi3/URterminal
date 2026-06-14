@@ -72,6 +72,7 @@ export type WhatsNewDemo =
   | 'orchat'
   | 'consolegrid'
   | 'pinmodel'
+  | 'newlauncher'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -101,6 +102,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.9.0': {
+    version: '0.9.0',
+    headline: 'A faster way to open agents',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Redesigned agent launcher',
+        demo: 'newlauncher',
+        body:
+          'Opening an agent in a folder is reworked: pick the agent from one searchable dropdown (with live ' +
+          'status), then choose the folder by typing — with Last used, Frequently used and live path ' +
+          'autocomplete suggestions you can click instead of typing the whole path. A layout picker ' +
+          '(Single / Split / Main + 2 / Grid) opens the agent straight into that arrangement.'
+      }
+    ]
+  },
+
   '0.8.1': {
     version: '0.8.1',
     headline: 'Pin your favorite models',

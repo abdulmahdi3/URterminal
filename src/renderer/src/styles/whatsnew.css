@@ -2644,6 +2644,88 @@
   }
 }
 
+/* ---- redesigned agent-launcher demo ---- */
+.wn-demo-launcher2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 16px;
+}
+.wn-nl-agent {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+}
+.wn-nl-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+.wn-nl-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.wn-nl-ready {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ok);
+}
+.wn-nl-chev {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.wn-nl-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--bg-elev);
+  border: 1px solid var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.wn-nl-lays {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+.wn-nl-lay {
+  height: 26px;
+  border-radius: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+}
+.wn-nl-lay.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  animation: wn-nl-pulse 2s ease-in-out infinite;
+}
+@keyframes wn-nl-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-nl-lay.active {
+    animation: none;
+  }
+}
+
 /* ---- launch-console grid demo: 3 labelled rows of cards + Others ---- */
 .wn-demo-cgrid {
   display: flex;

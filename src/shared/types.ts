@@ -1139,6 +1139,8 @@ export const IPC = {
 
   // open a path in the OS file manager (Explorer / Finder)
   shellOpenPath: 'shell:open-path',
+  // fs: directory autocomplete for the launcher's folder field
+  fsListDirs: 'fs:list-dirs',
 
   // open an SSH session (streams via the pty:data/pty:exit channels)
   sshSpawn: 'ssh:spawn',
