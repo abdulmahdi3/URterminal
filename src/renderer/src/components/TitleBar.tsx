@@ -13,8 +13,8 @@ import LayoutPicker from './LayoutPicker'
 /**
  * Top strip: the app logo, agent + shell quick-launch icons, and the pane-layout
  * picker pinned to the right beside the window controls. Workspaces, sessions,
- * SSH and notes now live in the sidebar. Dropping dragged panes on the empty
- * drag region moves them into a brand-new workspace.
+ * SSH and notes now live in the sidebar — including the drag targets for moving
+ * panes between workspaces / spinning up a new one.
  */
 export default function TitleBar(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
@@ -22,9 +22,6 @@ export default function TitleBar(): JSX.Element {
   const paneCount = Object.keys(panes).length
   const atMax = paneCount >= 9
   const list = useWorkspaces((s) => s.list)
-  const movePanesToNew = useWorkspaces((s) => s.movePanesToNew)
-  const draggingPaneIds = useUi((s) => s.draggingPaneIds)
-  const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const setShowSshPrompt = useUi((s) => s.setShowSshPrompt)
 
   // Installed agents + all shells (incl. WSL distros), detected asynchronously.
@@ -56,39 +53,8 @@ export default function TitleBar(): JSX.Element {
       : agents.filter((a) => available.has(a.id) || activeAgentIds.has(a.id))
 
   return (
-    <header
-      className="titlebar"
-      // Catch-all: dropping dragged panes on the empty title-bar space moves them
-      // into a brand-new workspace.
-      onDragOver={(e) => {
-        if (!draggingPaneIds) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
-      }}
-      onDrop={(e) => {
-        if (!draggingPaneIds) return
-        e.preventDefault()
-        movePanesToNew(draggingPaneIds)
-        setDraggingPanes(null)
-      }}
-    >
-      <div
-        className="titlebar-left"
-        data-nodrag
-        // The buttons group is NOT a new-workspace drop target — swallow drops so
-        // dropping on/near a button doesn't spawn a workspace.
-        onDragOver={(e) => {
-          if (!draggingPaneIds) return
-          e.preventDefault()
-          e.stopPropagation()
-          e.dataTransfer.dropEffect = 'none'
-        }}
-        onDrop={(e) => {
-          if (!draggingPaneIds) return
-          e.preventDefault()
-          e.stopPropagation()
-        }}
-      >
+    <header className="titlebar">
+      <div className="titlebar-left" data-nodrag>
         {/* Brand */}
         <img className="brand-logo-img" src={logoPng} alt="URterminal" draggable={false} />
 
@@ -150,7 +116,7 @@ export default function TitleBar(): JSX.Element {
         </button>
       </div>
 
-      <div className={clsx('titlebar-drag', draggingPaneIds && 'drop-zone')} />
+      <div className="titlebar-drag" />
 
       {/* Pane layout picker, pinned to the right beside the window controls */}
       <div className="titlebar-right" data-nodrag>

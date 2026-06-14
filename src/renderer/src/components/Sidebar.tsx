@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import {
   Plus,
+  X,
   Network,
   KanbanSquare,
   DoorOpen,
@@ -10,7 +12,7 @@ import {
   NotebookPen,
   Command as CommandIcon
 } from 'lucide-react'
-import { useWorkspaces } from '@renderer/store/workspaces'
+import { useWorkspaces, type WorkspaceEntry } from '@renderer/store/workspaces'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useUi } from '@renderer/store/ui'
 import { useSidebar } from '@renderer/store/sidebar'
@@ -53,6 +55,135 @@ function Row({
   )
 }
 
+/**
+ * A workspace entry in the sidebar. Beyond switch-on-click it is a drag target:
+ * dropping the panes currently being dragged onto a (non-active) workspace moves
+ * them into it. It can be closed via a hover-revealed × button or a middle-click
+ * (both route through the store's `remove`, which confirms first if an agent is
+ * mid-turn). Double-click renames it inline.
+ */
+function WorkspaceRow({
+  w,
+  index,
+  isActive,
+  paneCount,
+  badge,
+  canClose,
+  dropTarget,
+  setDropTarget,
+  dragging
+}: {
+  w: WorkspaceEntry
+  index: number
+  isActive: boolean
+  paneCount: number
+  badge: number
+  canClose: boolean
+  dropTarget: string | null
+  setDropTarget: (t: string | null) => void
+  dragging: string[] | null
+}): JSX.Element {
+  const switchTo = useWorkspaces((s) => s.switchTo)
+  const rename = useWorkspaces((s) => s.rename)
+  const remove = useWorkspaces((s) => s.remove)
+  const movePanesTo = useWorkspaces((s) => s.movePanesTo)
+  const setDraggingPanes = useUi((s) => s.setDraggingPanes)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(w.name)
+
+  const isDropInto = dragging != null && !isActive && dropTarget === w.id
+
+  const commit = (): void => {
+    const v = draft.trim()
+    if (v && v !== w.name) rename(w.id, v)
+    setEditing(false)
+  }
+
+  return (
+    <div
+      className={clsx('sb-row sb-ws-row', isActive && 'active', isDropInto && 'drop-into')}
+      title={`${w.name} — ${paneCount} pane${paneCount !== 1 ? 's' : ''}`}
+      onClick={() => {
+        if (!editing) switchTo(w.id)
+      }}
+      onDoubleClick={() => {
+        setDraft(w.name)
+        setEditing(true)
+      }}
+      onAuxClick={(e) => {
+        // middle-click closes the workspace (like a browser tab)
+        if (e.button === 1 && canClose) {
+          e.preventDefault()
+          remove(w.id)
+        }
+      }}
+      onDragOver={(e) => {
+        if (!dragging) return
+        e.preventDefault()
+        e.stopPropagation()
+        if (isActive) {
+          // can't move panes into the workspace they already live in
+          e.dataTransfer.dropEffect = 'none'
+          setDropTarget(null)
+        } else {
+          e.dataTransfer.dropEffect = 'move'
+          setDropTarget(w.id)
+        }
+      }}
+      onDrop={(e) => {
+        if (!dragging) return
+        e.preventDefault()
+        e.stopPropagation()
+        if (!isActive) movePanesTo(dragging, w.id)
+        setDropTarget(null)
+        setDraggingPanes(null)
+      }}
+    >
+      <span className="sb-ico">
+        <span className="sb-ws-num">{index + 1}</span>
+      </span>
+      {editing ? (
+        <input
+          className="sb-ws-rename"
+          value={draft}
+          autoFocus
+          onChange={(e) => setDraft(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            else if (e.key === 'Escape') setEditing(false)
+          }}
+        />
+      ) : (
+        <span className="sb-label">{w.name}</span>
+      )}
+      {!editing &&
+        (badge > 0 ? (
+          <span className="sb-meta">
+            <span className="sb-dot-badge">{badge > 9 ? '9+' : badge}</span>
+          </span>
+        ) : paneCount > 0 ? (
+          <span className="sb-meta">
+            <span className="sb-count">{paneCount}</span>
+          </span>
+        ) : null)}
+      {canClose && (
+        <button
+          className="sb-ws-close"
+          title="Close workspace"
+          onClick={(e) => {
+            e.stopPropagation()
+            remove(w.id)
+          }}
+        >
+          <X size={13} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 function Section({ title, count }: { title: string; count?: number }): JSX.Element {
   return (
     <div className="sb-section">
@@ -68,11 +199,13 @@ export default function Sidebar(): JSX.Element {
   const list = useWorkspaces((s) => s.list)
   const activeId = useWorkspaces((s) => s.activeId)
   const badges = useWorkspaces((s) => s.badges)
-  const switchTo = useWorkspaces((s) => s.switchTo)
   const addWorkspace = useWorkspaces((s) => s.add)
-  const rename = useWorkspaces((s) => s.rename)
+  const movePanesToNew = useWorkspaces((s) => s.movePanesToNew)
 
   const livePaneCount = useWorkspace((s) => Object.keys(s.panes).length)
+
+  const draggingPaneIds = useUi((s) => s.draggingPaneIds)
+  const setDraggingPanes = useUi((s) => s.setDraggingPanes)
 
   const setShowBridge = useUi((s) => s.setShowBridge)
   const setShowTasks = useUi((s) => s.setShowTasks)
@@ -83,39 +216,62 @@ export default function Sidebar(): JSX.Element {
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
   const openSettings = useUi((s) => s.openSettings)
 
+  // Which workspace (or 'new' for the empty drop area) the dragged panes are
+  // hovering. Cleared whenever a drag ends (handled globally on `dragend`).
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
+  useEffect(() => {
+    if (!draggingPaneIds) setDropTarget(null)
+  }, [draggingPaneIds])
+
+  const canClose = list.length > 1
+
   return (
-    <aside className={clsx('sidebar', pinned && 'pinned')}>
+    <aside className={clsx('sidebar', pinned && 'pinned', draggingPaneIds && 'drag-target')}>
       <div className="sidebar-rail">
         <div className="sb-scroll">
-          {/* workspaces */}
+          {/* workspaces — drop a dragged pane on empty space to spin up a new one,
+              or onto an existing row to move it there */}
           <Section title="Workspaces" count={list.length} />
-          <div className="sb-group">
+          <div
+            className={clsx('sb-group sb-ws-group', dropTarget === 'new' && 'drop-new')}
+            onDragOver={(e) => {
+              if (!draggingPaneIds) return
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              setDropTarget('new')
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropTarget(null)
+            }}
+            onDrop={(e) => {
+              if (!draggingPaneIds) return
+              e.preventDefault()
+              movePanesToNew(draggingPaneIds)
+              setDropTarget(null)
+              setDraggingPanes(null)
+            }}
+          >
             {list.map((w, i) => {
               const isActive = w.id === activeId
-              const badge = badges[w.id] ?? 0
               const paneN = isActive ? livePaneCount : Object.keys(w.panes ?? {}).length
               return (
-                <Row
+                <WorkspaceRow
                   key={w.id}
-                  icon={<span className="sb-ws-num">{i + 1}</span>}
-                  label={w.name}
-                  active={isActive}
-                  title={`${w.name} — ${paneN} pane${paneN !== 1 ? 's' : ''}`}
-                  meta={
-                    badge > 0 ? (
-                      <span className="sb-dot-badge">{badge > 9 ? '9+' : badge}</span>
-                    ) : paneN > 0 ? (
-                      <span className="sb-count">{paneN}</span>
-                    ) : undefined
-                  }
-                  onClick={() => switchTo(w.id)}
-                  onAux={isActive ? () => rename(w.id, w.name) : undefined}
+                  w={w}
+                  index={i}
+                  isActive={isActive}
+                  paneCount={paneN}
+                  badge={badges[w.id] ?? 0}
+                  canClose={canClose}
+                  dropTarget={dropTarget}
+                  setDropTarget={setDropTarget}
+                  dragging={draggingPaneIds}
                 />
               )
             })}
             <Row
               icon={<Plus size={18} />}
-              label="New workspace"
+              label={draggingPaneIds ? 'Drop here for a new workspace' : 'New workspace'}
               title="New workspace"
               onClick={addWorkspace}
             />

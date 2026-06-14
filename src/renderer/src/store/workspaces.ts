@@ -3,9 +3,10 @@ import type { MosaicNode } from 'react-mosaic-component'
 import type { Pane } from '@shared/types'
 import { getLeaves, removeLeaf } from '@renderer/lib/mosaicTree'
 import { buildAutoLayout } from '@renderer/lib/layoutPresets'
-import { repaintTerminal } from '@renderer/lib/terminalPool'
+import { repaintTerminal, disposeTerminal } from '@renderer/lib/terminalPool'
 import { busyAgentCount } from '@renderer/lib/paneClose'
 import { confirm } from '@renderer/store/confirm'
+import { useOrChat } from '@renderer/store/orchat'
 import { useWorkspace } from './workspace'
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
@@ -69,6 +70,40 @@ function purgeFromSnapshots(
   })
 }
 
+/**
+ * Fully tear down every pane in a closed workspace: kill its terminal/PTY, drop
+ * its transcript, and release any OpenRouter / SSH-agent resources — mirroring
+ * what `removePane` does for a single pane. A pane id that still lives in a
+ * surviving workspace is left untouched (guards against a stale duplicate
+ * killing a terminal that's still in use elsewhere). SSH agent connections are
+ * only closed when no surviving pane shares the same target.
+ */
+function teardownPanes(
+  closed: Record<string, Pane>,
+  surviving: Record<string, Pane>
+): void {
+  for (const id of Object.keys(closed)) {
+    if (surviving[id]) continue // still referenced by another workspace
+    disposeTerminal(id)
+    void window.api.transcriptRemove(id)
+    useOrChat.getState().remove(id)
+    window.api.openrouter.stop(id)
+  }
+  const survivingTargets = new Set(
+    Object.values(surviving)
+      .map((p) => p.agent?.sshTarget)
+      .filter((t): t is string => !!t)
+  )
+  const closedTargets = new Set(
+    Object.values(closed)
+      .map((p) => p.agent?.sshTarget)
+      .filter((t): t is string => !!t)
+  )
+  for (const t of closedTargets) {
+    if (!survivingTargets.has(t)) window.api.sshCloseAgent(t)
+  }
+}
+
 export const useWorkspaces = create<WorkspacesState>((set, get) => ({
   list: [{ id: firstId, name: 'Workspace' }],
   activeId: firstId,
@@ -114,17 +149,29 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
 
   remove: (id) => {
     // Actually drop the workspace (re-reads state, since a confirm dialog may
-    // have let other changes land first).
+    // have let other changes land first). Closing a workspace tears down every
+    // pane it holds — their agents/terminals are stopped, not orphaned.
     const doRemove = (): void => {
       const { list, activeId } = get()
-      // Last workspace: clear its content but keep the tab
+      const ws = useWorkspace.getState()
+      // The panes being closed: live map if this is the active workspace, else
+      // its background snapshot.
+      const closedPanes = id === activeId ? ws.panes : list.find((w) => w.id === id)?.panes ?? {}
+
+      // Last workspace: clear its content but keep the tab.
       if (list.length <= 1) {
-        if (id === activeId) useWorkspace.getState().hydrate({}, null)
+        if (id === activeId) ws.hydrate({}, null)
+        teardownPanes(closedPanes, {})
         return
       }
+
       const remaining = list.filter((w) => w.id !== id)
+      // Everything in the remaining workspaces survives the close (the active
+      // path hydrates one of these back into the live store below).
+      const surviving: Record<string, Pane> = {}
+      for (const w of remaining) Object.assign(surviving, w.panes ?? {})
+
       if (id === activeId) {
-        const ws = useWorkspace.getState()
         const idx = list.findIndex((w) => w.id === id)
         const next = remaining[Math.max(0, idx - 1)]
         ws.hydrate(next?.panes ?? {}, next?.layout ?? null)
@@ -133,6 +180,7 @@ export const useWorkspaces = create<WorkspacesState>((set, get) => ({
       } else {
         set({ list: remaining })
       }
+      teardownPanes(closedPanes, surviving)
     }
 
     // Warn only if an agent in this workspace is mid-turn (closing stops it).

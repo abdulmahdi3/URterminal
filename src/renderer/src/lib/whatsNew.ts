@@ -71,6 +71,7 @@ export type WhatsNewDemo =
   | 'orconfig'
   | 'orchat'
   | 'consolegrid'
+  | 'pinmodel'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -100,6 +101,23 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.8.1': {
+    version: '0.8.1',
+    headline: 'Pin your favorite models',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Pin models to the top',
+        demo: 'pinmodel',
+        body:
+          'Hit the pin on any OpenRouter model — in the chat-pane model picker or the Others browser — to ' +
+          'favorite it. Pinned models float to the top of both lists and appear as quick-launch cards in a ' +
+          'new “Pinned” row on the launch console. Pin again to unpin.'
+      }
+    ]
+  },
+
   '0.8.0': {
     version: '0.8.0',
     headline: 'A living launch console — most-used, installed, trending & 200+ models',

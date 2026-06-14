@@ -696,6 +696,19 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'pinmodel') {
+    // A pinned model card: accent ring pulses, the pin pops.
+    return (
+      <div className="wn-demo wn-demo-pin">
+        <div className="wn-pin-card">
+          <span className="wn-pin-logo" />
+          <span className="wn-pin-id">anthropic/claude-3.5-sonnet</span>
+          <Pin size={13} className="wn-pin-ico" />
+        </div>
+        <div className="wn-pin-hint">Pinned — floats to the top</div>
+      </div>
+    )
+  }
   if (kind === 'orchat') {
     // A mini chat: user bubble, then an assistant reply "types" in, cost fades in.
     return (

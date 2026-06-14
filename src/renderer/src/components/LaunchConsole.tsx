@@ -13,7 +13,8 @@ import {
   Send,
   Clock,
   Download,
-  Loader2
+  Loader2,
+  Pin
 } from 'lucide-react'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
@@ -39,6 +40,7 @@ import {
   type AgentStatus
 } from '@renderer/lib/launchCatalog'
 import { useAgentUsage } from '@renderer/store/agentUsage'
+import { useModelPins } from '@renderer/store/modelPins'
 import OthersModal from './OthersModal'
 
 type Filter = 'all' | 'installed' | 'cloud' | 'local'
@@ -207,6 +209,7 @@ export default function LaunchConsole(): JSX.Element {
   const custom = useShortcuts((s) => s.custom)
   const orKeySet = useSettings((s) => !!s.settings?.providers.openrouter.keySet)
   const usage = useAgentUsage((s) => s.counts)
+  const pinnedModels = useModelPins((s) => s.pinned)
   const [showOthers, setShowOthers] = useState(false)
 
   // Real total across EVERY workspace — the active one is empty here, so this
@@ -341,6 +344,45 @@ export default function LaunchConsole(): JSX.Element {
       installing={installing.has(a.command)}
       onActivate={() => activate(a)}
     />
+  )
+
+  // A pinned OpenRouter model as a quick-launch card → opens a chat pane.
+  const renderPinnedModel = (id: string, i: number): JSX.Element => (
+    <button
+      key={id}
+      type="button"
+      className="lc-card lc-card-pinmodel"
+      style={{ ['--i' as string]: i }}
+      title={`Open ${id} in a chat pane`}
+      onClick={() => openModel(id)}
+    >
+      <div className="lc-card-top">
+        <span className="lc-badge">
+          <AgentLogo command="openrouter" size={20} />
+        </span>
+        <div className="lc-card-id">
+          <div className="lc-card-name">{id.split('/').pop() || id}</div>
+          <div className="lc-card-cli">{id}</div>
+        </div>
+        <span
+          className="lc-pin on"
+          title="Unpin model"
+          onClick={(e) => {
+            e.stopPropagation()
+            useModelPins.getState().toggle(id)
+          }}
+        >
+          <Pin size={13} />
+        </span>
+      </div>
+      <div className="lc-card-model">OpenRouter model</div>
+      <div className="lc-card-foot">
+        <span className="lc-card-hint">pinned</span>
+        <span className="lc-card-launch">
+          Chat <ChevronRight size={13} />
+        </span>
+      </div>
+    </button>
   )
 
   const recent = sessions.slice(0, 4)
@@ -505,6 +547,12 @@ export default function LaunchConsole(): JSX.Element {
 
           {sectioned ? (
             <>
+              {pinnedModels.length > 0 && (
+                <>
+                  <div className="lc-subhead">Pinned</div>
+                  <div className="lc-grid">{pinnedModels.map(renderPinnedModel)}</div>
+                </>
+              )}
               <div className="lc-subhead">Most used</div>
               <div className="lc-grid">{sections.mostUsed.map(renderCard)}</div>
 

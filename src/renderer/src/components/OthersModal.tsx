@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { Search, ChevronRight, ArrowRight, Download, LayoutGrid } from 'lucide-react'
+import { Search, ChevronRight, ArrowRight, Download, LayoutGrid, Pin } from 'lucide-react'
 import type { OrModelInfo } from '@shared/types'
 import {
   LAUNCH_AGENTS,
@@ -8,6 +8,7 @@ import {
   type LaunchAgent,
   type AgentStatus
 } from '@renderer/lib/launchCatalog'
+import { useModelPins } from '@renderer/store/modelPins'
 import { AgentLogo, hasAgentLogo } from './brandIcons'
 
 /** Module cache so the 200+-model list is fetched once across the app. */
@@ -50,6 +51,8 @@ export default function OthersModal({
 }: Props): JSX.Element {
   const [q, setQ] = useState('')
   const [models, setModels] = useState<OrModelInfo[]>(MODELS_CACHE ?? [])
+  const pinned = useModelPins((s) => s.pinned)
+  const togglePin = useModelPins((s) => s.toggle)
 
   useEffect(() => {
     if (MODELS_CACHE || !orKeySet) return
@@ -93,8 +96,10 @@ export default function OthersModal({
     const list = needle
       ? models.filter((m) => (m.id + ' ' + (m.name ?? '')).toLowerCase().includes(needle))
       : models
-    return list.slice(0, needle ? 300 : 80)
-  }, [needle, models])
+    const pinnedSet = new Set(pinned)
+    const sorted = [...list].sort((a, b) => (pinnedSet.has(b.id) ? 1 : 0) - (pinnedSet.has(a.id) ? 1 : 0))
+    return sorted.slice(0, needle ? 300 : 80)
+  }, [needle, models, pinned])
 
   const agentRow = (a: LaunchAgent): JSX.Element => {
     const s = statusOf(a)
@@ -164,6 +169,16 @@ export default function OthersModal({
         </span>
       </span>
       {isFree(m) && <span className="or-tag free">FREE</span>}
+      <span
+        className={clsx('others-pin', pinned.includes(m.id) && 'on')}
+        title={pinned.includes(m.id) ? 'Unpin model' : 'Pin model'}
+        onClick={(e) => {
+          e.stopPropagation()
+          togglePin(m.id)
+        }}
+      >
+        <Pin size={13} />
+      </span>
       <span className="others-row-act">
         Open <ArrowRight size={12} />
       </span>

@@ -8,12 +8,14 @@ import {
   ChevronDown,
   Search,
   Wallet,
-  AlertTriangle
+  AlertTriangle,
+  Pin
 } from 'lucide-react'
 import type { Pane, OrModelInfo, OrCredits } from '@shared/types'
 import { DEFAULT_MODELS } from '@shared/providers'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useOrChat } from '@renderer/store/orchat'
+import { useModelPins } from '@renderer/store/modelPins'
 import { AgentLogo } from './brandIcons'
 import MarkdownLite from './MarkdownLite'
 
@@ -83,6 +85,8 @@ function ModelPicker({ model, onPick }: { model: string; onPick: (id: string) =>
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [models, setModels] = useState<OrModelInfo[]>(MODELS_CACHE ?? [])
+  const pinned = useModelPins((s) => s.pinned)
+  const togglePin = useModelPins((s) => s.toggle)
   useEffect(() => {
     if (!open || MODELS_CACHE) return
     void window.api.openrouter.models().then((list) => {
@@ -101,8 +105,11 @@ function ModelPicker({ model, onPick }: { model: string; onPick: (id: string) =>
     const arr = needle
       ? list.filter((m) => (m.id + ' ' + (m.name ?? '')).toLowerCase().includes(needle))
       : list
-    return arr.slice(0, 80)
-  }, [q, list])
+    const pinnedSet = new Set(pinned)
+    return [...arr]
+      .sort((a, b) => (pinnedSet.has(b.id) ? 1 : 0) - (pinnedSet.has(a.id) ? 1 : 0))
+      .slice(0, 80)
+  }, [q, list, pinned])
   return (
     <div className="or-picker">
       <button className="or-picker-btn" onClick={() => setOpen((v) => !v)} title="Choose model">
@@ -140,6 +147,16 @@ function ModelPicker({ model, onPick }: { model: string; onPick: (id: string) =>
                     ) : (
                       shortPrice(m.promptPrice) && <span>{shortPrice(m.promptPrice)} in</span>
                     )}
+                  </span>
+                  <span
+                    className={'or-picker-pin' + (pinned.includes(m.id) ? ' on' : '')}
+                    title={pinned.includes(m.id) ? 'Unpin' : 'Pin'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      togglePin(m.id)
+                    }}
+                  >
+                    <Pin size={12} />
                   </span>
                 </button>
               ))}

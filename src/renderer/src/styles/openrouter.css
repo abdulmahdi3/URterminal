@@ -351,6 +351,8 @@
   background: var(--accent-soft);
 }
 .or-picker-id {
+  flex: 1;
+  min-width: 0;
   font-family: var(--mono);
   font-size: 11.5px;
   overflow: hidden;
@@ -378,6 +380,36 @@
   color: var(--ok);
   background: color-mix(in srgb, var(--ok) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
+/* ---- pin toggle (model picker + Others rows) ---- */
+.others-pin,
+.or-picker-pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: color 0.14s ease, background 0.14s ease, opacity 0.14s ease;
+}
+.others-row:hover .others-pin,
+.or-picker-row:hover .or-picker-pin {
+  opacity: 1;
+}
+.others-pin.on,
+.or-picker-pin.on {
+  opacity: 1;
+  color: var(--accent);
+}
+.others-pin:hover,
+.or-picker-pin:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
 }
 .or-picker-empty {
   padding: 14px;

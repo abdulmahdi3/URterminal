@@ -194,6 +194,85 @@
   background: transparent;
 }
 
+/* ---- workspace row: drop target + close affordance + inline rename ---- */
+/* a dragged pane is hovering this workspace → it will move into it on drop */
+.sb-row.drop-into {
+  background: var(--accent-soft, var(--bg-elev-3));
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  transform: none;
+}
+/* dropping on the empty Workspaces area spins up a new workspace */
+.sb-ws-group.drop-new {
+  outline: 1px dashed var(--accent);
+  outline-offset: -3px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+}
+
+/* close (×) — hover-revealed at the row's right edge, danger tint on hover */
+.sb-ws-close {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-faint);
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 0.14s ease, background 0.14s ease, color 0.14s ease;
+}
+.sb-ws-row:hover .sb-ws-close {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sb-ws-close:hover {
+  background: rgba(240, 93, 87, 0.18);
+  color: var(--danger);
+}
+/* hide the trailing count while hovering so the × has room (beats the
+   pinned/drag-target reveal rules via later source order + specificity) */
+.sb-ws-row:hover .sb-meta,
+.sidebar.drag-target .sb-ws-row:hover .sb-meta {
+  opacity: 0;
+}
+
+/* inline rename input (double-click a workspace to rename) */
+.sb-ws-rename {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-sunken);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 2px 6px;
+  outline: none;
+}
+
+/* While a pane is being dragged, expand the rail as a floating overlay (it's
+   absolutely positioned, so this never shifts the workspace beneath it) so the
+   workspace drop targets are easy to read + hit. Mirrors the pinned reveal. */
+.sidebar.drag-target .sidebar-rail {
+  width: var(--sb-w);
+  box-shadow: var(--shadow-lg);
+}
+.sidebar.drag-target .sb-label,
+.sidebar.drag-target .sb-meta,
+.sidebar.drag-target .sb-section {
+  opacity: 1;
+}
+
 /* trailing counts / badges / kbd */
 .sb-count {
   font-size: 11px;
@@ -287,7 +366,8 @@
   .sb-meta,
   .sb-section,
   .sb-brand-name,
-  .sb-pin {
+  .sb-pin,
+  .sb-ws-close {
     transition: none;
   }
   .sb-row:hover,

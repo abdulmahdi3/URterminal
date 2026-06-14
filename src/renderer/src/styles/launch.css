@@ -933,6 +933,27 @@
   color: var(--gold);
 }
 
+/* ---- pin toggle (pinned model cards) ---- */
+.lc-pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+.lc-pin:hover {
+  background: var(--bg-elev-3);
+  color: var(--text);
+}
+.lc-pin.on {
+  color: var(--gold);
+}
+
 /* ===========================================================================
    Others browser modal — all agents + 200+ OpenRouter models.
    =========================================================================== */

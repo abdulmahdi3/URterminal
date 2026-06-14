@@ -2573,6 +2573,77 @@
   }
 }
 
+/* ---- pin-model demo: a pinned model card (ring pulse + pin pop) ---- */
+.wn-demo-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+}
+.wn-pin-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 246px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--accent);
+  animation: wn-pin-ring 2.2s ease-in-out infinite;
+}
+.wn-pin-logo {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+.wn-pin-id {
+  flex: 1;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wn-pin-ico {
+  flex: none;
+  color: var(--accent);
+  animation: wn-pin-pop 2.2s ease-in-out infinite;
+}
+.wn-pin-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+@keyframes wn-pin-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+@keyframes wn-pin-pop {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.25) rotate(-12deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-pin-card,
+  .wn-pin-ico {
+    animation: none;
+  }
+}
+
 /* ---- launch-console grid demo: 3 labelled rows of cards + Others ---- */
 .wn-demo-cgrid {
   display: flex;
