@@ -40,21 +40,27 @@ export interface LaunchAgent {
    * instead of spawning a pane.
    */
   configure?: boolean
+  /**
+   * Shell command that installs this CLI (npm / pip). A missing card with an
+   * `install` gets a one-click Install button; agents with no reliable
+   * cross-platform installer omit it and simply read "Not installed".
+   */
+  install?: string
 }
 
 /** The agents, in grid order (4 columns). The last entry, OpenRouter, is a
  *  provider gateway (no CLI) — its card opens Settings rather than launching. */
 export const LAUNCH_AGENTS: LaunchAgent[] = [
-  { command: 'claude',       name: 'Claude',         cli: 'claude-code',   badge: 'C',   color: '#e8b53e', model: 'Sonnet 4.5 · 200K ctx',  kind: 'cloud', featured: true, spark: true },
-  { command: 'codex',        name: 'ChatGPT',        cli: 'codex-cli',     badge: 'GPT', color: '#19c37d', model: 'GPT-5 Codex · 256K ctx', kind: 'cloud' },
-  { command: 'gemini',       name: 'Gemini',         cli: 'gemini-cli',    badge: 'G',   color: '#6f86ff', model: '2.5 Pro · 1M ctx',       kind: 'cloud' },
-  { command: 'copilot',      name: 'GitHub Copilot', cli: 'copilot-cli',   badge: 'GH',  color: '#c9d1d9', model: 'GPT-5 · 128K ctx',       kind: 'cloud' },
-  { command: 'aider',        name: 'Aider',          cli: 'aider',         badge: 'Ai',  color: '#a371f7', model: 'multi-model',            kind: 'local' },
-  { command: 'opencode',     name: 'OpenCode',       cli: 'opencode',      badge: 'OC',  color: '#e8973c', model: 'any provider',           kind: 'local' },
+  { command: 'claude',       name: 'Claude',         cli: 'claude-code',   badge: 'C',   color: '#e8b53e', model: 'Sonnet 4.5 · 200K ctx',  kind: 'cloud', featured: true, spark: true, install: 'npm i -g @anthropic-ai/claude-code' },
+  { command: 'codex',        name: 'ChatGPT',        cli: 'codex-cli',     badge: 'GPT', color: '#19c37d', model: 'GPT-5 Codex · 256K ctx', kind: 'cloud', install: 'npm i -g @openai/codex' },
+  { command: 'gemini',       name: 'Gemini',         cli: 'gemini-cli',    badge: 'G',   color: '#6f86ff', model: '2.5 Pro · 1M ctx',       kind: 'cloud', install: 'npm i -g @google/gemini-cli' },
+  { command: 'copilot',      name: 'GitHub Copilot', cli: 'copilot-cli',   badge: 'GH',  color: '#c9d1d9', model: 'GPT-5 · 128K ctx',       kind: 'cloud', install: 'npm i -g @github/copilot' },
+  { command: 'aider',        name: 'Aider',          cli: 'aider',         badge: 'Ai',  color: '#a371f7', model: 'multi-model',            kind: 'local', install: 'python -m pip install aider-chat' },
+  { command: 'opencode',     name: 'OpenCode',       cli: 'opencode',      badge: 'OC',  color: '#e8973c', model: 'any provider',           kind: 'local', install: 'npm i -g opencode-ai' },
   { command: 'cursor-agent', name: 'Cursor',         cli: 'cursor-agent',  badge: 'Cu',  color: '#d3dae6', model: 'Composer · 128K ctx',    kind: 'cloud' },
   { command: 'cline',        name: 'Cline',          cli: 'cline',         badge: 'CL',  color: '#2bb6a3', model: 'any provider',           kind: 'local' },
   { command: 'goose',        name: 'Goose',          cli: 'goose',         badge: 'Go',  color: '#f0688a', model: 'multi-model',            kind: 'local' },
-  { command: 'qwen-code',    name: 'Qwen Coder',     cli: 'qwen-code',     badge: 'Qw',  color: '#b06bf0', model: 'Qwen3 Coder · 256K',     kind: 'local' },
+  { command: 'qwen-code',    name: 'Qwen Coder',     cli: 'qwen-code',     badge: 'Qw',  color: '#b06bf0', model: 'Qwen3 Coder · 256K',     kind: 'local', install: 'npm i -g @qwen-code/qwen-code' },
   { command: 'q',            name: 'Amazon Q',       cli: 'q-cli',         badge: 'Q',   color: '#46c6e6', model: 'Q Developer',            kind: 'cloud' },
   { command: 'openrouter',   name: 'OpenRouter',     cli: 'openrouter.ai', badge: 'OR',  color: '#6566f1', model: '200+ models · one key',  kind: 'cloud', configure: true }
 ]

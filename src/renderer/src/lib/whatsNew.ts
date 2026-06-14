@@ -67,6 +67,7 @@ export type WhatsNewDemo =
   | 'settings'
   | 'chrome'
   | 'openrouter'
+  | 'install'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -96,6 +97,24 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.6.2': {
+    version: '0.6.2',
+    headline: 'Install agents in one click',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Install a missing agent from its card',
+        demo: 'install',
+        body:
+          'Any launch-console agent that isn’t installed now shows an Install button right on its card — ' +
+          'click it and URterminal runs the CLI’s install command for you (npm / pip), then re-checks and ' +
+          'flips the card to its real status. You also get a desktop notification the moment it finishes, ' +
+          'even if you’ve switched to another window.'
+      }
+    ]
+  },
+
   '0.6.1': {
     version: '0.6.1',
     headline: 'Real agent statuses',

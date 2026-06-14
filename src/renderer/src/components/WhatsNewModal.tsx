@@ -670,6 +670,26 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'install') {
+    // A card whose install progress bar fills, then an "Installed" toast slides in.
+    return (
+      <div className="wn-demo wn-demo-install">
+        <div className="wn-inst-card">
+          <span className="wn-inst-badge">Go</span>
+          <div className="wn-inst-meta">
+            <span className="wn-inst-name">Goose</span>
+            <span className="wn-inst-bar">
+              <span className="wn-inst-fill" />
+            </span>
+          </div>
+          <Download size={14} className="wn-inst-dl" />
+        </div>
+        <div className="wn-inst-toast">
+          <CheckCircle2 size={12} /> Installed
+        </div>
+      </div>
+    )
+  }
   if (kind === 'openrouter') {
     // One key on the left routes out to many model chips that light up in turn.
     const models = ['Claude', 'GPT-4o', 'Gemini', 'Llama']

@@ -11,7 +11,9 @@ import {
   LayoutGrid,
   CornerDownRight,
   Send,
-  Clock
+  Clock,
+  Download,
+  Loader2
 } from 'lucide-react'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useWorkspaces } from '@renderer/store/workspaces'
@@ -97,21 +99,41 @@ function AgentCard({
   a,
   status,
   index,
-  onLaunch
+  installing,
+  onActivate
 }: {
   a: LaunchAgent
   status: AgentStatus
   index: number
-  onLaunch: () => void
+  installing: boolean
+  onActivate: () => void
 }): JSX.Element {
+  const isMissing = !a.configure && status === 'missing'
+  const canInstall = isMissing && !!a.install
+  // Not clickable while installing, or when missing with no way to install it.
+  const disabled = installing || (isMissing && !a.install)
   const statusLabel = a.configure ? (status === 'ready' ? 'Ready' : 'Set up') : STATUS_LABEL[status]
+  const title = a.configure
+    ? 'Configure OpenRouter — one key, 200+ models'
+    : canInstall
+      ? `Install ${a.name}  ·  ${a.install}`
+      : isMissing
+        ? `${a.name} isn’t installed`
+        : `Open ${a.name} in a folder`
   return (
     <button
       type="button"
-      className={clsx('lc-card', a.featured && 'featured', a.configure && 'configure')}
+      className={clsx(
+        'lc-card',
+        a.featured && 'featured',
+        a.configure && 'configure',
+        installing && 'installing',
+        isMissing && !a.install && 'unavailable'
+      )}
       style={{ ['--b' as string]: a.color, ['--i' as string]: index }}
-      title={a.configure ? 'Configure OpenRouter — one key, 200+ models' : `Open ${a.name} in a folder`}
-      onClick={onLaunch}
+      title={title}
+      disabled={disabled}
+      onClick={onActivate}
     >
       <div className="lc-card-top">
         <span className="lc-badge">
@@ -132,12 +154,35 @@ function AgentCard({
       <div className="lc-card-model">{a.model}</div>
       <div className="lc-card-foot">
         <span className="lc-card-hint">
-          {a.configure ? 'one key · 200+ models' : 'opens in a folder'}
+          {a.configure
+            ? 'one key · 200+ models'
+            : installing
+              ? 'fetching…'
+              : isMissing
+                ? canInstall
+                  ? 'not installed'
+                  : 'not on PATH'
+                : 'opens in a folder'}
         </span>
-        <span className="lc-card-launch">
-          {a.configure ? (status === 'ready' ? 'Manage' : 'Set up') : 'Launch'}{' '}
-          <ChevronRight size={13} />
-        </span>
+        {a.configure ? (
+          <span className="lc-card-launch">
+            {status === 'ready' ? 'Manage' : 'Set up'} <ChevronRight size={13} />
+          </span>
+        ) : installing ? (
+          <span className="lc-card-launch install">
+            <Loader2 size={13} className="spin" /> Installing…
+          </span>
+        ) : canInstall ? (
+          <span className="lc-card-launch install">
+            <Download size={13} /> Install
+          </span>
+        ) : isMissing ? (
+          <span className="lc-card-launch muted">Unavailable</span>
+        ) : (
+          <span className="lc-card-launch">
+            Launch <ChevronRight size={13} />
+          </span>
+        )}
       </div>
     </button>
   )
@@ -175,6 +220,7 @@ export default function LaunchConsole(): JSX.Element {
   const newAgentKeys = comboToKeys(effectiveCombo(custom, 'pane.newAi', cmdDefaults['pane.newAi']))
 
   const [statuses, setStatuses] = useState<Record<string, AgentRuntimeStatus>>({})
+  const [installing, setInstalling] = useState<Set<string>>(new Set())
   const [shells, setShells] = useState<ShellSpec[]>(getShellSpecs())
   useEffect(() => {
     void window.api
@@ -245,6 +291,63 @@ export default function LaunchConsole(): JSX.Element {
     }
     addPane('ai', undefined, { agentCommand: a.command, label: a.name })
   }
+
+  // Re-probe the real CLI agents (the OpenRouter gateway card has no binary).
+  const reprobe = (): Promise<Record<string, AgentRuntimeStatus>> =>
+    window.api
+      .agentStatuses(LAUNCH_AGENTS.filter((a) => !a.configure).map((a) => a.command))
+      .then((next) => {
+        setStatuses(next)
+        return next
+      })
+
+  // Install a missing agent's CLI, then re-probe + notify (in-app toast AND an OS
+  // notification) so the card flips to its real state and the user hears about it
+  // even if they switched away during the (sometimes slow) install.
+  const startInstall = (a: LaunchAgent): void => {
+    if (!a.install) return
+    setInstalling((prev) => new Set(prev).add(a.command))
+    void window.api
+      .installAgent(a.install)
+      .then(async (res) => {
+        if (!res.ok) {
+          toast(`Couldn't install ${a.name}: ${res.error ?? 'failed'}`, 'error')
+          void window.api.notify(`${a.name} install failed`, res.error ?? 'The install command failed.')
+          return
+        }
+        const next = await reprobe()
+        const onPath = !!next[a.command] && next[a.command] !== 'missing'
+        toast(onPath ? `${a.name} installed` : `${a.name} installed — restart to use it`, 'ok')
+        void window.api.notify(
+          `${a.name} installed`,
+          onPath
+            ? `${a.name} is installed and ready to use in URterminal.`
+            : `${a.name} is installed — restart URterminal to start using it.`
+        )
+      })
+      .catch((e: Error) => toast(`Couldn't install ${a.name}: ${e.message}`, 'error'))
+      .finally(() =>
+        setInstalling((prev) => {
+          const n = new Set(prev)
+          n.delete(a.command)
+          return n
+        })
+      )
+  }
+
+  // A card click resolves to the right action for its state.
+  const activate = (a: LaunchAgent): void => {
+    if (a.configure) {
+      openSettings('providers')
+      return
+    }
+    if (statusOf(a) === 'missing') {
+      if (a.install) startInstall(a)
+      return
+    }
+    launchAgent(a)
+  }
+
   const openShell = (spec: ShellSpec): void => {
     addPane('shell', undefined, { shell: spec.file, shellArgs: spec.args, label: spec.label })
   }
@@ -337,7 +440,8 @@ export default function LaunchConsole(): JSX.Element {
                 a={a}
                 index={i}
                 status={statusOf(a)}
-                onLaunch={() => launchAgent(a)}
+                installing={installing.has(a.command)}
+                onActivate={() => activate(a)}
               />
             ))}
             {agents.length === 0 && (

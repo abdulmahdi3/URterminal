@@ -375,6 +375,21 @@
   transform: translateY(-2px) scale(0.998);
   transition-duration: 0.08s;
 }
+.lc-card:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.lc-card:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+.lc-card:disabled:hover .lc-badge {
+  transform: none;
+}
+.lc-card.installing {
+  cursor: progress;
+  opacity: 0.9;
+}
 .lc-card.featured {
   border-color: var(--gold-line);
   box-shadow: 0 0 0 1px var(--gold-soft);
@@ -546,6 +561,12 @@
 }
 .lc-card.featured .lc-card-launch {
   color: var(--text);
+}
+.lc-card-launch.install {
+  color: var(--gold);
+}
+.lc-card-launch.muted {
+  color: var(--text-faint);
 }
 
 /* ---------- bottom panels ---------- */

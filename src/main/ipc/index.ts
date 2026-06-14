@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, clipboard, app, shell } from 'electron'
+import { ipcMain, BrowserWindow, dialog, clipboard, app, shell, Notification } from 'electron'
 import { writeFile, readFile, unlink, mkdir, rename } from 'fs/promises'
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { tmpdir, userInfo, homedir, platform } from 'os'
@@ -545,6 +545,13 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.agentsDiscover, () => discoverAgents(settings.getOllamaBaseUrl()))
   ipcMain.handle(IPC.agentsInstall, (_e, command: string) => installAgent(command))
   ipcMain.handle(IPC.agentsStatus, (_e, commands: string[]) => detectAgentStatuses(commands))
+  ipcMain.handle(IPC.appNotify, (_e, title: string, body: string) => {
+    try {
+      if (Notification.isSupported()) new Notification({ title, body, silent: false }).show()
+    } catch {
+      /* notifications unavailable — the in-app toast already covered it */
+    }
+  })
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
   ipcMain.handle(IPC.sessionsSearch, (_e, query: string) => searchSessions(query))
   ipcMain.handle(IPC.referenceExpand, (_e, ref: string, cwd: string) => expandReference(ref, cwd))

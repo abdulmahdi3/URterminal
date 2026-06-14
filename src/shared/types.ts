@@ -852,6 +852,8 @@ export const IPC = {
   appInfo: 'app:info',
   // relaunch the whole app (used after installing an agent so PATH is re-read)
   appRelaunch: 'app:relaunch',
+  // show an OS notification (e.g. when an agent finishes installing)
+  appNotify: 'app:notify',
 
   // settings
   settingsGet: 'settings:get',

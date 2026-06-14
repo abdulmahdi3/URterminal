@@ -59,6 +59,8 @@ const api = {
   getAppInfo: (): Promise<{ version: string; homeDir: string; platform: NodeJS.Platform }> =>
     ipcRenderer.invoke(IPC.appInfo),
   relaunchApp: (): Promise<void> => ipcRenderer.invoke(IPC.appRelaunch),
+  notify: (title: string, body: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.appNotify, title, body),
 
   // ---- settings ----
   getSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke(IPC.settingsGet),

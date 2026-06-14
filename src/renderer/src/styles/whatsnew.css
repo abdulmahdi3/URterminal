@@ -2458,3 +2458,117 @@
     animation: none;
   }
 }
+
+/* ---- install demo: a card's progress fills, then an "Installed" toast ---- */
+.wn-demo-install {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 18px;
+}
+.wn-inst-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+}
+.wn-inst-badge {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #f0688a;
+}
+.wn-inst-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wn-inst-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.wn-inst-bar {
+  height: 4px;
+  border-radius: 3px;
+  background: var(--bg-elev-3);
+  overflow: hidden;
+}
+.wn-inst-fill {
+  display: block;
+  height: 100%;
+  width: 6%;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: wn-inst-progress 2.6s ease-in-out infinite;
+}
+.wn-inst-dl {
+  flex: none;
+  color: var(--accent);
+}
+.wn-inst-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  animation: wn-inst-toast 2.6s ease-in-out infinite;
+}
+@keyframes wn-inst-progress {
+  0% {
+    width: 6%;
+  }
+  65% {
+    width: 100%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+@keyframes wn-inst-toast {
+  0%,
+  58% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  72%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-inst-fill,
+  .wn-inst-toast {
+    animation: none;
+  }
+  .wn-inst-fill {
+    width: 100%;
+  }
+  .wn-inst-toast {
+    opacity: 1;
+    transform: none;
+  }
+}
