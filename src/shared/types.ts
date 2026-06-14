@@ -15,7 +15,7 @@ export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'oll
  */
 export type AgentRuntimeStatus = 'ready' | 'signin' | 'update' | 'missing'
 
-export type PaneType = 'ai' | 'shell' | 'empty' | 'stream'
+export type PaneType = 'ai' | 'shell' | 'empty' | 'stream' | 'openrouter'
 
 export interface ShellPaneState {
   shell: string
@@ -61,6 +61,38 @@ export interface StreamPaneState {
   cwd?: string
 }
 
+/** Token/cost summary for one OpenRouter reply (OpenRouter returns `cost` in USD). */
+export interface OrUsage {
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  costUsd?: number
+}
+
+/** One message in an OpenRouter chat pane's transcript. */
+export interface OrMessage {
+  role: 'user' | 'assistant'
+  content: string
+  usage?: OrUsage
+  /** set on an assistant message when the turn failed (content may be partial) */
+  error?: string
+}
+
+/**
+ * An OpenRouter chat pane: a native HTTP chat against OpenRouter (200+ models),
+ * not a terminal. The transcript is persisted so it survives a restart.
+ */
+export interface OpenRouterPaneState {
+  /** OpenRouter model id, e.g. "anthropic/claude-3.5-sonnet" */
+  model: string
+  /** persisted conversation transcript */
+  messages?: OrMessage[]
+  /** reserved (phase 2, no UI yet): system prompt */
+  system?: string
+  /** reserved (phase 2, no UI yet): sampling temperature (default 0.7) */
+  temperature?: number
+}
+
 /** A single checkable item in a pane's to-do list. */
 export interface TodoItem {
   id: string
@@ -75,6 +107,7 @@ export interface Pane {
   agent?: AgentPaneState
   shell?: ShellPaneState
   stream?: StreamPaneState
+  openrouter?: OpenRouterPaneState
   /** chat id this pane forwards output to, if linked */
   telegramChatId?: string
   /** pane IDs this pane pipes its output into (supports fan-out to multiple) */
@@ -626,6 +659,53 @@ export interface PtyExitEvent {
   exitCode: number
 }
 
+/** Request to start a streaming OpenRouter chat turn for a pane. */
+export interface OrSendRequest {
+  paneId: string
+  model: string
+  /** the conversation so far (user/assistant); system is passed separately */
+  messages: { role: 'user' | 'assistant'; content: string }[]
+  temperature?: number
+  system?: string
+}
+
+/** main -> renderer: an incremental chunk of assistant text for a pane. */
+export interface OrDeltaEvent {
+  paneId: string
+  delta: string
+}
+
+/** main -> renderer: a pane's turn finished (usage + finish reason). */
+export interface OrDoneEvent {
+  paneId: string
+  usage?: OrUsage
+  /** 'stop' | 'length' | 'aborted' | … */
+  finishReason?: string
+}
+
+/** main -> renderer: a pane's turn failed. */
+export interface OrErrorEvent {
+  paneId: string
+  message: string
+}
+
+/** A model from OpenRouter's catalog (for the in-pane picker). */
+export interface OrModelInfo {
+  id: string
+  name?: string
+  contextLength?: number
+  /** USD per token */
+  promptPrice?: number
+  completionPrice?: number
+}
+
+/** OpenRouter account credit/usage snapshot (GET /api/v1/key). */
+export interface OrCredits {
+  remaining?: number
+  usage?: number
+  limit?: number | null
+}
+
 /** A live PTY process, surfaced to the renderer's task manager. */
 export interface PtyTaskInfo {
   ptyId: string
@@ -882,6 +962,15 @@ export const IPC = {
   agentsInstall: 'agents:install',
   // agents: probe each agent CLI's real status (installed + authenticated) by command
   agentsStatus: 'agents:status',
+  // openrouter: native streaming chat pane — send/stop a turn, list models, credits.
+  // delta/done/error are main -> renderer events keyed by paneId.
+  openrouterSend: 'openrouter:send',
+  openrouterStop: 'openrouter:stop',
+  openrouterModels: 'openrouter:models',
+  openrouterCredits: 'openrouter:credits',
+  openrouterDelta: 'openrouter:delta', // main -> renderer (event)
+  openrouterDone: 'openrouter:done', // main -> renderer (event)
+  openrouterError: 'openrouter:error', // main -> renderer (event)
   // prompts: durable per-chat prompt history (rebuilds the prompt minimap on restore)
   promptsGet: 'prompts:get',
   promptsAppend: 'prompts:append',

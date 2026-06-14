@@ -336,8 +336,9 @@ export default function LaunchConsole(): JSX.Element {
   // A card click resolves to the right action for its state.
   const activate = (a: LaunchAgent): void => {
     if (a.configure) {
-      // OpenRouter has its own config home (key + model) — open that, not Settings.
-      setShowOpenRouter(true)
+      // Key set → straight into a chat pane; otherwise open the setup modal first.
+      if (orKeySet) addPane('openrouter', undefined, { label: 'OpenRouter' })
+      else setShowOpenRouter(true)
       return
     }
     if (statusOf(a) === 'missing') {

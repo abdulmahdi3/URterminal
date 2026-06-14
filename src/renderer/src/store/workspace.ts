@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import type { MosaicDirection, MosaicNode } from 'react-mosaic-component'
 import type { AgentPaneState, Pane, PaneType, ProviderId } from '@shared/types'
-import { DEFAULT_AGENT, sessionFlagsFor } from '@shared/providers'
+import { DEFAULT_AGENT, DEFAULT_MODELS, sessionFlagsFor } from '@shared/providers'
 import { getLeaves, splitLeaf, removeLeaf } from '@renderer/lib/mosaicTree'
 import { disposeTerminal } from '@renderer/lib/terminalPool'
 import { homeDir } from '@renderer/lib/osInfo'
 import { toast } from '@renderer/store/toasts'
+import { useOrChat } from '@renderer/store/orchat'
 import { buildAutoLayout, buildPresetLayout, PRESET_PANE_COUNT } from '@renderer/lib/layoutPresets'
 
 const uid = (): string =>
@@ -129,6 +130,8 @@ export interface PaneInit {
   shellArgs?: string[]
   /** title to show instead of the generic "Shell N" / agent command */
   label?: string
+  /** OpenRouter model id for a new 'openrouter' chat pane */
+  orModel?: string
 }
 
 let paneCounter = 0
@@ -152,6 +155,7 @@ interface PaneDefaults {
   shell: string
   shellArgs: string[]
   shellCwd: string
+  openrouterModel: string
 }
 
 function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane {
@@ -179,6 +183,11 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
     // A "stream pane" drives Claude in stream-json mode and renders cards.
     base.title = init?.label ?? 'claude · stream'
     base.stream = { command: init?.agentCommand ?? 'claude', cwd: init?.agentCwd }
+  } else if (type === 'openrouter') {
+    // A native HTTP chat pane against OpenRouter (200+ models).
+    const model = init?.orModel || defaults.openrouterModel || DEFAULT_MODELS.openrouter[0]
+    base.title = init?.label ?? 'OpenRouter'
+    base.openrouter = { model, messages: [] }
   } else {
     base.title = `Pane ${paneCounter}`
   }
@@ -191,7 +200,8 @@ function paneDefaults(s: WorkspaceState): PaneDefaults {
     agent: s.defaultAgent,
     shell: s.defaultShell,
     shellArgs: s.defaultShellArgs,
-    shellCwd: s.defaultShellCwd
+    shellCwd: s.defaultShellCwd,
+    openrouterModel: s.defaultProvider === 'openrouter' ? s.defaultModel : ''
   }
 }
 
@@ -259,6 +269,15 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     } else if (src.type === 'stream' && src.stream) {
       np.stream = { command: src.stream.command, cwd: src.stream.cwd }
       np.title = src.title
+    } else if (src.type === 'openrouter' && src.openrouter) {
+      // same model, fresh conversation (the chat store is keyed by the new pane id)
+      np.openrouter = {
+        model: src.openrouter.model,
+        system: src.openrouter.system,
+        temperature: src.openrouter.temperature,
+        messages: []
+      }
+      np.title = src.title
     }
     set((s) => {
       const layout = s.layout === null ? np.id : splitLeaf(s.layout, id, np.id, direction)
@@ -283,6 +302,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       // The pane is gone for good — drop its complete-history transcript log so
       // it isn't carried into the next session restore.
       void window.api.transcriptRemove(id)
+      // OpenRouter chat panes: drop their conversation + abort any in-flight turn.
+      useOrChat.getState().remove(id)
+      window.api.openrouter.stop(id)
       set((s) => {
         const closed = s.panes[id]
         const panes = { ...s.panes }
@@ -345,6 +367,13 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     // reopen = a new conversation; mint a fresh session id rather than reusing the closed one
     if (last.agent) revived.agent = withSessionId({ command: last.agent.command, cwd: last.agent.cwd })
     if (last.stream) revived.stream = { command: last.stream.command, cwd: last.stream.cwd }
+    if (last.openrouter)
+      revived.openrouter = {
+        model: last.openrouter.model,
+        system: last.openrouter.system,
+        temperature: last.openrouter.temperature,
+        messages: []
+      }
     set((s) => {
       const leaves = getLeaves(s.layout)
       const target = s.activePaneId && leaves.includes(s.activePaneId) ? s.activePaneId : leaves[0]
@@ -395,7 +424,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => {
       const existing = s.panes[id]
       if (!existing) return s
-      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined, stream: undefined }
+      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined, stream: undefined, openrouter: undefined }
       if (type === 'ai') {
         const command = init?.agentCommand ?? DEFAULT_AGENT
         replacement.agent = withSessionId({ command })
@@ -409,6 +438,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
           cwd: init?.agentCwd ?? existing.agent?.cwd ?? existing.shell?.cwd
         }
         replacement.title = init?.label ?? 'claude · stream'
+      } else if (type === 'openrouter') {
+        replacement.openrouter = { model: init?.orModel || DEFAULT_MODELS.openrouter[0], messages: [] }
+        replacement.title = init?.label ?? 'OpenRouter'
       }
       return { panes: { ...s.panes, [id]: replacement } }
     }),

@@ -4,6 +4,7 @@ import { KeyRound, Check, ArrowRight, ExternalLink, Sparkles } from 'lucide-reac
 import { DEFAULT_MODELS } from '@shared/providers'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
+import { useWorkspace } from '@renderer/store/workspace'
 import { toast } from '@renderer/store/toasts'
 import { AgentLogo } from './brandIcons'
 
@@ -61,8 +62,12 @@ export default function OpenRouterModal(): JSX.Element | null {
     toast('OpenRouter key cleared', 'info')
   }
   const useOpenRouter = (): void => {
-    void patch({ defaultProvider: 'openrouter', defaultModel: model.trim() || OR_MODELS[0] })
-    toast('OpenRouter is now your provider', 'ok')
+    const chosen = model.trim() || OR_MODELS[0]
+    void patch({ defaultProvider: 'openrouter', defaultModel: chosen })
+    const id = useWorkspace
+      .getState()
+      .addPane('openrouter', undefined, { orModel: chosen, label: 'OpenRouter' })
+    if (!id) toast('Close a pane first (max 9 open).', 'error')
     setShow(false)
   }
 

@@ -137,6 +137,12 @@ export function getCommands(): Command[] {
       run: () => ws().addPane('stream', undefined, { agentCommand: 'claude', label: 'claude · stream' })
     },
     {
+      id: 'pane.newOpenRouter',
+      title: 'New OpenRouter chat pane (200+ models)',
+      group: 'Panes',
+      run: () => ws().addPane('openrouter', undefined, { label: 'OpenRouter' })
+    },
+    {
       id: 'app.toggleSidebar',
       title: 'Toggle sidebar (pin open / hover)',
       group: 'View',

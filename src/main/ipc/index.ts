@@ -3,7 +3,7 @@ import { writeFile, readFile, unlink, mkdir, rename } from 'fs/promises'
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { tmpdir, userInfo, homedir, platform } from 'os'
 import { join, resolve, isAbsolute, dirname, sep } from 'path'
-import type { ClipboardContent, SessionData, LastSessionPayload, NoteDoc } from '@shared/types'
+import type { ClipboardContent, SessionData, LastSessionPayload, NoteDoc, OrSendRequest } from '@shared/types'
 import { IPC } from '@shared/types'
 import type {
   PtySpawnRequest,
@@ -37,6 +37,8 @@ import { filterAvailable } from '../pty/which'
 import { discoverAgents } from '../agents/discover'
 import { detectAgentStatuses } from '../agents/status'
 import { installAgent } from '../agents/install'
+import { streamOpenRouter, stopOpenRouter, type ChatEmit } from '../openrouter/chat'
+import { fetchOpenRouterModels, fetchOpenRouterCredits } from '../openrouter/models'
 import { discoverModels } from '../providers/discoverModels'
 import { getGitStatus } from '../git/status'
 import { getPrompts, appendPrompt } from '../prompts/store'
@@ -551,6 +553,25 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     } catch {
       /* notifications unavailable — the in-app toast already covered it */
     }
+  })
+  const orEmit: ChatEmit = {
+    delta: (paneId, delta) => emit(IPC.openrouterDelta, { paneId, delta }),
+    done: (paneId, usage, finishReason) => emit(IPC.openrouterDone, { paneId, usage, finishReason }),
+    error: (paneId, message) => emit(IPC.openrouterError, { paneId, message })
+  }
+  ipcMain.handle(IPC.openrouterSend, (_e, req: OrSendRequest) => {
+    const key = settings.getApiKey('openrouter')
+    if (!key) {
+      orEmit.error(req.paneId, 'No OpenRouter API key set. Open the OpenRouter panel and add your key.')
+      return
+    }
+    void streamOpenRouter(key, req, orEmit)
+  })
+  ipcMain.on(IPC.openrouterStop, (_e, paneId: string) => stopOpenRouter(paneId))
+  ipcMain.handle(IPC.openrouterModels, () => fetchOpenRouterModels(settings.getApiKey('openrouter')))
+  ipcMain.handle(IPC.openrouterCredits, () => {
+    const key = settings.getApiKey('openrouter')
+    return key ? fetchOpenRouterCredits(key) : null
   })
   ipcMain.handle(IPC.gitStatus, (_e, cwd: string) => getGitStatus(cwd))
   ipcMain.handle(IPC.sessionsSearch, (_e, query: string) => searchSessions(query))

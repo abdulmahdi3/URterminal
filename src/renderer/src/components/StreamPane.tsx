@@ -29,32 +29,12 @@ import {
   type ToolResultCard,
   type ResultCard
 } from '@shared/streamJson'
-import { parseSegments } from '@renderer/lib/segments'
+import MarkdownLite from './MarkdownLite'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useStreams } from '@renderer/store/streams'
 import { getLastAgentCwd, setLastAgentCwd } from '@renderer/lib/agentPrefs'
 import { homeDir } from '@renderer/lib/osInfo'
 import { toast } from '@renderer/store/toasts'
-
-/** Lightweight markdown: plain text with fenced code blocks (no extra deps). */
-function MarkdownLite({ text }: { text: string }): JSX.Element {
-  const segments = useMemo(() => parseSegments(text), [text])
-  return (
-    <>
-      {segments.map((s, i) =>
-        s.type === 'code' ? (
-          <pre key={i} className="stream-code">
-            <code>{s.text}</code>
-          </pre>
-        ) : (
-          <div key={i} className="stream-md">
-            {s.text}
-          </div>
-        )
-      )}
-    </>
-  )
-}
 
 const TOOL_ICON: Record<string, JSX.Element> = {
   Bash: <TerminalIcon size={13} />,

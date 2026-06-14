@@ -670,6 +670,26 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'orchat') {
+    // A mini chat: user bubble, then an assistant reply "types" in, cost fades in.
+    return (
+      <div className="wn-demo wn-demo-orchat">
+        <div className="wn-oc-head">
+          <span className="wn-oc-logo" />
+          <span className="wn-oc-model">anthropic/claude-3.5-sonnet</span>
+          <span className="wn-oc-cost">$0.0021</span>
+        </div>
+        <div className="wn-oc-body">
+          <div className="wn-oc-user">Explain quark confinement</div>
+          <div className="wn-oc-bot">
+            <span className="wn-oc-line l1" />
+            <span className="wn-oc-line l2" />
+            <span className="wn-oc-line l3" />
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'orconfig') {
     // A mini OpenRouter config card: connected dot pulses, a key check pops in.
     return (

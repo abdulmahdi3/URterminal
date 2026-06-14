@@ -60,6 +60,14 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
     // Stream panes carry only their command + folder; the live transcript lives
     // in the (non-persisted) stream store, so a restore opens a fresh view.
     if (clone.stream) clone.stream = { command: clone.stream.command, cwd: clone.stream.cwd }
+    // OpenRouter chat panes persist their full transcript (capped) so it restores.
+    if (clone.openrouter)
+      clone.openrouter = {
+        model: clone.openrouter.model,
+        system: clone.openrouter.system,
+        temperature: clone.openrouter.temperature,
+        messages: (clone.openrouter.messages ?? []).slice(-100)
+      }
     out[id] = clone
   }
   return out

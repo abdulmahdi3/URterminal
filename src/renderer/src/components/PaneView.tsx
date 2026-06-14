@@ -5,6 +5,7 @@ import EmptyPane from './EmptyPane'
 import AiPane from './AiPane'
 import ShellPane from './ShellPane'
 import StreamPane from './StreamPane'
+import OpenRouterChatPane from './OpenRouterChatPane'
 
 export default function PaneView({ paneId }: { paneId: string }): JSX.Element {
   const pane = useWorkspace((s) => s.panes[paneId])
@@ -39,6 +40,7 @@ export default function PaneView({ paneId }: { paneId: string }): JSX.Element {
       {pane.type === 'ai' && <AiPane pane={pane} />}
       {pane.type === 'shell' && <ShellPane pane={pane} />}
       {pane.type === 'stream' && <StreamPane pane={pane} />}
+      {pane.type === 'openrouter' && <OpenRouterChatPane pane={pane} />}
     </div>
   )
 }

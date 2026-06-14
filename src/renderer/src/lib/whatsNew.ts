@@ -69,6 +69,7 @@ export type WhatsNewDemo =
   | 'openrouter'
   | 'install'
   | 'orconfig'
+  | 'orchat'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -98,6 +99,25 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.7.0': {
+    version: '0.7.0',
+    headline: 'Chat with OpenRouter — 200+ models, in a pane',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'A real OpenRouter chat panel',
+        demo: 'orchat',
+        body:
+          'OpenRouter is no longer just a key — “Use OpenRouter” now opens a live chat pane that streams ' +
+          'replies from any of its 200+ models. Pick a model from a searchable list (with context length ' +
+          'and price), watch the answer stream in, Stop or Regenerate, and see the token cost per reply ' +
+          'plus your account credits. Open one any time from the command palette (“New OpenRouter chat ' +
+          'pane”). Conversations are saved and restored across restarts.'
+      }
+    ]
+  },
+
   '0.6.4': {
     version: '0.6.4',
     headline: 'OpenRouter, in its own home',

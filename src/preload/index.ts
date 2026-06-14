@@ -6,6 +6,12 @@ import type {
   SettingsPatch,
   ProviderId,
   AgentRuntimeStatus,
+  OrSendRequest,
+  OrModelInfo,
+  OrCredits,
+  OrDeltaEvent,
+  OrDoneEvent,
+  OrErrorEvent,
   PtySpawnRequest,
   SshSpawnRequest,
   SshAgentResult,
@@ -99,6 +105,15 @@ const api = {
   discoverAgents: (): Promise<AgentDiscovery> => ipcRenderer.invoke(IPC.agentsDiscover),
   agentStatuses: (commands: string[]): Promise<Record<string, AgentRuntimeStatus>> =>
     ipcRenderer.invoke(IPC.agentsStatus, commands),
+  openrouter: {
+    send: (req: OrSendRequest): Promise<void> => ipcRenderer.invoke(IPC.openrouterSend, req),
+    stop: (paneId: string): void => ipcRenderer.send(IPC.openrouterStop, paneId),
+    models: (): Promise<OrModelInfo[]> => ipcRenderer.invoke(IPC.openrouterModels),
+    credits: (): Promise<OrCredits | null> => ipcRenderer.invoke(IPC.openrouterCredits),
+    onDelta: (cb: (e: OrDeltaEvent) => void): (() => void) => on<OrDeltaEvent>(IPC.openrouterDelta, cb),
+    onDone: (cb: (e: OrDoneEvent) => void): (() => void) => on<OrDoneEvent>(IPC.openrouterDone, cb),
+    onError: (cb: (e: OrErrorEvent) => void): (() => void) => on<OrErrorEvent>(IPC.openrouterError, cb)
+  },
   installAgent: (command: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.agentsInstall, command),
   gitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke(IPC.gitStatus, cwd),
