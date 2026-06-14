@@ -200,10 +200,9 @@ export default function LaunchConsole(): JSX.Element {
   const sessions = useSessions((s) => s.sessions)
   const restore = useSessions((s) => s.restore)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
-  const openSettings = useUi((s) => s.openSettings)
+  const setShowOpenRouter = useUi((s) => s.setShowOpenRouter)
   const custom = useShortcuts((s) => s.custom)
   const orKeySet = useSettings((s) => !!s.settings?.providers.openrouter.keySet)
-  const patchSettings = useSettings((s) => s.patch)
 
   // Real total across EVERY workspace — the active one is empty here, so this
   // also reflects panes opened in other workspaces (which the old count missed).
@@ -288,12 +287,6 @@ export default function LaunchConsole(): JSX.Element {
   const commandCount = useMemo(() => getCommands().filter((c) => !c.hidden).length, [])
 
   const launchAgent = (a: LaunchAgent): void => {
-    // OpenRouter is a provider gateway, not a CLI — its card opens Settings so
-    // you can paste the one key your "any provider" agents then share.
-    if (a.configure) {
-      openSettings('providers')
-      return
-    }
     addPane('ai', undefined, { agentCommand: a.command, label: a.name })
   }
 
@@ -343,14 +336,8 @@ export default function LaunchConsole(): JSX.Element {
   // A card click resolves to the right action for its state.
   const activate = (a: LaunchAgent): void => {
     if (a.configure) {
-      // Key already saved → it's connected; take them forward to pick a model and
-      // use it, not back to the key field they just filled. Otherwise go add the key.
-      if (orKeySet) {
-        void patchSettings({ defaultProvider: 'openrouter' })
-        openSettings('defaults')
-      } else {
-        openSettings('providers')
-      }
+      // OpenRouter has its own config home (key + model) — open that, not Settings.
+      setShowOpenRouter(true)
       return
     }
     if (statusOf(a) === 'missing') {

@@ -16,6 +16,7 @@ import SshConnectModal from './components/SshConnectModal'
 import NotesModal from './components/NotesModal'
 import QuickSwitcher from './components/QuickSwitcher'
 import AgentDoctorModal from './components/AgentDoctorModal'
+import OpenRouterModal from './components/OpenRouterModal'
 import RunCommandModal from './components/RunCommandModal'
 import SessionSearchModal from './components/SessionSearchModal'
 import InsertReferenceModal from './components/InsertReferenceModal'
@@ -145,6 +146,7 @@ export default function App(): JSX.Element {
       <NotesModal />
       <QuickSwitcher />
       <AgentDoctorModal />
+      <OpenRouterModal />
       <RunCommandModal />
       <SessionSearchModal />
       <InsertReferenceModal />

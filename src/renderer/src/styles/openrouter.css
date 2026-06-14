@@ -1,0 +1,220 @@
+/* ===========================================================================
+   OpenRouter configuration modal — OpenRouter's own home for the key + model,
+   opened from the launch-console card (not the generic Settings list).
+   Reuses the shared .modal-overlay / .modal shell (entrance animation, etc.).
+   =========================================================================== */
+.or-modal {
+  width: min(540px, 94vw);
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ---- header ---- */
+.or-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+}
+.or-logo {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+.or-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.or-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.or-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.or-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.or-conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.or-conn.on {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.or-conn.on .or-conn-dot {
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ok) 70%, transparent);
+}
+.or-conn.off {
+  color: var(--text-faint);
+  background: var(--bg-elev-2);
+}
+.or-close {
+  flex: none;
+}
+
+/* ---- body ---- */
+.or-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.or-section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: opacity 0.2s ease;
+}
+.or-section.or-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.or-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.or-step-n {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+.or-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.or-key-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.or-key-ico {
+  position: absolute;
+  left: 11px;
+  display: inline-flex;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.or-key-input {
+  flex: 1;
+  padding-left: 33px !important;
+  font-family: var(--mono);
+}
+.or-model-input {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.or-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.or-chip {
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease, transform 0.12s ease;
+}
+.or-chip:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.or-chip.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.or-hint {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.or-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.or-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- footer ---- */
+.or-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+.or-foot-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  min-width: 0;
+}
+.or-foot-note svg {
+  flex: none;
+  color: var(--accent);
+}
+.or-use {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .or-section,
+  .or-chip {
+    transition: none;
+  }
+}

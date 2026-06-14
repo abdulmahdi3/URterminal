@@ -2572,3 +2572,122 @@
     transform: none;
   }
 }
+
+/* ---- OpenRouter config demo: a mini setup card (key ✓ + model chips) ---- */
+.wn-demo-orcfg {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+.wn-orc-card {
+  width: 232px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+}
+.wn-orc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wn-orc-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+.wn-orc-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.wn-orc-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ok);
+}
+.wn-orc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: wn-orc-pulse 1.6s ease-in-out infinite;
+}
+.wn-orc-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+.wn-orc-key > svg:first-child {
+  color: var(--text-faint);
+}
+.wn-orc-check {
+  margin-left: auto;
+  color: var(--ok);
+  animation: wn-orc-check 2.4s ease-in-out infinite;
+}
+.wn-orc-chips {
+  display: flex;
+  gap: 5px;
+}
+.wn-orc-chip {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+.wn-orc-chip.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+@keyframes wn-orc-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes wn-orc-check {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  55%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-orc-dot,
+  .wn-orc-check {
+    animation: none;
+  }
+  .wn-orc-check {
+    opacity: 1;
+    transform: none;
+  }
+}

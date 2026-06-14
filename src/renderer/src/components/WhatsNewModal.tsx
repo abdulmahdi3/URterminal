@@ -670,6 +670,31 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'orconfig') {
+    // A mini OpenRouter config card: connected dot pulses, a key check pops in.
+    return (
+      <div className="wn-demo wn-demo-orcfg">
+        <div className="wn-orc-card">
+          <div className="wn-orc-head">
+            <span className="wn-orc-logo" />
+            <span className="wn-orc-name">OpenRouter</span>
+            <span className="wn-orc-conn">
+              <span className="wn-orc-dot" /> Connected
+            </span>
+          </div>
+          <div className="wn-orc-key">
+            <KeyRound size={11} /> <span>sk-or-••••</span>
+            <Check size={12} className="wn-orc-check" />
+          </div>
+          <div className="wn-orc-chips">
+            <span className="wn-orc-chip active">claude-3.5</span>
+            <span className="wn-orc-chip">gpt-4o</span>
+            <span className="wn-orc-chip">gemini</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (kind === 'install') {
     // A card whose install progress bar fills, then an "Installed" toast slides in.
     return (

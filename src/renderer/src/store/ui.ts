@@ -15,6 +15,8 @@ interface UiState {
   showQuickSwitch: boolean
   /** agent-doctor (install checklist) overlay open */
   showAgentDoctor: boolean
+  /** OpenRouter configuration modal (its own home for key + model) open */
+  showOpenRouter: boolean
   /** "run a command in all shells" prompt open */
   showRunCommand: boolean
   /** cross-session search (search past conversations) overlay open */
@@ -75,6 +77,7 @@ interface UiState {
   setShowQuickSwitch: (v: boolean) => void
   toggleQuickSwitch: () => void
   setShowAgentDoctor: (v: boolean) => void
+  setShowOpenRouter: (v: boolean) => void
   setShowRunCommand: (v: boolean) => void
   setShowSessionSearch: (v: boolean) => void
   toggleSessionSearch: () => void
@@ -127,6 +130,7 @@ const ALL_CLOSED = {
   showTimeline: false,
   showSshPrompt: false,
   showNotes: false,
+  showOpenRouter: false,
   linkingPaneId: null as string | null
 }
 
@@ -150,6 +154,7 @@ export const useUi = create<UiState>((set, get) => ({
   showRooms: false,
   showTasks: false,
   showTimeline: false,
+  showOpenRouter: false,
   linkingPaneId: null,
   zoomedPaneId: null,
   draggingPaneIds: null,
@@ -193,6 +198,8 @@ export const useUi = create<UiState>((set, get) => ({
     ),
   setShowAgentDoctor: (v) =>
     set(v ? { ...ALL_CLOSED, showAgentDoctor: true } : { showAgentDoctor: false }),
+  setShowOpenRouter: (v) =>
+    set(v ? { ...ALL_CLOSED, showOpenRouter: true } : { showOpenRouter: false }),
   setShowRunCommand: (v) =>
     set(v ? { ...ALL_CLOSED, showRunCommand: true } : { showRunCommand: false }),
   setShowSessionSearch: (v) =>
@@ -242,6 +249,7 @@ export const useUi = create<UiState>((set, get) => ({
       showQuickSwitch: false,
       showSshPrompt: false,
       showNotes: false,
+      showOpenRouter: false,
       linkingPaneId: null
     })
 }))

@@ -590,17 +590,35 @@
 .launcher-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.launcher-head-text {
+  min-width: 0;
+}
+.launcher-head-title {
   font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text);
 }
 .launcher-head b {
   color: var(--accent);
   font-family: var(--mono);
 }
+.launcher-head-sub {
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
 .launcher-logo {
-  display: inline-flex;
-  align-items: center;
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
 }
 .launcher-hint {
   margin: 6px 0 14px;
@@ -619,6 +637,20 @@
   font-size: 11px;
   user-select: all;
 }
+.launcher-field {
+  margin-top: 14px;
+}
+.launcher-field-label {
+  margin-bottom: 6px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.launcher-path {
+  flex: 1;
+}
 .agent-toggle-row {
   display: flex;
   flex-wrap: wrap;
@@ -628,17 +660,21 @@
 .agent-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
+  gap: 7px;
+  padding: 6px 11px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bg-sunken);
   color: var(--text);
   font-size: var(--fs-xs);
+  font-weight: 500;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
+    transform 0.12s ease;
 }
 .agent-toggle:hover {
-  border-color: var(--accent-soft);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 .agent-toggle.active {
   border-color: var(--accent);

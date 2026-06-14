@@ -8,7 +8,7 @@ import {
   getAvailableAgents,
   refreshAgentAvailability
 } from '@renderer/lib/agents'
-import { AgentLogo } from './brandIcons'
+import { AgentLogo, hasAgentLogo } from './brandIcons'
 
 interface Props {
   command: string
@@ -62,30 +62,37 @@ export default function AgentLauncher({
       <div className="launcher-card">
         <div className="launcher-head">
           <span className="launcher-logo">
-            <AgentLogo command={command} size={20} />
+            <AgentLogo command={command} size={22} />
           </span>
-          <span>
-            Open <b>{label}</b> in a folder
-          </span>
+          <div className="launcher-head-text">
+            <div className="launcher-head-title">
+              Open <b>{label}</b> in a folder
+            </div>
+            <div className="launcher-head-sub">Choose an agent, then the folder to start in</div>
+          </div>
         </div>
-        <div className="agent-toggle-row">
-          {agents.map((a) => {
-            const unavailable = available.size > 0 && !available.has(a.id)
-            return (
-              <button
-                key={a.id}
-                type="button"
-                className={clsx('agent-toggle', command === a.id && 'active', unavailable && 'unavailable')}
-                title={unavailable ? `${a.label} — not installed` : `Use ${a.label}`}
-                aria-disabled={unavailable}
-                onClick={() => {
-                  if (!unavailable) onSelectAgent(a.id)
-                }}
-              >
-                {a.label}
-              </button>
-            )
-          })}
+        <div className="launcher-field">
+          <div className="launcher-field-label">Agent</div>
+          <div className="agent-toggle-row">
+            {agents.map((a) => {
+              const unavailable = available.size > 0 && !available.has(a.id)
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={clsx('agent-toggle', command === a.id && 'active', unavailable && 'unavailable')}
+                  title={unavailable ? `${a.label} — not installed` : `Use ${a.label}`}
+                  aria-disabled={unavailable}
+                  onClick={() => {
+                    if (!unavailable) onSelectAgent(a.id)
+                  }}
+                >
+                  {hasAgentLogo(a.id) && <AgentLogo command={a.id} size={14} />}
+                  {a.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
         <p className="launcher-hint">
           {missing ? (
@@ -102,22 +109,25 @@ export default function AgentLauncher({
             <>{label} will start in this folder and ask to trust it on first run.</>
           )}
         </p>
-        <div className="launcher-row">
-          <input
-            className="input"
-            autoFocus
-            value={path}
-            placeholder="C:\path\to\project"
-            spellCheck={false}
-            onChange={(e) => setPath(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && open()}
-          />
-          <button className="btn" title="Browse…" onClick={browse}>
-            <FolderOpen size={14} /> Browse
-          </button>
+        <div className="launcher-field">
+          <div className="launcher-field-label">Folder</div>
+          <div className="launcher-row">
+            <input
+              className="input launcher-path"
+              autoFocus
+              value={path}
+              placeholder="C:\path\to\project"
+              spellCheck={false}
+              onChange={(e) => setPath(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && open()}
+            />
+            <button className="btn" title="Browse…" onClick={browse}>
+              <FolderOpen size={14} /> Browse
+            </button>
+          </div>
         </div>
         <div className="launcher-actions">
-          <button className="btn primary" onClick={open} disabled={!path.trim()}>
+          <button className="btn primary launcher-open" onClick={open} disabled={!path.trim()}>
             Open {label} <ArrowRight size={14} />
           </button>
           {defaultCwd && (

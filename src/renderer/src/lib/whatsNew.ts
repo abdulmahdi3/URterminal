@@ -68,6 +68,7 @@ export type WhatsNewDemo =
   | 'chrome'
   | 'openrouter'
   | 'install'
+  | 'orconfig'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -97,6 +98,30 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.6.4': {
+    version: '0.6.4',
+    headline: 'OpenRouter, in its own home',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'A dedicated OpenRouter setup',
+        demo: 'orconfig',
+        body:
+          'Clicking the OpenRouter card now opens its own configuration — paste your key, pick from 200+ ' +
+          'models (or type any id), and hit Use OpenRouter to make it your provider, all in one place ' +
+          'instead of hunting through Settings.'
+      },
+      {
+        kind: 'feature',
+        title: 'A clearer agent launcher',
+        body:
+          'The “open an agent in a folder” screen got a polish: agent brand logos on every chip, a tidier ' +
+          'header, and labelled Agent / Folder fields so it reads at a glance.'
+      }
+    ]
+  },
+
   '0.6.3': {
     version: '0.6.3',
     headline: 'OpenRouter card: a real next step',
