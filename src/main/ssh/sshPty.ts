@@ -1,4 +1,6 @@
 import { Client } from 'ssh2'
+import { connect as netConnect } from 'node:net'
+import { readFileSync } from 'node:fs'
 
 /**
  * The subset of node-pty's IPty that PtyManager actually calls. An SSH session
@@ -19,8 +21,36 @@ export interface SshConnectOpts {
   port: number
   username: string
   password: string
+  /** absolute path to a private key; when set, key auth is attempted */
+  identityFile?: string
   cols: number
   rows: number
+}
+
+/**
+ * Measure TCP reachability + round-trip latency to host:port. Resolves to the
+ * connect time in ms when the port accepts, or null on timeout/refusal/error.
+ * Used by the connections manager to show the green/red online dots + "14ms".
+ */
+export function tcpPing(host: string, port: number, timeoutMs = 4000): Promise<number | null> {
+  return new Promise((resolve) => {
+    const start = Date.now()
+    let done = false
+    const finish = (ms: number | null): void => {
+      if (done) return
+      done = true
+      try {
+        sock.destroy()
+      } catch {
+        /* noop */
+      }
+      resolve(ms)
+    }
+    const sock = netConnect({ host, port }, () => finish(Date.now() - start))
+    sock.setTimeout(timeoutMs)
+    sock.on('timeout', () => finish(null))
+    sock.on('error', () => finish(null))
+  })
 }
 
 /** Parse "user@host[:port]" into its parts (username may be empty → caller defaults it). */
@@ -43,9 +73,10 @@ export function parseSshTarget(target: string): { username: string; host: string
 
 /**
  * Establish an SSH connection (ssh2) and expose it as a PtyLike. Output is
- * streamed via onData; auth/connection failures are surfaced as red text and
- * then an exit so the pane closes. Keystrokes typed before the shell channel is
- * ready are buffered and flushed on open.
+ * streamed via onData. Auth/connection failures are surfaced as red text and
+ * the pane is LEFT OPEN so the reason stays readable (a clean disconnect still
+ * closes it). Keystrokes typed before the shell channel is ready are buffered
+ * and flushed on open.
  */
 export function createSshPty(opts: SshConnectOpts): PtyLike {
   const conn = new Client()
@@ -56,6 +87,11 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
   let cols = Math.max(2, opts.cols)
   let rows = Math.max(1, opts.rows)
   let exited = false
+  // Set once a failure has been reported. ssh2 fires `close` immediately after
+  // `error`; without this guard that close would emitExit and tear the pane
+  // down before the error ever rendered — the "connecting then the pane just
+  // vanishes" bug. On failure we keep the pane open so the user can read why.
+  let failed = false
 
   const emitData = (d: string): void => dataCbs.forEach((cb) => cb(d))
   const emitExit = (code: number): void => {
@@ -63,12 +99,18 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
     exited = true
     exitCbs.forEach((cb) => cb({ exitCode: code }))
   }
-  // Show an error briefly before closing so the user can read why it failed.
-  const failWith = (msg: string): void => {
+  // Surface why the session failed (red) plus an optional hint; keep the pane
+  // open (no exit) so the message stays on screen.
+  const failWith = (msg: string, hint?: string): void => {
+    if (failed) return
+    failed = true
     emitData(`\r\n\x1b[31m${msg}\x1b[0m\r\n`)
-    setTimeout(() => emitExit(1), 2500)
+    if (hint) emitData(`\x1b[90m${hint}\x1b[0m\r\n`)
   }
 
+  // Servers that drive auth through keyboard-interactive (common for password
+  // logins) ask here; answer every prompt with the supplied password.
+  conn.on('keyboard-interactive', (_n, _i, _l, _prompts, finish) => finish([opts.password]))
   conn.on('ready', () => {
     conn.shell({ term: 'xterm-256color', cols, rows }, (err, s) => {
       if (err) {
@@ -95,14 +137,39 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
       })
     })
   })
-  conn.on('error', (err) => failWith(`SSH connection failed: ${err.message}`))
-  conn.on('close', () => emitExit(0))
+  conn.on('error', (err) =>
+    failWith(
+      `SSH connection failed: ${err.message}`,
+      'Check the address (use user@host — a bare host defaults to your local username), the password, and that the server is reachable.'
+    )
+  )
+  // A close that isn't the tail of a failure (remote shell ended / user
+  // disconnected) closes the pane as usual; after a failure we leave it open.
+  conn.on('close', () => {
+    if (!failed) emitExit(0)
+  })
+
+  // Load the private key (if configured). A read failure isn't fatal — ssh2 can
+  // still fall back to the password / agent; we just surface the reason.
+  let privateKey: Buffer | undefined
+  if (opts.identityFile) {
+    try {
+      privateKey = readFileSync(opts.identityFile)
+    } catch (e) {
+      emitData(`\x1b[90mCould not read identity file ${opts.identityFile}: ${(e as Error).message}\x1b[0m\r\n`)
+    }
+  }
 
   conn.connect({
     host: opts.host,
     port: opts.port,
     username: opts.username,
-    password: opts.password,
+    // Offer whichever secrets we have; ssh2 picks per the server's accepted methods.
+    password: opts.password || undefined,
+    privateKey,
+    // Let a running ssh-agent answer too (handy for key auth without an identity file).
+    agent: process.env.SSH_AUTH_SOCK || (process.platform === 'win32' ? '\\\\.\\pipe\\openssh-ssh-agent' : undefined),
+    tryKeyboard: true,
     readyTimeout: 20000,
     keepaliveInterval: 15000
   })

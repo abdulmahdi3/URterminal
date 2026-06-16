@@ -18,12 +18,16 @@ import type {
   DashboardState,
   PtyDataEvent,
   GoogleTask,
-  ProviderId
+  ProviderId,
+  SshKeyInfo,
+  SshConfigHost,
+  SshCredential
 } from '@shared/types'
 import { applyPatch } from '@shared/diff'
 import { stripAnsi } from '../learning/ansi'
 import { spawn } from 'child_process'
-import { createSshPty, parseSshTarget } from '../ssh/sshPty'
+import { createSshPty, parseSshTarget, tcpPing } from '../ssh/sshPty'
+import { listIdentityKeys, parseSshConfig } from '../ssh/sshConfig'
 import { SshAgentBridge } from '../ssh/agentBridge'
 import { buildAgentInstruction } from '../ssh/ursshHelpers'
 import { SshfsManager } from '../ssh/sshfs'
@@ -433,9 +437,35 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     // Use the freshly-typed password, else a previously saved one.
     const password = req.password ?? settings.getSshPassword(req.target) ?? ''
     if (req.savePassword && req.password) settings.setSshPassword(req.target, req.password)
+    // Key auth: hand the configured identity file to ssh2 (it still falls back to
+    // password / agent if the key is rejected).
+    const identityFile = req.authMethod === 'key' ? req.identityFile : undefined
 
-    const proc = createSshPty({ host, port, username, password, cols: req.cols, rows: req.rows })
+    const proc = createSshPty({ host, port, username, password, identityFile, cols: req.cols, rows: req.rows })
     return pty.adopt(proc, req.paneId, `ssh ${req.target}`)
+  })
+
+  // Connections manager: reachability + latency for the online dots / "14ms".
+  ipcMain.handle(IPC.sshPing, async (_e, target: string): Promise<number | null> => {
+    const { host, port } = parseSshTarget(target)
+    if (!host) return null
+    return tcpPing(host, port)
+  })
+
+  // Connections manager: private keys in ~/.ssh for the identity-file picker.
+  ipcMain.handle(IPC.sshListKeys, (): SshKeyInfo[] => listIdentityKeys())
+
+  // Connections manager: parse ~/.ssh/config into importable hosts.
+  ipcMain.handle(IPC.sshImportConfig, (): SshConfigHost[] => parseSshConfig())
+
+  // Credentials vault: every saved secret (passwords today; keys are file-based).
+  ipcMain.handle(IPC.sshListCredentials, (): SshCredential[] =>
+    settings.getSshPasswordTargets().map((target) => ({ target, type: 'password' as const }))
+  )
+
+  // Credentials vault: forget a saved password.
+  ipcMain.handle(IPC.sshDeleteCredential, (_e, target: string): void => {
+    settings.setSshPassword(target, null)
   })
 
   // "Agent over SSH": let a LOCAL agent operate a remote server with nothing

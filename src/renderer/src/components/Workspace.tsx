@@ -24,6 +24,10 @@ import { useWorkspace } from '@renderer/store/workspace'
 import { useBroadcastStore } from '@renderer/store/broadcast'
 import { usePaneStatus, type PaneStatus } from '@renderer/store/paneStatus'
 import { useUi } from '@renderer/store/ui'
+import { useSettings } from '@renderer/store/settings'
+import { usePaneTasks, type TaskSource } from '@renderer/store/paneTasks'
+import PaneTaskAgenda from './PaneTaskAgenda'
+import type { PaneNotesSource } from '@shared/types'
 import { useTokens } from '@renderer/store/tokens'
 import { useClaudeUsage, formatResetIn } from '@renderer/store/claudeUsage'
 import { toast } from '@renderer/store/toasts'
@@ -239,6 +243,49 @@ function PaneConnectMenu({
   )
 }
 
+const NOTE_SOURCES: Array<{ id: PaneNotesSource; label: string }> = [
+  { id: 'notes', label: 'Notes' },
+  { id: 'ticktick', label: 'TickTick' },
+  { id: 'google', label: 'Google' }
+]
+
+/**
+ * Segmented control at the top of the pane note popover that picks which source
+ * the note button shows: the pane's own notes, TickTick, or Google Tasks. The
+ * choice is saved app-wide to `prefs.paneNotesSource` (it's the default for every
+ * pane). Disconnected task sources stay selectable but show a connect hint.
+ */
+function NotesSourceSwitcher({
+  value,
+  connected,
+  onChange
+}: {
+  value: PaneNotesSource
+  connected: { ticktick: boolean; google: boolean }
+  onChange: (s: PaneNotesSource) => void
+}): JSX.Element {
+  return (
+    <div className="pane-notes-tabs" role="tablist">
+      {NOTE_SOURCES.map((s) => {
+        const off = s.id !== 'notes' && !connected[s.id as TaskSource]
+        return (
+          <button
+            key={s.id}
+            role="tab"
+            aria-selected={value === s.id}
+            className={clsx('pane-notes-tab', value === s.id && 'active', off && 'off')}
+            title={off ? `${s.label} — not connected` : `Show ${s.label}`}
+            onClick={() => onChange(s.id)}
+          >
+            {s.label}
+            {off && <span className="pane-notes-tab-dot" />}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /**
  * Slim, custom replacement for the default mosaic toolbar (also the drag handle).
  * Must forward a ref to a native element: react-mosaic attaches the React-DnD
@@ -281,6 +328,13 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
 
   const notes = useWorkspace((s) => s.panes[paneId]?.notes)
   const todos = useWorkspace((s) => s.panes[paneId]?.todos)
+  // Which source the note button shows (app-wide default): local notes, TickTick, or Google.
+  const notesSource = useSettings((s) => s.settings?.prefs.paneNotesSource ?? 'notes')
+  const patchSettings = useSettings((s) => s.patch)
+  const ttConnected = useSettings((s) => s.settings?.integrations?.ticktick?.connected ?? false)
+  const gConnected = useSettings((s) => s.settings?.integrations?.googleTasks?.connected ?? false)
+  const ttOpen = usePaneTasks((s) => s.items.ticktick.length)
+  const gOpen = usePaneTasks((s) => s.items.google.length)
   const pipeTargets = useWorkspace((s) => s.panes[paneId]?.pipeTargets) ?? EMPTY_IDS
   const togglePipeTarget = useWorkspace((s) => s.togglePipeTarget)
   const setPipeTargets = useWorkspace((s) => s.setPipeTargets)
@@ -310,6 +364,20 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
     updatePane(paneId, { todos: next.length ? next : undefined })
   }
   const openTodos = (todos ?? []).filter((t) => !t.done).length
+
+  // Note-button badge/active reflect whichever source is selected: open pane
+  // to-dos for local notes, or open task count for TickTick / Google Tasks.
+  const taskOpen = notesSource === 'ticktick' ? ttOpen : notesSource === 'google' ? gOpen : 0
+  const noteBadge = notesSource === 'notes' ? openTodos : taskOpen
+  const noteActive = notesSource === 'notes' ? !!notes || !!todos?.length : taskOpen > 0
+  const noteTitle =
+    notesSource === 'notes'
+      ? noteActive
+        ? 'Notes & to-do'
+        : 'Add a note or to-do'
+      : notesSource === 'ticktick'
+        ? 'TickTick tasks'
+        : 'Google Tasks'
 
   const commit = (): void => {
     const v = draft.trim()
@@ -464,63 +532,72 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
       <div className="pane-header-spacer" />
       <div className="pane-controls" onMouseDown={stop} onDoubleClick={stop}>
         <HeaderPopover
-          icon={
-            <StickyNote
-              size={13}
-              style={notes || todos?.length ? { color: 'var(--accent)' } : undefined}
-            />
-          }
-          title={notes || todos?.length ? 'Notes & to-do' : 'Add a note or to-do'}
-          active={!!notes || !!todos?.length}
-          badge={openTodos || undefined}
+          icon={<StickyNote size={13} style={noteActive ? { color: 'var(--accent)' } : undefined} />}
+          title={noteTitle}
+          active={noteActive}
+          badge={noteBadge || undefined}
           render={() => (
             <div className="pane-notes">
-              <textarea
-                className="pane-notes-text"
-                rows={5}
-                placeholder="Notes for this pane…"
-                value={notes ?? ''}
-                onChange={(e) => updatePane(paneId, { notes: e.target.value || undefined })}
+              <NotesSourceSwitcher
+                value={notesSource}
+                connected={{ ticktick: ttConnected, google: gConnected }}
+                onChange={(s) => void patchSettings({ prefs: { paneNotesSource: s } })}
               />
-
-              <div className="pane-todos">
-                {(todos ?? []).map((t) => (
-                  <div key={t.id} className={clsx('pane-todo', t.done && 'done')}>
-                    <input
-                      type="checkbox"
-                      className="pane-todo-check"
-                      checked={t.done}
-                      onChange={() => toggleTodo(t.id)}
-                    />
-                    <span className="pane-todo-text" onClick={() => toggleTodo(t.id)}>
-                      {t.text}
-                    </span>
-                    <button
-                      className="icon-btn pane-todo-del"
-                      title="Remove item"
-                      onClick={() => removeTodo(t.id)}
-                    >
-                      <X size={11} />
-                    </button>
-                  </div>
-                ))}
-                <div className="pane-todo-add">
-                  <input
-                    className="pane-todo-input"
-                    placeholder="Add a to-do…"
-                    value={todoDraft}
-                    onChange={(e) => setTodoDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') addTodo()
-                    }}
+              {notesSource === 'notes' ? (
+                <>
+                  <textarea
+                    className="pane-notes-text"
+                    rows={5}
+                    placeholder="Notes for this pane…"
+                    value={notes ?? ''}
+                    onChange={(e) => updatePane(paneId, { notes: e.target.value || undefined })}
                   />
-                  <button className="icon-btn" title="Add to-do" onClick={addTodo}>
-                    <Plus size={12} />
-                  </button>
-                </div>
-              </div>
 
-              <span className="pane-notes-hint">Saved automatically</span>
+                  <div className="pane-todos">
+                    {(todos ?? []).map((t) => (
+                      <div key={t.id} className={clsx('pane-todo', t.done && 'done')}>
+                        <input
+                          type="checkbox"
+                          className="pane-todo-check"
+                          checked={t.done}
+                          onChange={() => toggleTodo(t.id)}
+                        />
+                        <span className="pane-todo-text" onClick={() => toggleTodo(t.id)}>
+                          {t.text}
+                        </span>
+                        <button
+                          className="icon-btn pane-todo-del"
+                          title="Remove item"
+                          onClick={() => removeTodo(t.id)}
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="pane-todo-add">
+                      <input
+                        className="pane-todo-input"
+                        placeholder="Add a to-do…"
+                        value={todoDraft}
+                        onChange={(e) => setTodoDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') addTodo()
+                        }}
+                      />
+                      <button className="icon-btn" title="Add to-do" onClick={addTodo}>
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <span className="pane-notes-hint">Saved automatically</span>
+                </>
+              ) : (
+                <PaneTaskAgenda
+                  source={notesSource}
+                  connected={notesSource === 'ticktick' ? ttConnected : gConnected}
+                />
+              )}
             </div>
           )}
         />
@@ -689,6 +766,21 @@ export default function Workspace(): JSX.Element {
   const addPane = useWorkspace((s) => s.addPane)
   const zoomedPaneId = useUi((s) => s.zoomedPaneId)
   const setZoomedPaneId = useUi((s) => s.setZoomedPaneId)
+
+  // Keep the shared TickTick/Google agenda fresh while a task source is the
+  // selected note-button source. One poller here serves every pane header's
+  // badge + list (the store fetch is throttled + de-duped).
+  const notesSource = useSettings((s) => s.settings?.prefs.paneNotesSource ?? 'notes')
+  const ttConnected = useSettings((s) => s.settings?.integrations?.ticktick?.connected ?? false)
+  const gConnected = useSettings((s) => s.settings?.integrations?.googleTasks?.connected ?? false)
+  useEffect(() => {
+    if (notesSource === 'notes') return
+    const src: TaskSource = notesSource
+    if (!(src === 'ticktick' ? ttConnected : gConnected)) return
+    void usePaneTasks.getState().load(src)
+    const h = window.setInterval(() => void usePaneTasks.getState().load(src, true), 60_000)
+    return () => window.clearInterval(h)
+  }, [notesSource, ttConnected, gConnected])
 
   // The no-panes state is the full-screen launch console.
   if (layout === null) {

@@ -264,7 +264,15 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       np.agent = withSessionId({ command: src.agent.command, cwd: src.agent.cwd })
       np.title = src.title
     } else if (src.type === 'shell' && src.shell) {
-      np.shell = { shell: src.shell.shell, args: src.shell.args, cwd: src.shell.cwd }
+      // carry ssh/startupCommand so an SSH pane duplicates as the same session,
+      // not a plain local shell
+      np.shell = {
+        shell: src.shell.shell,
+        args: src.shell.args,
+        cwd: src.shell.cwd,
+        startupCommand: src.shell.startupCommand,
+        ssh: src.shell.ssh ? { target: src.shell.ssh.target } : undefined
+      }
       np.title = src.title
     } else if (src.type === 'stream' && src.stream) {
       np.stream = { command: src.stream.command, cwd: src.stream.cwd }

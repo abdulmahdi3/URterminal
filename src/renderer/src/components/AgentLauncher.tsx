@@ -99,9 +99,12 @@ export default function AgentLauncher({
   const [agentQ, setAgentQ] = useState('')
   const [folderOpen, setFolderOpen] = useState(false)
   const [matches, setMatches] = useState<string[]>([])
+  // Index of the keyboard-highlighted folder suggestion (-1 = none).
+  const [highlight, setHighlight] = useState(-1)
   const recents = useFolderHistory((s) => s.recents)
   const counts = useFolderHistory((s) => s.counts)
   const pathRef = useRef<HTMLInputElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void window.api.agentStatuses(CLI_AGENTS.map((a) => a.command)).then(setStatuses)
@@ -148,6 +151,34 @@ export default function AgentLauncher({
     .slice(0, 5)
   const matchList = matches.filter((p) => !lastUsed.includes(p) && !frequent.includes(p)).slice(0, 8)
   const hasSuggestions = lastUsed.length > 0 || frequent.length > 0 || matchList.length > 0
+
+  // One flat, ordered list of every suggestion for arrow-key navigation. Last-used
+  // and frequent entries open the folder; filesystem matches fill the path to drill in.
+  const flatSuggestions = [
+    ...lastUsed.map((p) => ({ p, action: 'open' as const })),
+    ...frequent.map((p) => ({ p, action: 'open' as const })),
+    ...matchList.map((p) => ({ p, action: 'fill' as const }))
+  ]
+
+  // Reset the highlight whenever the suggestion list changes (typing, open/close).
+  useEffect(() => setHighlight(-1), [path, folderOpen, matches])
+
+  // Keep the highlighted row scrolled into view.
+  useEffect(() => {
+    if (highlight < 0) return
+    dropRef.current
+      ?.querySelector(`[data-idx="${highlight}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [highlight])
+
+  // Apply a highlighted suggestion (Enter / click parity).
+  const applySuggestion = (item: { p: string; action: 'open' | 'fill' }): void => {
+    if (item.action === 'open') openFolder(item.p)
+    else {
+      setPath(item.p)
+      pathRef.current?.focus()
+    }
+  }
 
   return (
     <div className="agent-launcher">
@@ -260,8 +291,25 @@ export default function AgentLauncher({
               onFocus={() => setFolderOpen(true)}
               onBlur={() => window.setTimeout(() => setFolderOpen(false), 130)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  open()
+                if (e.key === 'ArrowDown') {
+                  if (!folderOpen) {
+                    setFolderOpen(true)
+                  } else if (flatSuggestions.length) {
+                    e.preventDefault()
+                    setHighlight((h) => (h + 1) % flatSuggestions.length)
+                  }
+                } else if (e.key === 'ArrowUp') {
+                  if (folderOpen && flatSuggestions.length) {
+                    e.preventDefault()
+                    setHighlight((h) => (h <= 0 ? flatSuggestions.length - 1 : h - 1))
+                  }
+                } else if (e.key === 'Enter') {
+                  if (folderOpen && highlight >= 0 && highlight < flatSuggestions.length) {
+                    e.preventDefault()
+                    applySuggestion(flatSuggestions[highlight])
+                  } else {
+                    open()
+                  }
                 } else if (e.key === 'Escape') {
                   setFolderOpen(false)
                 } else if (e.key === 'Tab' && matches.length) {
@@ -291,17 +339,19 @@ export default function AgentLauncher({
               <ChevronDown size={14} />
             </button>
             {folderOpen && hasSuggestions && (
-              <div className="al-dropdown al-folder-drop">
+              <div className="al-dropdown al-folder-drop" ref={dropRef}>
                 {lastUsed.length > 0 && (
                   <div className="al-grp">
                     <div className="al-grp-head">
                       <Clock size={11} /> Last used
                     </div>
-                    {lastUsed.map((p) => (
+                    {lastUsed.map((p, i) => (
                       <button
                         key={p}
-                        className="al-path"
+                        data-idx={i}
+                        className={clsx('al-path', highlight === i && 'hl')}
                         title={`Open ${p}`}
+                        onMouseEnter={() => setHighlight(i)}
                         onMouseDown={(e) => {
                           e.preventDefault()
                           openFolder(p)
@@ -318,20 +368,25 @@ export default function AgentLauncher({
                     <div className="al-grp-head">
                       <Star size={11} /> Frequently used
                     </div>
-                    {frequent.map((p) => (
-                      <button
-                        key={p}
-                        className="al-path"
-                        title={`Open ${p}`}
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          openFolder(p)
-                        }}
-                      >
-                        <span className="al-path-name">{base(p)}</span>
-                        <span className="al-path-full">{p}</span>
-                      </button>
-                    ))}
+                    {frequent.map((p, i) => {
+                      const idx = lastUsed.length + i
+                      return (
+                        <button
+                          key={p}
+                          data-idx={idx}
+                          className={clsx('al-path', highlight === idx && 'hl')}
+                          title={`Open ${p}`}
+                          onMouseEnter={() => setHighlight(idx)}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            openFolder(p)
+                          }}
+                        >
+                          <span className="al-path-name">{base(p)}</span>
+                          <span className="al-path-full">{p}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
                 {matchList.length > 0 && (
@@ -339,21 +394,26 @@ export default function AgentLauncher({
                     <div className="al-grp-head">
                       <FolderOpen size={11} /> Folders
                     </div>
-                    {matchList.map((p) => (
-                      <button
-                        key={p}
-                        className="al-path"
-                        title={p}
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          setPath(p)
-                          pathRef.current?.focus()
-                        }}
-                      >
-                        <span className="al-path-name">{base(p)}</span>
-                        <span className="al-path-full">{p}</span>
-                      </button>
-                    ))}
+                    {matchList.map((p, i) => {
+                      const idx = lastUsed.length + frequent.length + i
+                      return (
+                        <button
+                          key={p}
+                          data-idx={idx}
+                          className={clsx('al-path', highlight === idx && 'hl')}
+                          title={p}
+                          onMouseEnter={() => setHighlight(idx)}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setPath(p)
+                            pathRef.current?.focus()
+                          }}
+                        >
+                          <span className="al-path-name">{base(p)}</span>
+                          <span className="al-path-full">{p}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>

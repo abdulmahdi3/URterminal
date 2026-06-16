@@ -248,7 +248,7 @@ export function getCommands(): Command[] {
     },
     {
       id: 'ssh.connect',
-      title: 'Connect to SSH server…',
+      title: 'SSH connections manager…',
       group: 'Panes',
       run: () => ui().setShowSshPrompt(true)
     },

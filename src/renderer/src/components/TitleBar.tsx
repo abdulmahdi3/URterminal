@@ -109,7 +109,7 @@ export default function TitleBar(): JSX.Element {
         {/* SSH — opens a prompt pre-filled with the last host, Enter to connect */}
         <button
           className="icon-btn agent-icon-btn"
-          title="SSH connect…"
+          title="SSH connections…"
           onClick={() => setShowSshPrompt(true)}
         >
           <Network size={15} />

@@ -3031,3 +3031,252 @@
     transform: none;
   }
 }
+
+/* ---- pane notes source demo (Notes / TickTick / Google in the title bar) ---- */
+.wn-demo-panenotes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  width: 230px;
+}
+.wn-pn-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-sm);
+}
+.wn-pn-tab {
+  flex: 1;
+  text-align: center;
+  padding: 3px 0;
+  border-radius: calc(var(--r-sm) - 1px);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.wn-pn-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+.wn-pn-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wn-pn-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.wn-pn-check {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  color: #fff;
+}
+.wn-pn-row .wn-pn-check svg {
+  opacity: 0;
+}
+.wn-pn-text {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text);
+}
+.wn-pn-due {
+  flex: none;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 7px;
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+}
+.wn-pn-due.today {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+/* the top row checks itself off, strikes through, then resets — on a loop */
+.wn-pn-checking .wn-pn-check {
+  animation: wn-pn-fill 3.4s ease-in-out infinite;
+}
+.wn-pn-checking .wn-pn-check svg {
+  animation: wn-pn-tick 3.4s ease-in-out infinite;
+}
+.wn-pn-checking .wn-pn-text {
+  animation: wn-pn-strike 3.4s ease-in-out infinite;
+}
+@keyframes wn-pn-fill {
+  0%, 22% { background: var(--bg-sunken); border-color: var(--border); }
+  34%, 88% { background: var(--accent); border-color: var(--accent); }
+  100% { background: var(--bg-sunken); border-color: var(--border); }
+}
+@keyframes wn-pn-tick {
+  0%, 24% { opacity: 0; transform: scale(0.5); }
+  36%, 88% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+@keyframes wn-pn-strike {
+  0%, 30% { color: var(--text); text-decoration-color: transparent; }
+  42%, 88% { color: var(--text-faint); text-decoration: line-through; }
+  100% { color: var(--text); text-decoration-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-pn-checking .wn-pn-check,
+  .wn-pn-checking .wn-pn-check svg,
+  .wn-pn-checking .wn-pn-text {
+    animation: none;
+  }
+  .wn-pn-checking .wn-pn-check svg {
+    opacity: 1;
+  }
+}
+
+/* SSH connections manager demo — grouped hosts with live dots + a latency badge */
+.wn-demo-sshm {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  width: 250px;
+}
+.wn-sshm-grouphead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+.wn-sshm-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 14px;
+  height: 13px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  font-size: 8px;
+}
+.wn-sshm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wn-sshm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  opacity: 0;
+  transform: translateX(-6px);
+  animation: wn-sshm-in 0.4s ease forwards;
+  animation-delay: var(--d, 0ms);
+}
+.wn-sshm-row.sel {
+  background: var(--bg-elev-2);
+  border-color: var(--border-strong);
+}
+.wn-sshm-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.wn-sshm-dot.online {
+  background: var(--ok);
+  animation: wn-sshm-pulse 2s ease-in-out infinite;
+}
+.wn-sshm-dot.offline {
+  background: var(--danger);
+}
+.wn-sshm-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+.wn-sshm-meta {
+  flex: none;
+  font-size: 9px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.wn-sshm-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(63, 185, 80, 0.14);
+  color: var(--ok);
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0;
+  animation: wn-sshm-badge 3.4s ease-in-out infinite;
+}
+.wn-sshm-badge .wn-sshm-dot.online {
+  animation: none;
+}
+@keyframes wn-sshm-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wn-sshm-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(63, 185, 80, 0);
+  }
+}
+@keyframes wn-sshm-badge {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  44%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-sshm-row,
+  .wn-sshm-dot.online,
+  .wn-sshm-badge {
+    animation: none;
+  }
+  .wn-sshm-row {
+    opacity: 1;
+    transform: none;
+  }
+  .wn-sshm-badge {
+    opacity: 1;
+    transform: none;
+  }
+}

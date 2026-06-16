@@ -6,7 +6,7 @@ import {
   Volume2, Volume1, VolumeX, Play, Monitor, EyeOff,
   KeyRound, Cpu, Bot, SquareTerminal, Server, RefreshCw,
   TextCursor, Rows3, MoveVertical, MoveHorizontal, ScrollText, SquareDashed, GripVertical,
-  Bell, Copy, ClipboardPaste, PanelTop,
+  Bell, Copy, ClipboardPaste, PanelTop, StickyNote,
   Palette, Type, CaseSensitive, Droplet,
   FolderOpen, Save, Layers, Focus, History, Eraser, Languages,
   Send, MessageSquare, Users, Info, Gauge
@@ -82,7 +82,7 @@ const KEY_PROVIDERS: KeyProvider[] = ['anthropic', 'openai', 'gemini', 'openrout
 const SECTION_PREF_KEYS: Record<string, (keyof AppPrefs)[]> = {
   terminal: [
     'cursorStyle', 'cursorBlink', 'lineHeight', 'letterSpacing', 'scrollback',
-    'terminalPadding', 'showPaneHeaders', 'scrollSensitivity', 'scrollbarWidth', 'terminalBell',
+    'terminalPadding', 'showPaneHeaders', 'paneNotesSource', 'scrollSensitivity', 'scrollbarWidth', 'terminalBell',
     'copyOnSelect', 'pasteOnRightClick'
   ],
   behavior: [
@@ -1188,6 +1188,15 @@ export default function SettingsModal(): JSX.Element | null {
                 )}
                 {match('Show pane title bars') && (
                   <ToggleCard icon={<PanelTop size={16} />} title="Show pane title bars" desc="Display the header bar on each pane." checked={prefs.showPaneHeaders} onChange={(v) => setPref({ showPaneHeaders: v })} />
+                )}
+                {match('Pane notes source') && (
+                  <SettingCard icon={<StickyNote size={16} />} title="Pane notes source" desc="What the pane title bar's note button shows by default." control={
+                    <select className="select" value={prefs.paneNotesSource} onChange={(e) => setPref({ paneNotesSource: e.target.value as AppPrefs['paneNotesSource'] })}>
+                      <option value="notes">Pane notes &amp; to-do</option>
+                      <option value="ticktick">TickTick tasks</option>
+                      <option value="google">Google Tasks</option>
+                    </select>
+                  } />
                 )}
               </section>
             )}

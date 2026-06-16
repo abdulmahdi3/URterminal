@@ -22,6 +22,7 @@ import './styles/streampane.css'
 import './styles/themes.css'
 import './styles/launch.css'
 import './styles/openrouter.css'
+import './styles/ssh.css'
 
 // Debug handles for the scripted smoke harness (see src/main/smoke.ts).
 const dbg = window as unknown as {

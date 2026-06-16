@@ -245,6 +245,14 @@ export interface PaneTemplate {
 export type CursorStyle = 'block' | 'bar' | 'underline'
 export type NotifySound = 'chime' | 'beep'
 
+/**
+ * Which to-do source the pane title-bar note button shows:
+ *   'notes'    — the pane's own free-form note + checklist (local, per pane)
+ *   'ticktick' — your open TickTick tasks (across projects)
+ *   'google'   — your open Google Tasks (across lists)
+ */
+export type PaneNotesSource = 'notes' | 'ticktick' | 'google'
+
 /** Free-form user preferences persisted as one JSON blob via electron-store. */
 export interface AppPrefs {
   /** desktop notification when an agent finishes a turn */
@@ -275,6 +283,8 @@ export interface AppPrefs {
   templates: PaneTemplate[]
   /** recent SSH targets (most recent first, e.g. "user@host"), shown by the SSH button */
   sshHosts: string[]
+  /** saved hosts in the SSH connections manager (richer than sshHosts recents) */
+  sshSavedHosts: SshHost[]
 
   // ---- appearance / terminal ----
   /** app color theme (matches APP_THEMES: dark, amoled, ocean, forest, dusk, light, system) */
@@ -293,6 +303,9 @@ export interface AppPrefs {
   terminalPadding: number
   /** show the per-pane title/header bar */
   showPaneHeaders: boolean
+  /** which to-do source the pane title-bar note button shows by default
+   *  (local pane notes, TickTick, or Google Tasks) */
+  paneNotesSource: PaneNotesSource
   /** terminal scroll speed multiplier */
   scrollSensitivity: number
   /** width (px) of the scrollbars (terminal viewport + scrollable UI) */
@@ -367,6 +380,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   macros: [],
   templates: [],
   sshHosts: [],
+  sshSavedHosts: [],
 
   appTheme: 'dark',
   cursorStyle: 'block',
@@ -376,6 +390,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   scrollback: 3000,
   terminalPadding: 8,
   showPaneHeaders: true,
+  paneNotesSource: 'notes',
   scrollSensitivity: 1,
   scrollbarWidth: 14,
   terminalBell: false,
@@ -634,6 +649,67 @@ export interface SshfsStatus {
   url: string
 }
 
+/** How a saved SSH host authenticates. */
+export type SshAuthMethod = 'key' | 'password' | 'ask'
+
+/**
+ * A saved SSH host in the connections manager. The live target string is derived
+ * as `user@host[:port]`; everything else is metadata for organizing/auth.
+ */
+export interface SshHost {
+  id: string
+  /** display label, e.g. "prod-web-1" (falls back to host when empty) */
+  name: string
+  user: string
+  /** hostname or IP */
+  host: string
+  /** SSH port (22 default) */
+  port: number
+  /** folder/group name for the sidebar ('' = Ungrouped) */
+  group: string
+  /** freeform tags, e.g. ["nginx", "ubuntu"] */
+  tags: string[]
+  favorite: boolean
+  authMethod: SshAuthMethod
+  /** path to the private key when authMethod === 'key' */
+  identityFile?: string
+  /** epoch ms of the last successful connect */
+  lastUsedAt?: number
+  /** number of times this host has been connected */
+  sessionCount: number
+}
+
+/** A private key found in ~/.ssh, for the identity-file picker. */
+export interface SshKeyInfo {
+  /** absolute path to the private key */
+  path: string
+  /** short display name, e.g. "id_ed25519" */
+  name: string
+  /** key type when detectable, e.g. "ED25519" / "RSA" */
+  type?: string
+  /** approximate bit strength when detectable */
+  bits?: number
+  /** OpenSSH SHA256 fingerprint of the matching .pub key, e.g. "SHA256:n8Xq…4kP2" */
+  fingerprint?: string
+}
+
+/** A host parsed out of ~/.ssh/config for the Import action. */
+export interface SshConfigHost {
+  name: string
+  host: string
+  user: string
+  port: number
+  identityFile?: string
+}
+
+/** A saved credential listed in the vault tab. */
+export interface SshCredential {
+  /** the host target the credential belongs to ("user@host[:port]") */
+  target: string
+  /** what kind of secret is stored */
+  type: 'password' | 'key'
+}
+
 /** Open an SSH session that streams through the same pty:data/pty:exit channels. */
 export interface SshSpawnRequest {
   paneId: string
@@ -643,6 +719,10 @@ export interface SshSpawnRequest {
   password?: string
   /** persist the password (encrypted) for next time */
   savePassword?: boolean
+  /** auth strategy; defaults to password when omitted */
+  authMethod?: SshAuthMethod
+  /** private-key path when authMethod === 'key' */
+  identityFile?: string
   cols: number
   rows: number
 }
@@ -1144,6 +1224,15 @@ export const IPC = {
 
   // open an SSH session (streams via the pty:data/pty:exit channels)
   sshSpawn: 'ssh:spawn',
+  // connections manager: TCP reachability + latency probe for a host
+  sshPing: 'ssh:ping',
+  // connections manager: list private keys in ~/.ssh for the identity picker
+  sshListKeys: 'ssh:list-keys',
+  // connections manager: parse ~/.ssh/config into importable hosts
+  sshImportConfig: 'ssh:import-config',
+  // credentials vault: list saved secrets, and forget one
+  sshListCredentials: 'ssh:list-credentials',
+  sshDeleteCredential: 'ssh:delete-credential',
 
   // pane registry (renderer pushes snapshot to main on every workspace change)
   panesUpdate: 'panes:update',

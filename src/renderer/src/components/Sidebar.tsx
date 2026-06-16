@@ -91,7 +91,7 @@ function WorkspaceRow({
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(w.name)
-  // The × only appears after the cursor has rested on the row for 3s, so a
+  // The × only appears after the cursor has rested on the row for 2s, so a
   // quick pass over the workspaces never flashes close buttons.
   const [closeReady, setCloseReady] = useState(false)
   const hoverTimer = useRef<number | null>(null)
@@ -130,7 +130,7 @@ function WorkspaceRow({
       onMouseEnter={() => {
         if (!canClose) return
         clearHoverTimer()
-        hoverTimer.current = window.setTimeout(() => setCloseReady(true), 3000)
+        hoverTimer.current = window.setTimeout(() => setCloseReady(true), 2000)
       }}
       onMouseLeave={() => {
         clearHoverTimer()

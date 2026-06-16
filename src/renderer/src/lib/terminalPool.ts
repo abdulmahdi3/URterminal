@@ -189,11 +189,14 @@ export interface TerminalOpts {
 // Ephemeral SSH credentials, keyed by pane id — set when the user connects and
 // consumed once at spawn. Kept out of the pane/session state so passwords are
 // never written to disk by the renderer (saving is handled in the main process).
-const pendingSshCreds = new Map<string, { password?: string; savePassword?: boolean }>()
-export function setSshCreds(
-  paneId: string,
-  creds: { password?: string; savePassword?: boolean }
-): void {
+interface SshCreds {
+  password?: string
+  savePassword?: boolean
+  authMethod?: import('@shared/types').SshAuthMethod
+  identityFile?: string
+}
+const pendingSshCreds = new Map<string, SshCreds>()
+export function setSshCreds(paneId: string, creds: SshCreds): void {
   pendingSshCreds.set(paneId, creds)
 }
 
@@ -794,6 +797,8 @@ function createEntry(paneId: string, container: HTMLElement, opts: TerminalOpts)
         target: opts.ssh.target,
         password: creds.password,
         savePassword: creds.savePassword,
+        authMethod: creds.authMethod,
+        identityFile: creds.identityFile,
         cols: term.cols,
         rows: term.rows
       })

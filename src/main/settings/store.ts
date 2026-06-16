@@ -270,6 +270,11 @@ export class SettingsStore {
     return decrypt(this.raw().ssh.passwords[target])
   }
 
+  /** Targets ("user@host") that currently have a saved password, for the vault. */
+  getSshPasswordTargets(): string[] {
+    return Object.keys(this.raw().ssh.passwords)
+  }
+
   /** Save (or, with null, forget) the SSH password for a target. */
   setSshPassword(target: string, password: string | null): void {
     const s = this.raw()

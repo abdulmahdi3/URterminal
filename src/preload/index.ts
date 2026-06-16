@@ -16,6 +16,9 @@ import type {
   SshSpawnRequest,
   SshAgentResult,
   SshfsStatus,
+  SshKeyInfo,
+  SshConfigHost,
+  SshCredential,
   PtyDataEvent,
   PtyExitEvent,
   PtyTaskInfo,
@@ -89,6 +92,13 @@ const api = {
   sshCloseAgent: (target: string): void => ipcRenderer.send(IPC.sshCloseAgent, target),
   sshfsStatus: (): Promise<SshfsStatus> => ipcRenderer.invoke(IPC.sshfsStatus),
   sshfsInstall: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.sshfsInstall),
+  // ---- SSH connections manager ----
+  sshPing: (target: string): Promise<number | null> => ipcRenderer.invoke(IPC.sshPing, target),
+  sshListKeys: (): Promise<SshKeyInfo[]> => ipcRenderer.invoke(IPC.sshListKeys),
+  sshImportConfig: (): Promise<SshConfigHost[]> => ipcRenderer.invoke(IPC.sshImportConfig),
+  sshListCredentials: (): Promise<SshCredential[]> => ipcRenderer.invoke(IPC.sshListCredentials),
+  sshDeleteCredential: (target: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.sshDeleteCredential, target),
   writePty: (ptyId: string, data: string): void => ipcRenderer.send(IPC.ptyWrite, { ptyId, data }),
   resizePty: (ptyId: string, cols: number, rows: number): void =>
     ipcRenderer.send(IPC.ptyResize, { ptyId, cols, rows }),

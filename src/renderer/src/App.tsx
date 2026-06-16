@@ -12,7 +12,7 @@ import TaskManagerModal from './components/TaskManagerModal'
 import AskAllModal from './components/AskAllModal'
 import SnippetFillModal from './components/SnippetFillModal'
 import TemplateSaveModal from './components/TemplateSaveModal'
-import SshConnectModal from './components/SshConnectModal'
+import SshManagerModal from './components/SshManagerModal'
 import NotesModal from './components/NotesModal'
 import QuickSwitcher from './components/QuickSwitcher'
 import AgentDoctorModal from './components/AgentDoctorModal'
@@ -144,7 +144,7 @@ export default function App(): JSX.Element {
       <AskAllModal />
       <SnippetFillModal />
       <TemplateSaveModal />
-      <SshConnectModal />
+      <SshManagerModal />
       <NotesModal />
       <QuickSwitcher />
       <AgentDoctorModal />

@@ -816,6 +816,70 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'panenotes') {
+    // A mini note popover: the source switch sits on TickTick, real task rows
+    // list below, and the top one checks itself off on a loop.
+    return (
+      <div className="wn-demo wn-demo-panenotes">
+        <div className="wn-pn-tabs">
+          <span className="wn-pn-tab">Notes</span>
+          <span className="wn-pn-tab active">TickTick</span>
+          <span className="wn-pn-tab">Google</span>
+        </div>
+        <div className="wn-pn-rows">
+          <div className="wn-pn-row wn-pn-checking">
+            <span className="wn-pn-check">
+              <Check size={9} />
+            </span>
+            <span className="wn-pn-text">Ship 0.10 release</span>
+            <span className="wn-pn-due today">Today</span>
+          </div>
+          <div className="wn-pn-row">
+            <span className="wn-pn-check" />
+            <span className="wn-pn-text">Review PR #42</span>
+            <span className="wn-pn-due">Tue</span>
+          </div>
+          <div className="wn-pn-row">
+            <span className="wn-pn-check" />
+            <span className="wn-pn-text">Reply to Sam</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'sshmanager') {
+    // A mini connections manager: a grouped host list with live status dots
+    // (green pulse / red), the top host selected, and a "connected" latency
+    // badge that slides up on a loop.
+    const hosts = [
+      { name: 'prod-web-1', cls: 'online', meta: '14ms', sel: true },
+      { name: 'prod-db', cls: 'online', meta: '19ms', sel: false },
+      { name: 'ci-runner', cls: 'offline', meta: '2d', sel: false }
+    ]
+    return (
+      <div className="wn-demo wn-demo-sshm">
+        <div className="wn-sshm-grouphead">
+          PRODUCTION <span className="wn-sshm-count">3</span>
+        </div>
+        <div className="wn-sshm-rows">
+          {hosts.map((h, i) => (
+            <div
+              key={h.name}
+              className={'wn-sshm-row' + (h.sel ? ' sel' : '')}
+              style={{ ['--d' as string]: `${i * 130}ms` }}
+            >
+              <span className={'wn-sshm-dot ' + h.cls} />
+              <span className="wn-sshm-name">{h.name}</span>
+              <span className="wn-sshm-meta">{h.meta}</span>
+            </div>
+          ))}
+        </div>
+        <div className="wn-sshm-badge">
+          <span className="wn-sshm-dot online" /> connected · 14&thinsp;ms
+        </div>
+      </div>
+    )
+  }
   // 'tour' — a floating rocket with pulsing sparkles
   return (
     <div className="wn-demo wn-demo-tour">

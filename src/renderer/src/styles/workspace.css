@@ -995,8 +995,12 @@
   cursor: pointer;
   text-align: left;
 }
-.al-path:hover {
+.al-path:hover,
+.al-path.hl {
   background: var(--bg-elev-2);
+}
+.al-path.hl {
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .al-path-name {
   font-size: 12px;
@@ -1618,6 +1622,166 @@
 .pane-notes-hint {
   font-size: var(--fs-2xs);
   color: var(--text-faint);
+}
+
+/* note-source switcher (Notes / TickTick / Google) at the top of the popover */
+.pane-notes-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-sm);
+}
+.pane-notes-tab {
+  position: relative;
+  flex: 1;
+  padding: 3px 6px;
+  border: none;
+  border-radius: calc(var(--r-sm) - 1px);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  cursor: pointer;
+}
+.pane-notes-tab:hover {
+  color: var(--text);
+  background: var(--bg-elev-2);
+}
+.pane-notes-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+.pane-notes-tab.off {
+  color: var(--text-faint);
+}
+/* tiny "not connected" marker on a disabled task source */
+.pane-notes-tab-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  vertical-align: middle;
+}
+
+/* TickTick / Google open-task agenda inside the note popover */
+.pane-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pane-agenda.not-connected {
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 10px 6px 6px;
+  color: var(--text-dim);
+}
+.pane-agenda-empty-icon {
+  color: var(--text-faint);
+}
+.pane-agenda-cta {
+  font-size: var(--fs-2xs);
+}
+.pane-agenda-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pane-agenda-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.pane-agenda-head .icon-btn.spinning svg {
+  animation: pane-spin 1s linear infinite;
+}
+.pane-agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.pane-agenda-empty {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  padding: 6px 2px;
+}
+.pane-agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.pane-agenda-check {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  color: transparent;
+  cursor: pointer;
+}
+.pane-agenda-check:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pane-agenda-check-ico {
+  pointer-events: none;
+}
+.pane-agenda-text {
+  flex: 1;
+  font-size: var(--fs-2xs);
+  color: var(--text);
+  word-break: break-word;
+}
+.pane-agenda-due {
+  flex: none;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 7px;
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+}
+.pane-agenda-due.today {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pane-agenda-due.soon {
+  color: var(--text-dim);
+}
+.pane-agenda-due.overdue {
+  background: rgba(255, 99, 99, 0.16);
+  color: #ff8b8b;
+}
+.pane-agenda-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pane-agenda-input {
+  flex: 1;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  padding: 4px 6px;
+  outline: none;
+}
+.pane-agenda-input:focus {
+  border-color: var(--accent);
 }
 
 /* pane to-do list (checkable items, stored on the pane) */

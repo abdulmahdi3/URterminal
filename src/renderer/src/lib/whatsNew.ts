@@ -73,6 +73,8 @@ export type WhatsNewDemo =
   | 'consolegrid'
   | 'pinmodel'
   | 'newlauncher'
+  | 'panenotes'
+  | 'sshmanager'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -102,6 +104,59 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.11.0': {
+    version: '0.11.0',
+    headline: 'A real SSH connections manager',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Manage every server in one place',
+        demo: 'sshmanager',
+        body:
+          'The SSH button now opens a full connections manager. Save hosts with a name, folder, tags and ' +
+          'favorite; group the sidebar by Folder, Last used, Most used or Favorites, and search across ' +
+          'hosts, tags and IPs. Each host shows a live online dot and round-trip latency, plus last-used ' +
+          'and session-count stats. Import everything from your ~/.ssh/config in one click.'
+      },
+      {
+        kind: 'feature',
+        title: 'Key, password or ask — and a credentials vault',
+        body:
+          'Pick how each host authenticates: an SSH key (choose the identity file from your ~/.ssh keys or ' +
+          'let ssh-agent answer), a saved password, or ask-each-time. Passwords you save are stored ' +
+          'encrypted in the OS keychain and listed in a Credentials tab you can forget from any time. Hit ' +
+          'Connect to open it, or New pane to launch several at once.'
+      },
+      {
+        kind: 'fix',
+        title: 'Duplicating an SSH pane keeps the connection',
+        body:
+          'Duplicating an SSH pane now reconnects to the same server instead of dropping you into a local ' +
+          'PowerShell — the host target and any startup command come along to the new pane.'
+      }
+    ]
+  },
+
+  '0.10.0': {
+    version: '0.10.0',
+    headline: 'Your tasks, right in the pane title bar',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Pick what the note button shows',
+        demo: 'panenotes',
+        body:
+          'The note button on every pane’s title bar can now show your real tasks. Pick a default source — ' +
+          'the pane’s own notes & to-do (as before), your TickTick tasks, or your Google Tasks — in ' +
+          'Settings → Terminal, or flip it inline from the little Notes / TickTick / Google switch at the top ' +
+          'of the popover. Task sources list your open items sorted by due date, with check-to-complete and a ' +
+          'quick-add box, and the button’s badge counts what’s still open.'
+      }
+    ]
+  },
+
   '0.9.1': {
     version: '0.9.1',
     headline: 'Launcher polish',
