@@ -1598,11 +1598,14 @@
   box-shadow: var(--shadow-md);
 }
 .pane-notes {
-  width: 260px;
+  width: 280px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px;
+  /* Scroll the whole popover so all notes/to-dos/tasks stay reachable. */
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
 }
 .pane-notes-text {
   width: 100%;
@@ -1706,7 +1709,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 200px;
+  max-height: 340px;
   overflow-y: auto;
 }
 .pane-agenda-empty {
@@ -1716,9 +1719,99 @@
 }
 .pane-agenda-row {
   display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+}
+.pane-agenda-row .pane-agenda-check {
+  margin-top: 1px;
+}
+.pane-agenda-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pane-agenda-titlerow {
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 0;
+}
+/* edit button stays hidden until the row is hovered */
+.pane-agenda-edit-btn {
+  flex: none;
+  opacity: 0;
+  width: 18px;
+  height: 18px;
+}
+.pane-agenda-row:hover .pane-agenda-edit-btn {
+  opacity: 1;
+}
+.pane-agenda-edit-input {
+  width: 100%;
+  background: var(--bg-sunken);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  padding: 3px 6px;
+  outline: none;
+}
+/* richer task info (project / priority / tags / note) */
+.pane-agenda-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.pane-agenda-proj {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane-agenda-prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+}
+.pane-agenda-prio.high {
+  background: rgba(255, 99, 99, 0.16);
+  color: #ff8b8b;
+}
+.pane-agenda-prio.med {
+  background: rgba(255, 184, 92, 0.16);
+  color: #ffc06b;
+}
+.pane-agenda-prio.low {
+  color: var(--text-dim);
+}
+.pane-agenda-tag {
+  font-size: 9px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+.pane-agenda-content {
+  font-size: 9px;
+  color: var(--text-faint);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .pane-agenda-check {
   flex: none;

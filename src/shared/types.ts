@@ -151,6 +151,13 @@ export interface ChatSession {
   agent: string
   /** when we last saw/updated this entry (ms) */
   updatedAt: number
+  /** user-pinned: floats to the top and is never auto-dropped */
+  pinned?: boolean
+  /** Claude's transcript is gone — shown dimmed; recomputed on every refresh */
+  missing?: boolean
+  /** user dismissed it from the list ("Remove") — hidden from the menu, kept so
+   *  a live pane / next launch can't silently resurrect it */
+  hidden?: boolean
 }
 
 /** One workspace's panes + layout inside an auto-saved snapshot. */

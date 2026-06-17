@@ -17,6 +17,14 @@ export interface AgendaItem {
   due?: string
   /** TickTick projectId or Google listId — needed to complete/route the task */
   containerId: string
+  /** name of the parent project/list (shown as a chip in the agenda) */
+  projectName?: string
+  /** TickTick priority: 0 None · 1 Low · 3 Medium · 5 High */
+  priority?: number
+  /** TickTick tags */
+  tags?: string[]
+  /** task note/description body (TickTick content/desc or Google notes) */
+  content?: string
 }
 
 /** External provider this store proxies (the two task-based note sources). */
@@ -35,6 +43,8 @@ interface PaneTasksState {
   load: (source: TaskSource, force?: boolean) => Promise<void>
   /** Complete a task and drop it from the local list optimistically. */
   complete: (source: TaskSource, item: AgendaItem) => Promise<void>
+  /** Edit a task's fields in place (optimistic), then persist to the provider. */
+  update: (source: TaskSource, item: AgendaItem, patch: { title?: string }) => Promise<void>
   /** Create a task in the source's first project/list, then refresh. */
   add: (source: TaskSource, title: string) => Promise<void>
 }
@@ -48,7 +58,17 @@ async function fetchTickTick(): Promise<{ items: AgendaItem[]; target: { id: str
     try {
       const data = await window.api.tickTickProjectData(p.id)
       for (const t of data.tasks ?? []) {
-        if ((t.status ?? 0) === 0) items.push({ id: t.id, title: t.title, due: t.dueDate, containerId: p.id })
+        if ((t.status ?? 0) === 0)
+          items.push({
+            id: t.id,
+            title: t.title,
+            due: t.dueDate,
+            containerId: p.id,
+            projectName: p.name,
+            priority: t.priority,
+            tags: t.tags,
+            content: t.content || t.desc || undefined
+          })
       }
     } catch {
       /* skip a project that fails to load */
@@ -64,7 +84,15 @@ async function fetchGoogle(): Promise<{ items: AgendaItem[]; target: { id: strin
     try {
       const tasks = await window.api.googleTasksListTasks(l.id, false)
       for (const t of tasks) {
-        if (t.status !== 'completed') items.push({ id: t.id, title: t.title, due: t.due, containerId: l.id })
+        if (t.status !== 'completed')
+          items.push({
+            id: t.id,
+            title: t.title,
+            due: t.due,
+            containerId: l.id,
+            projectName: l.title,
+            content: t.notes || undefined
+          })
       }
     } catch {
       /* skip a list that fails to load */
@@ -110,6 +138,24 @@ export const usePaneTasks = create<PaneTasksState>((set, get) => ({
       else await window.api.googleTasksCompleteTask(item.containerId, item.id)
     } catch {
       // Re-sync from the server if the completion failed.
+      await get().load(source, true)
+    }
+  },
+
+  update: async (source, item, patch) => {
+    // Optimistically patch the local row so the edit shows immediately.
+    set((st) => ({
+      items: {
+        ...st.items,
+        [source]: st.items[source].map((t) => (t.id === item.id ? { ...t, ...patch } : t))
+      }
+    }))
+    try {
+      if (source === 'ticktick')
+        await window.api.tickTickUpdateTask({ id: item.id, projectId: item.containerId, ...patch })
+      else await window.api.googleTasksUpdateTask(item.containerId, item.id, patch)
+    } catch {
+      // Roll back to the server's truth if the edit failed.
       await get().load(source, true)
     }
   },

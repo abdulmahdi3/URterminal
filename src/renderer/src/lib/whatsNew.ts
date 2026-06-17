@@ -75,6 +75,7 @@ export type WhatsNewDemo =
   | 'newlauncher'
   | 'panenotes'
   | 'sshmanager'
+  | 'sessions'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -104,6 +105,41 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.12.0': {
+    version: '0.12.0',
+    headline: 'Sessions you can actually find — and save just what matters',
+    kind: 'feature',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'See every session & chat',
+        demo: 'sessions',
+        body:
+          'The Sessions menu no longer hides anything. The list is uncapped, with a search box and a ' +
+          'Pinned / Recent / Name sort, and each section shows a live count. Chats whose Claude history was ' +
+          'cleared now stay in the list — dimmed and marked “history cleared” — and still reopen (re-created ' +
+          'with the same id) instead of silently vanishing.'
+      },
+      {
+        kind: 'feature',
+        title: 'Save just the chats that matter — and pin them',
+        body:
+          'Saving now shows a per-pane picker (all checked by default): keep the Claude chats you care about ' +
+          'and drop the throwaway shell — the layout is trimmed to match. Star any session or chat to pin it ' +
+          'to the top, and pinned auto-snapshots are never auto-deleted, so important work never quietly ' +
+          'expires after a week.'
+      },
+      {
+        kind: 'fix',
+        title: 'Reopening a chat never errors',
+        body:
+          'Clicking a chat now resumes it when its history still exists and re-creates it with the same id ' +
+          'when it doesn’t — instead of failing on a dead “--resume”. Reopening a chat that’s already open ' +
+          'in another workspace tab just switches to it rather than spawning a duplicate.'
+      }
+    ]
+  },
+
   '0.11.0': {
     version: '0.11.0',
     headline: 'A real SSH connections manager',

@@ -30,7 +30,8 @@ import {
   Workflow,
   Monitor,
   Laptop,
-  Terminal
+  Terminal,
+  Star
 } from 'lucide-react'
 import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
@@ -876,6 +877,43 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
         </div>
         <div className="wn-sshm-badge">
           <span className="wn-sshm-dot online" /> connected · 14&thinsp;ms
+        </div>
+      </div>
+    )
+  }
+  if (kind === 'sessions') {
+    // A mini Sessions menu: a search line, a per-pane save picker whose last box
+    // unchecks on a loop (selective save), then chats — a pinned row whose star
+    // pulses, and a dimmed "history cleared" row that no longer vanishes.
+    return (
+      <div className="wn-demo wn-demo-sessions">
+        <div className="wn-se-search">
+          <Search size={11} /> <span>search sessions…</span>
+        </div>
+        <div className="wn-se-pick">
+          <span className="wn-se-pick-h">
+            Include panes <b>2</b>/3
+          </span>
+          <span className="wn-se-box on" />
+          <span className="wn-se-box on" />
+          <span className="wn-se-box wn-se-uncheck" />
+        </div>
+        <div className="wn-se-rows">
+          <div className="wn-se-row">
+            <Star size={11} className="wn-se-star pinned" />
+            <span className="wn-se-name">Ship 0.12 release</span>
+            <span className="wn-se-meta">2d</span>
+          </div>
+          <div className="wn-se-row">
+            <Star size={11} className="wn-se-star" />
+            <span className="wn-se-name">Review PR #42</span>
+            <span className="wn-se-meta">5h</span>
+          </div>
+          <div className="wn-se-row missing">
+            <Star size={11} className="wn-se-star" />
+            <span className="wn-se-name">OAuth setup</span>
+            <span className="wn-se-meta">history cleared</span>
+          </div>
         </div>
       </div>
     )

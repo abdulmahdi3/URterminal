@@ -118,7 +118,12 @@ export interface WorkspaceState {
   /** replace whole workspace (used by persistence restore) */
   hydrate: (panes: Record<string, Pane>, layout: MosaicNode<string> | null) => void
   /** rearrange all panes into a named layout preset */
-  applyLayoutPreset: (presetId: string) => void
+  /**
+   * Arrange the workspace into a preset layout. New slots are normally empty
+   * (a module chooser); pass `fill` to instead open every new/empty slot as an
+   * AI pane on the same agent + folder (each with its own fresh session).
+   */
+  applyLayoutPreset: (presetId: string, fill?: { command: string; cwd: string }) => void
 }
 
 /** Optional seed for a new pane: which agent CLI, or which shell binary + args. */
@@ -596,7 +601,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       ...(d.focusNewPane !== undefined ? { focusNewPane: d.focusNewPane } : {})
     }),
 
-  applyLayoutPreset: (presetId) => {
+  applyLayoutPreset: (presetId, fill) => {
     const s0 = get()
     const needed = PRESET_PANE_COUNT[presetId]
     if (!needed) return
@@ -614,10 +619,24 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       disposeTerminal(id)
       delete panes[id]
     }
+    // Mint an AI pane on the same agent + folder (fresh session) for `fill`.
+    const makeFilled = (): Pane =>
+      makePane('ai', paneDefaults(s0), {
+        agentCommand: fill!.command,
+        agentCwd: fill!.cwd,
+        label: fill!.command
+      })
+    // When filling, convert any kept *empty* slots too, so the whole preset opens
+    // identical panes instead of leaving a module chooser in the reused slots.
+    if (fill) {
+      for (const id of ids) {
+        if (panes[id]?.type === 'empty') panes[id] = { ...makeFilled(), id }
+      }
+    }
     // create any missing panes
     const entering: Record<string, true> = {}
     while (ids.length < needed) {
-      const p = makePane('empty', paneDefaults(s0))
+      const p = fill ? makeFilled() : makePane('empty', paneDefaults(s0))
       panes[p.id] = p
       entering[p.id] = true
       ids.push(p.id)

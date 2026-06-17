@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { Plus, RefreshCw, Check, ListTodo, Settings as SettingsIcon } from 'lucide-react'
+import { Plus, RefreshCw, Check, ListTodo, Settings as SettingsIcon, Pencil, Flag } from 'lucide-react'
 import { usePaneTasks, type TaskSource, type AgendaItem } from '@renderer/store/paneTasks'
 import { useUi } from '@renderer/store/ui'
 import { toast } from '@renderer/store/toasts'
@@ -8,6 +8,14 @@ import { toast } from '@renderer/store/toasts'
 const SOURCE_LABEL: Record<TaskSource, string> = {
   ticktick: 'TickTick',
   google: 'Google Tasks'
+}
+
+/** TickTick priority (0/1/3/5) → a label + color class, or null for "None". */
+function priorityInfo(p: number | undefined): { label: string; cls: string } | null {
+  if (!p) return null
+  if (p >= 5) return { label: 'High', cls: 'high' }
+  if (p >= 3) return { label: 'Medium', cls: 'med' }
+  return { label: 'Low', cls: 'low' }
 }
 
 /** Leading "yyyy-mm-dd" of a TickTick/Google due stamp ('' when undated). */
@@ -78,9 +86,14 @@ export default function PaneTaskAgenda({
   const loading = usePaneTasks((s) => s.loading[source])
   const load = usePaneTasks((s) => s.load)
   const complete = usePaneTasks((s) => s.complete)
+  const update = usePaneTasks((s) => s.update)
   const add = usePaneTasks((s) => s.add)
   const openSettings = useUi((s) => s.openSettings)
   const [draft, setDraft] = useState('')
+  // Inline title editing: which task is open + its working text.
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const cancelEdit = useRef(false)
 
   // Refresh when the popover opens (throttled inside the store).
   useEffect(() => {
@@ -112,6 +125,22 @@ export default function PaneTaskAgenda({
     void add(source, title).catch((e) => toast(`Add failed: ${(e as Error).message}`, 'error'))
   }
 
+  const startEdit = (t: AgendaItem): void => {
+    setEditId(t.id)
+    setEditText(t.title)
+  }
+  // Saved on blur (Enter blurs to save; Escape sets the cancel flag, then blurs).
+  const finishEdit = (t: AgendaItem): void => {
+    setEditId(null)
+    if (cancelEdit.current) {
+      cancelEdit.current = false
+      return
+    }
+    const title = editText.trim()
+    if (title && title !== t.title)
+      void update(source, t, { title }).catch((e) => toast(`Edit failed: ${(e as Error).message}`, 'error'))
+  }
+
   return (
     <div className="pane-agenda">
       <div className="pane-agenda-head">
@@ -131,19 +160,74 @@ export default function PaneTaskAgenda({
         {sorted.length === 0 && (
           <div className="pane-agenda-empty">{loading ? 'Loading…' : 'No open tasks 🎉'}</div>
         )}
-        {sorted.map((t) => (
-          <div className="pane-agenda-row" key={`${t.containerId}:${t.id}`}>
-            <button
-              className="pane-agenda-check"
-              title="Mark complete"
-              onClick={() => void complete(source, t)}
-            >
-              <Check size={11} className="pane-agenda-check-ico" />
-            </button>
-            <span className="pane-agenda-text">{t.title}</span>
-            {t.due && <span className={clsx('pane-agenda-due', dueClass(t.due))}>{dueLabel(t.due)}</span>}
-          </div>
-        ))}
+        {sorted.map((t) => {
+          const editing = editId === t.id
+          const prio = priorityInfo(t.priority)
+          const hasMeta = !!(t.projectName || prio || t.tags?.length)
+          return (
+            <div className="pane-agenda-row" key={`${t.containerId}:${t.id}`}>
+              <button
+                className="pane-agenda-check"
+                title="Mark complete"
+                onClick={() => void complete(source, t)}
+              >
+                <Check size={11} className="pane-agenda-check-ico" />
+              </button>
+              <div className="pane-agenda-main">
+                {editing ? (
+                  <input
+                    className="pane-agenda-edit-input"
+                    autoFocus
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onBlur={() => finishEdit(t)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                      else if (e.key === 'Escape') {
+                        cancelEdit.current = true
+                        e.currentTarget.blur()
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="pane-agenda-titlerow">
+                    <span
+                      className="pane-agenda-text"
+                      title="Double-click to edit"
+                      onDoubleClick={() => startEdit(t)}
+                    >
+                      {t.title}
+                    </span>
+                    {t.due && (
+                      <span className={clsx('pane-agenda-due', dueClass(t.due))}>{dueLabel(t.due)}</span>
+                    )}
+                  </div>
+                )}
+                {!editing && hasMeta && (
+                  <div className="pane-agenda-meta">
+                    {t.projectName && <span className="pane-agenda-proj">{t.projectName}</span>}
+                    {prio && (
+                      <span className={clsx('pane-agenda-prio', prio.cls)}>
+                        <Flag size={9} /> {prio.label}
+                      </span>
+                    )}
+                    {t.tags?.map((tag) => (
+                      <span key={tag} className="pane-agenda-tag">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {!editing && t.content && <div className="pane-agenda-content">{t.content}</div>}
+              </div>
+              {!editing && (
+                <button className="icon-btn pane-agenda-edit-btn" title="Edit task" onClick={() => startEdit(t)}>
+                  <Pencil size={11} />
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <div className="pane-agenda-add">

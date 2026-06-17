@@ -27,6 +27,8 @@ export interface SavedSession {
   layout: MosaicNode<string> | null
   /** true for snapshots archived automatically on launch (vs. user-named saves) */
   auto?: boolean
+  /** user-pinned: floats to the top and is exempt from auto-prune */
+  pinned?: boolean
 }
 
 /** How long auto-saved snapshots are kept in the session list before pruning. */
@@ -71,6 +73,24 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
     out[id] = clone
   }
   return out
+}
+
+/**
+ * Prune a mosaic layout to only the kept leaf ids. When one side of a split is
+ * dropped, the surviving child is promoted into the split's place; an empty tree
+ * collapses to null. Used by selective save so a chosen subset of panes restores
+ * into a valid layout (no dangling branches).
+ */
+function pruneLayout(
+  node: MosaicNode<string> | null,
+  keep: Set<string>
+): MosaicNode<string> | null {
+  if (node === null) return null
+  if (typeof node === 'string') return keep.has(node) ? node : null
+  const first = pruneLayout(node.first, keep)
+  const second = pruneLayout(node.second, keep)
+  if (first && second) return { ...node, first, second }
+  return first ?? second
 }
 
 /** Rewrite a mosaic layout tree, swapping every pane-id leaf through `idMap`. */
@@ -292,38 +312,52 @@ interface SessionsState {
   sessions: SavedSession[]
   /** resumable per-conversation chats (named by subject), shown in the menu's CHATS list */
   chats: ChatSession[]
-  /** snapshot the current workspace (panes, layout, chat content) under a name */
-  save: (name: string) => void
+  /**
+   * Snapshot the current workspace under a name. With `paneIds`, only those panes
+   * are saved (and the layout is pruned to match) — for keeping just the chats
+   * that matter; omit to save the whole workspace.
+   */
+  save: (name: string, paneIds?: string[]) => void
   /** load a saved session into the current workspace (async: reads chat from disk) */
   restore: (id: string) => Promise<SavedSession | undefined>
   remove: (id: string) => void
   rename: (id: string, name: string) => void
+  /** pin/unpin a saved workspace (pinned float to the top, exempt from prune) */
+  togglePin: (id: string) => void
   /** refresh the chats registry from the live claude panes (titles pulled from disk) */
   recordChats: () => Promise<void>
   /** reopen a saved chat as a NEW claude pane in the current workspace (resumes it) */
-  resumeChat: (chat: ChatSession) => void
+  resumeChat: (chat: ChatSession) => Promise<void>
   /** drop a chat from the menu list (does NOT delete Claude's own transcript) */
   removeChat: (sessionId: string) => void
+  /** pin/unpin a chat (pinned float to the top of the chats list) */
+  togglePinChat: (sessionId: string) => void
 }
 
 export const useSessions = create<SessionsState>((set, get) => ({
   sessions: [],
   chats: [],
 
-  save: (name) => {
+  save: (name, paneIds) => {
     const { panes, layout } = useWorkspace.getState()
+    // Selective save: keep only the chosen panes and prune the layout to match.
+    const selecting = !!paneIds && paneIds.length > 0
+    const keep = selecting
+      ? Object.fromEntries(Object.entries(panes).filter(([id]) => paneIds!.includes(id)))
+      : panes
+    const keepLayout = selecting ? pruneLayout(layout, new Set(Object.keys(keep))) : layout
     const id = uid()
     const session: SavedSession = {
       id,
       name: name.trim() || `Session ${get().sessions.length + 1}`,
       savedAt: Date.now(),
-      paneCount: Object.keys(panes).length,
-      panes: sanitize(panes),
-      layout
+      paneCount: Object.keys(keep).length,
+      panes: sanitize(keep),
+      layout: keepLayout
     }
     // Persist the complete chat history (per-pane) to its own file — async so a
     // large transcript read never blocks the save click.
-    void captureTranscripts(panes).then((transcripts) =>
+    void captureTranscripts(keep).then((transcripts) =>
       window.api.writeSessionData(id, { transcripts })
     )
     const sessions = [session, ...get().sessions]
@@ -354,6 +388,12 @@ export const useSessions = create<SessionsState>((set, get) => ({
     set({ sessions })
   },
 
+  togglePin: (id) => {
+    const sessions = get().sessions.map((s) => (s.id === id ? { ...s, pinned: !s.pinned } : s))
+    persist(sessions)
+    set({ sessions })
+  },
+
   recordChats: async () => {
     // Secondary windows display chats but never own the on-disk registry.
     if (isSecondaryWindow) return
@@ -370,15 +410,22 @@ export const useSessions = create<SessionsState>((set, get) => ({
         } catch {
           /* unreadable — keep any previous entry untouched */
         }
-        // Only list a chat once Claude has actually written its transcript.
-        if (!info?.exists) return
         const was = prev.get(r.sessionId)
+        // Transcript gone (Claude cleared history): keep a known chat but flag it
+        // `missing` so the menu dims it — don't silently drop it from the list.
+        if (!info?.exists) {
+          if (was) prev.set(r.sessionId, { ...was, missing: true })
+          return
+        }
         prev.set(r.sessionId, {
           sessionId: r.sessionId,
           title: info.title || was?.title || 'Claude session',
           cwd: info.cwd || r.cwd || was?.cwd,
           agent: r.agent,
-          updatedAt: info.updatedAt || now
+          updatedAt: info.updatedAt || now,
+          pinned: was?.pinned,
+          hidden: was?.hidden,
+          missing: false
         })
       })
     )
@@ -387,37 +434,79 @@ export const useSessions = create<SessionsState>((set, get) => ({
     void window.api.writeChats(chats)
   },
 
-  resumeChat: (chat) => {
-    const ws = useWorkspace.getState()
-    // Already open in the current workspace? Just focus it — never spawn a second
-    // `--resume` on the same id (that would recreate the very collision we fixed).
-    const live = Object.values(ws.panes).find((p) => p.agent?.sessionId === chat.sessionId)
-    if (live) {
-      ws.setActive(live.id)
-      return
+  resumeChat: async (chat) => {
+    // Resuming is an explicit "I want this" — un-hide a previously dismissed chat.
+    if (get().chats.some((c) => c.sessionId === chat.sessionId && c.hidden)) {
+      const chats = get().chats.map((c) =>
+        c.sessionId === chat.sessionId ? { ...c, hidden: false } : c
+      )
+      set({ chats })
+      void window.api.writeChats(chats)
     }
+
+    // Already open in ANY workspace? Focus it (switching tabs if needed) instead
+    // of spawning a second --resume on the same id (the collision we fixed).
+    const wsStore = useWorkspaces.getState()
+    for (const w of wsStore.list) {
+      const panes = w.id === wsStore.activeId ? useWorkspace.getState().panes : w.panes ?? {}
+      const hit = Object.values(panes).find((p) => p.agent?.sessionId === chat.sessionId)
+      if (hit) {
+        if (w.id !== wsStore.activeId) wsStore.switchTo(w.id)
+        useWorkspace.getState().setActive(hit.id)
+        return
+      }
+    }
+
+    // Resume the exact conversation if its transcript still exists; otherwise
+    // re-create it with the same id (pin) instead of erroring on a dead --resume.
+    const sid = getAgentDescriptor(chat.agent)?.sessionId
+    let exists = !chat.missing
+    let info: { exists?: boolean; cwd?: string } | null | undefined
+    try {
+      info = await window.api.claudeSessionInfo(chat.sessionId)
+      exists = !!info?.exists
+    } catch {
+      exists = false
+    }
+    // Fall back to the transcript's recorded folder when the saved chat has none,
+    // so the pane launches straight into the agent instead of the folder picker.
+    const cwd = chat.cwd || info?.cwd
+
     // Open a fresh pane (handles layout); addPane mints its own session id, which
     // we immediately replace with the chat's id and seed the resume — both BEFORE
-    // the pane mounts, so it spawns straight into `claude --resume <id>`.
+    // the pane mounts, so it spawns straight into claude with resume or --session-id.
+    const ws = useWorkspace.getState()
     const id = ws.addPane('ai', undefined, {
       agentCommand: chat.agent,
-      agentCwd: chat.cwd,
+      agentCwd: cwd,
       label: chat.title
     })
     if (!id) {
       toast('Max 9 panes reached', 'info')
       return
     }
-    const resume = getAgentDescriptor(chat.agent)?.sessionId?.resume ?? '--resume'
     ws.updatePane(id, {
-      agent: { command: chat.agent, cwd: chat.cwd, sessionId: chat.sessionId },
+      agent: { command: chat.agent, cwd, sessionId: chat.sessionId },
       title: chat.title
     })
-    seedRestore(id, { resumeArgs: [resume, chat.sessionId] })
+    const flag = sid ? (exists ? sid.resume : sid.pin) : '--resume'
+    seedRestore(id, { resumeArgs: [flag, chat.sessionId] })
   },
 
   removeChat: (sessionId) => {
-    const chats = get().chats.filter((c) => c.sessionId !== sessionId)
+    // Mark hidden (not just filter): recordChats/loadChats rebuild the list from
+    // live panes + disk, so a plain filter would resurrect the chat on the next
+    // workspace change or launch. The flag is carried forward there and the menu
+    // filters it out. Resuming the chat un-hides it (see resumeChat).
+    const chats = get().chats.map((c) => (c.sessionId === sessionId ? { ...c, hidden: true } : c))
+    set({ chats })
+    void window.api.writeChats(chats)
+  },
+
+  togglePinChat: (sessionId) => {
+    const chats = get().chats.map((c) =>
+      c.sessionId === sessionId ? { ...c, pinned: !c.pinned } : c
+    )
     set({ chats })
     void window.api.writeChats(chats)
   }
@@ -452,14 +541,20 @@ async function loadChats(last: LastSessionPayload | null): Promise<ChatSession[]
       } catch {
         /* unreadable */
       }
-      if (!info?.exists) return null // transcript gone → drop from the list
       const was = prev.get(sid)
+      // Transcript gone: keep a previously-known chat (flagged `missing` so the
+      // menu dims it) rather than dropping it. A candidate we have no metadata
+      // for (never stored) has nothing to show, so it's still skipped.
+      if (!info?.exists) return was ? ({ ...was, missing: true } as ChatSession) : null
       return {
         sessionId: sid,
         title: info.title || was?.title || 'Claude session',
         cwd: info.cwd || meta.cwd || was?.cwd,
         agent: meta.agent,
-        updatedAt: info.updatedAt || was?.updatedAt || Date.now()
+        updatedAt: info.updatedAt || was?.updatedAt || Date.now(),
+        pinned: was?.pinned,
+        hidden: was?.hidden,
+        missing: false
       } as ChatSession
     })
   )
@@ -531,11 +626,12 @@ async function bootstrapSessions(): Promise<void> {
     }
   }
 
-  // Prune expired auto snapshots (and their on-disk chat content).
+  // Prune expired auto snapshots (and their on-disk chat content). Pinned
+  // snapshots are kept forever — pinning is how you protect important work.
   const cutoff = Date.now() - AUTO_RETENTION_MS
   const kept: SavedSession[] = []
   for (const s of list) {
-    if (s.auto && s.savedAt < cutoff) {
+    if (s.auto && !s.pinned && s.savedAt < cutoff) {
       void window.api.deleteSessionData(s.id)
       continue
     }

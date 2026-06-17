@@ -27,7 +27,6 @@ import { useUi } from '@renderer/store/ui'
 import { useSettings } from '@renderer/store/settings'
 import { usePaneTasks, type TaskSource } from '@renderer/store/paneTasks'
 import PaneTaskAgenda from './PaneTaskAgenda'
-import type { PaneNotesSource } from '@shared/types'
 import { useTokens } from '@renderer/store/tokens'
 import { useClaudeUsage, formatResetIn } from '@renderer/store/claudeUsage'
 import { toast } from '@renderer/store/toasts'
@@ -243,49 +242,6 @@ function PaneConnectMenu({
   )
 }
 
-const NOTE_SOURCES: Array<{ id: PaneNotesSource; label: string }> = [
-  { id: 'notes', label: 'Notes' },
-  { id: 'ticktick', label: 'TickTick' },
-  { id: 'google', label: 'Google' }
-]
-
-/**
- * Segmented control at the top of the pane note popover that picks which source
- * the note button shows: the pane's own notes, TickTick, or Google Tasks. The
- * choice is saved app-wide to `prefs.paneNotesSource` (it's the default for every
- * pane). Disconnected task sources stay selectable but show a connect hint.
- */
-function NotesSourceSwitcher({
-  value,
-  connected,
-  onChange
-}: {
-  value: PaneNotesSource
-  connected: { ticktick: boolean; google: boolean }
-  onChange: (s: PaneNotesSource) => void
-}): JSX.Element {
-  return (
-    <div className="pane-notes-tabs" role="tablist">
-      {NOTE_SOURCES.map((s) => {
-        const off = s.id !== 'notes' && !connected[s.id as TaskSource]
-        return (
-          <button
-            key={s.id}
-            role="tab"
-            aria-selected={value === s.id}
-            className={clsx('pane-notes-tab', value === s.id && 'active', off && 'off')}
-            title={off ? `${s.label} — not connected` : `Show ${s.label}`}
-            onClick={() => onChange(s.id)}
-          >
-            {s.label}
-            {off && <span className="pane-notes-tab-dot" />}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 /**
  * Slim, custom replacement for the default mosaic toolbar (also the drag handle).
  * Must forward a ref to a native element: react-mosaic attaches the React-DnD
@@ -330,7 +286,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
   const todos = useWorkspace((s) => s.panes[paneId]?.todos)
   // Which source the note button shows (app-wide default): local notes, TickTick, or Google.
   const notesSource = useSettings((s) => s.settings?.prefs.paneNotesSource ?? 'notes')
-  const patchSettings = useSettings((s) => s.patch)
   const ttConnected = useSettings((s) => s.settings?.integrations?.ticktick?.connected ?? false)
   const gConnected = useSettings((s) => s.settings?.integrations?.googleTasks?.connected ?? false)
   const ttOpen = usePaneTasks((s) => s.items.ticktick.length)
@@ -538,11 +493,6 @@ const PaneHeader = forwardRef<HTMLDivElement, { paneId: string }>(function PaneH
           badge={noteBadge || undefined}
           render={() => (
             <div className="pane-notes">
-              <NotesSourceSwitcher
-                value={notesSource}
-                connected={{ ticktick: ttConnected, google: gConnected }}
-                onChange={(s) => void patchSettings({ prefs: { paneNotesSource: s } })}
-              />
               {notesSource === 'notes' ? (
                 <>
                   <textarea

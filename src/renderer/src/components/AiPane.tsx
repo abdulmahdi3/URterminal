@@ -94,8 +94,9 @@ export default function AiPane({ pane }: { pane: Pane }): JSX.Element {
           useFolderHistory.getState().record(dir)
           // keep the pane's pinned sessionId (and sshTarget) — only add the folder
           updatePane(pane.id, { agent: { ...pane.agent, command, cwd: dir }, title: command })
-          // arrange the workspace into the chosen layout (single = leave as-is)
-          if (layout && layout !== 'single') applyLayoutPreset(layout)
+          // arrange the workspace into the chosen layout (single = leave as-is) and
+          // open every other slot on the SAME agent + folder (fresh session each)
+          if (layout && layout !== 'single') applyLayoutPreset(layout, { command, cwd: dir })
         }}
       />
     )

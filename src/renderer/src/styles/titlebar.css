@@ -437,7 +437,7 @@
   top: calc(100% + 6px);
   left: 0;
   z-index: 400;
-  width: 280px;
+  width: 320px;
   background: var(--bg-elev-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
@@ -469,8 +469,155 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 320px;
+  max-height: min(60vh, 560px);
   overflow-y: auto;
+}
+
+/* per-pane save picker (choose exactly which chats/panes to keep) */
+.sessions-picker {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.sessions-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+}
+.sessions-picker-head b {
+  color: var(--text);
+}
+.sessions-picker-acts {
+  display: flex;
+  gap: 8px;
+}
+.sessions-picker-acts button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  padding: 0;
+}
+.sessions-picker-list {
+  max-height: 140px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-faint);
+}
+.sessions-pick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.sessions-pick:hover {
+  background: var(--bg-elev-3);
+}
+.sessions-pick input {
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+.sessions-pick-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sessions-pick-tag {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--bg-elev-2);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+/* search + sort toolbar */
+.sessions-tools {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.sessions-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-faint);
+}
+.sessions-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-xs);
+  padding: 5px 0;
+}
+.sessions-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.sessions-sort:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* pin/star toggle on each row */
+.session-pin {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  opacity: 0;
+}
+.session-row:hover .session-pin,
+.session-pin.on {
+  opacity: 1;
+}
+.session-pin.on {
+  color: var(--accent);
+}
+.session-pin.on svg {
+  fill: var(--accent);
+}
+
+/* a chat whose Claude transcript was cleared — dimmed but still clickable */
+.session-row.missing .session-name {
+  color: var(--text-dim);
+}
+.session-row.missing .session-info {
+  opacity: 0.7;
+}
+
+/* count badge in a section header */
+.sessions-section-count {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text-faint);
 }
 .sessions-empty {
   color: var(--text-faint);
@@ -531,6 +678,8 @@
 .sessions-menu-float {
   position: fixed;
   z-index: 600;
+  max-height: 92vh;
+  overflow-y: auto;
   animation: dd-menu-in 0.15s cubic-bezier(0.2, 0.7, 0.3, 1) both;
   transform-origin: top left;
 }
