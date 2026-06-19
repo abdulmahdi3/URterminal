@@ -70,6 +70,8 @@ const api = {
   relaunchApp: (): Promise<void> => ipcRenderer.invoke(IPC.appRelaunch),
   notify: (title: string, body: string): Promise<void> =>
     ipcRenderer.invoke(IPC.appNotify, title, body),
+  /** Main asks the renderer to repaint (after the OS resumes / GPU recovers). */
+  onRepaint: (cb: () => void): (() => void) => on<void>('window:repaint', cb),
 
   // ---- settings ----
   getSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke(IPC.settingsGet),

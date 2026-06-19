@@ -29,6 +29,11 @@ export interface SavedSession {
   auto?: boolean
   /** user-pinned: floats to the top and is exempt from auto-prune */
   pinned?: boolean
+  /** total captured transcript size in bytes (sum of per-pane scrollback) — shown
+   *  as the "scrollback" size in the sessions browser; absent on pre-0.13 saves */
+  bytes?: number
+  /** epoch ms this session was last restored (drives the "Recently restored" filter) */
+  restoredAt?: number
 }
 
 /** How long auto-saved snapshots are kept in the session list before pruning. */
@@ -49,7 +54,13 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   const out: Record<string, Pane> = {}
   for (const [id, p] of Object.entries(panes)) {
     const clone: Pane = { ...p }
-    if (clone.shell) clone.shell = { shell: clone.shell.shell, args: clone.shell.args }
+    // Keep everything that defines a shell pane (its SSH target, working dir and
+    // startup command) so a restored SSH session reconnects instead of opening a
+    // plain local shell — only the runtime ptyId must be dropped.
+    if (clone.shell) {
+      const { ptyId: _ptyId, ...shell } = clone.shell
+      clone.shell = shell
+    }
     // keep sessionId (so the chat resumes) + sshTarget (so SSH panes free their
     // remote resources on close) — dropping the runtime ptyId is the only goal here
     if (clone.agent)
@@ -203,23 +214,21 @@ async function existingClaudeSessions(paneMaps: Record<string, Pane>[]): Promise
 }
 
 /**
- * Restore a NAMED session into the live workspace: tear down the current panes'
- * terminals, seed each restored pane with its chat replay (or agent-resume
- * args), then hydrate. Panes get fresh ids (remap) so they can't collide with
- * anything still running, and each replayed pane's main-process transcript log
- * is primed so subsequent auto-saves keep the restored history.
+ * Restore a NAMED session into a NEW workspace tab: the current workspace and
+ * its running panes are left untouched. Each restored pane is seeded with its
+ * chat replay (or agent-resume args), gets a fresh id (remap) so it can't
+ * collide with anything still running, and has its main-process transcript log
+ * primed so subsequent auto-saves keep the restored history.
  */
 export async function applyRestore(
   panes: Record<string, Pane>,
   layout: MosaicNode<string> | null,
-  transcripts: Record<string, string>
+  transcripts: Record<string, string>,
+  name?: string
 ): Promise<void> {
   const remapped = remapIds(sanitize(panes), layout, transcripts)
-  // Resolve which pinned chats still exist BEFORE disposing anything.
+  // Resolve which pinned chats still exist BEFORE mounting anything.
   const existing = await existingClaudeSessions([remapped.panes])
-
-  // Kill the outgoing workspace's terminals so they don't leak/keep running.
-  for (const id of Object.keys(useWorkspace.getState().panes)) disposeTerminal(id)
 
   for (const [id, pane] of Object.entries(remapped.panes)) {
     const resumeArgs = restoreArgsFor(pane, existing)
@@ -233,6 +242,14 @@ export async function applyRestore(
       void window.api.transcriptPrime(id, remapped.transcripts[id])
     }
   }
+
+  // Open the restored panes in a fresh workspace tab (add() snapshots the
+  // current workspace and switches to a new empty one), then hydrate — so the
+  // current workspace's panes keep running and nothing is torn down.
+  const wsStore = useWorkspaces.getState()
+  wsStore.add()
+  const newId = useWorkspaces.getState().activeId
+  if (name) wsStore.rename(newId, name)
   useWorkspace.getState().hydrate(remapped.panes, remapped.layout)
 }
 
@@ -356,10 +373,15 @@ export const useSessions = create<SessionsState>((set, get) => ({
       layout: keepLayout
     }
     // Persist the complete chat history (per-pane) to its own file — async so a
-    // large transcript read never blocks the save click.
-    void captureTranscripts(keep).then((transcripts) =>
+    // large transcript read never blocks the save click. Once captured, record the
+    // total size on the entry so the browser can show each session's scrollback.
+    void captureTranscripts(keep).then((transcripts) => {
       window.api.writeSessionData(id, { transcripts })
-    )
+      const bytes = Object.values(transcripts).reduce((n, t) => n + t.length, 0)
+      const sessions = get().sessions.map((s) => (s.id === id ? { ...s, bytes } : s))
+      persist(sessions)
+      set({ sessions })
+    })
     const sessions = [session, ...get().sessions]
     persist(sessions)
     set({ sessions })
@@ -369,7 +391,11 @@ export const useSessions = create<SessionsState>((set, get) => ({
     const session = get().sessions.find((s) => s.id === id)
     if (!session) return undefined
     const data = await window.api.readSessionData(id)
-    await applyRestore(session.panes, session.layout ?? null, data?.transcripts ?? {})
+    await applyRestore(session.panes, session.layout ?? null, data?.transcripts ?? {}, session.name)
+    // Stamp the restore time so the browser's "Recently restored" filter surfaces it.
+    const sessions = get().sessions.map((s) => (s.id === id ? { ...s, restoredAt: Date.now() } : s))
+    persist(sessions)
+    set({ sessions })
     return session
   },
 
@@ -619,7 +645,8 @@ async function bootstrapSessions(): Promise<void> {
           paneCount: Object.keys(lastPanes).length,
           panes: lastPanes,
           layout: lastLayout,
-          auto: true
+          auto: true,
+          bytes: Object.values(transcripts).reduce((n, t) => n + t.length, 0)
         },
         ...list
       ]

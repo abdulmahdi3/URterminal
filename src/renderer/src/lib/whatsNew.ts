@@ -76,6 +76,7 @@ export type WhatsNewDemo =
   | 'panenotes'
   | 'sshmanager'
   | 'sessions'
+  | 'sessionsbrowser'
 
 /** One screen of the tour. */
 export interface WhatsNewStep {
@@ -105,6 +106,48 @@ export interface ReleaseNotes {
  * matter for lookup, only for `latestNotes`).
  */
 export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
+  '0.13.0': {
+    version: '0.13.0',
+    headline: 'A redesigned Sessions browser — facets, thumbnails, keyboard-first',
+    kind: 'mixed',
+    steps: [
+      {
+        kind: 'feature',
+        title: 'Browse every session in a full view',
+        demo: 'sessionsbrowser',
+        body:
+          'The Sessions button now opens a full-screen browser instead of a small menu. Filter down the left ' +
+          'side by Browse (All / Pinned / Recently restored / Chats), When (Today / Earlier) and Composition ' +
+          '(With Claude / shell / SSH) — each with a live count. Every row shows a real thumbnail of its pane ' +
+          'layout, colored dots for what it holds, its scrollback size and when it was saved. Search across ' +
+          'sessions and chats, and sort by Recent, Name or Size.'
+      },
+      {
+        kind: 'feature',
+        title: 'Pick the panes to keep — and fly by keyboard',
+        body:
+          'The Save card lists your open panes as toggle chips: keep the chats that matter, drop the throwaway ' +
+          'shell, then name and save. The whole browser is keyboard-first — ↑/↓ to move, Enter to restore (or ' +
+          'resume a chat), ⌫ to delete, P to pin, S to jump to the name box, Esc to close.'
+      },
+      {
+        kind: 'fix',
+        title: 'Restored prompts keep their place',
+        body:
+          'When you restore a saved session or reopen a chat, the prompt minimap’s ticks now line up with the ' +
+          'replayed scrollback again — so the “which prompt am I near” highlight and click-to-jump land on the ' +
+          'right spot instead of every restored prompt sitting at the top.'
+      },
+      {
+        kind: 'fix',
+        title: 'No more black screen after sleep or alt-tab',
+        body:
+          'Terminals now repaint when you return to the window or your machine wakes from sleep, fixing a blank ' +
+          'or black pane that could appear after the terminal’s backing surface was dropped.'
+      }
+    ]
+  },
+
   '0.12.0': {
     version: '0.12.0',
     headline: 'Sessions you can actually find — and save just what matters',

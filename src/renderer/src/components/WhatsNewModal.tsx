@@ -918,6 +918,48 @@ function WhatsNewDemoView({ kind }: { kind: WhatsNewDemo }): JSX.Element {
       </div>
     )
   }
+  if (kind === 'sessionsbrowser') {
+    // A mini Sessions browser: a faceted left rail + session rows whose colored
+    // pane-layout thumbnails stagger in; the active facet and a pinned star glow.
+    const rows = [
+      { name: 'build + 2 agents', cells: ['c', 's', 'c'], meta: '1.2 MB', pin: true },
+      { name: 'dashboard + diff', cells: ['c', 'c'], meta: '240 KB', pin: false },
+      { name: 'ssh · log tail', cells: ['h', 's'], meta: '680 KB', pin: false }
+    ]
+    return (
+      <div className="wn-demo wn-demo-sesb">
+        <div className="wn-sesb-side">
+          <span className="wn-sesb-nav active" />
+          <span className="wn-sesb-nav" />
+          <span className="wn-sesb-nav" />
+          <span className="wn-sesb-nav" />
+        </div>
+        <div className="wn-sesb-main">
+          <div className="wn-sesb-search">
+            <Search size={10} /> <span>search sessions &amp; chats…</span>
+          </div>
+          <div className="wn-sesb-rows">
+            {rows.map((r, i) => (
+              <div
+                className="wn-sesb-row"
+                key={i}
+                style={{ ['--d' as string]: `${80 + i * 130}ms` }}
+              >
+                <span className="wn-sesb-thumb">
+                  {r.cells.map((c, j) => (
+                    <span key={j} className={'wn-sesb-cell k-' + c} />
+                  ))}
+                </span>
+                <span className="wn-sesb-name">{r.name}</span>
+                {r.pin && <Star size={9} className="wn-sesb-star" />}
+                <span className="wn-sesb-meta">{r.meta}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
   // 'tour' — a floating rocket with pulsing sparkles
   return (
     <div className="wn-demo wn-demo-tour">

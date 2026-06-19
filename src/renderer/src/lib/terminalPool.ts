@@ -359,14 +359,24 @@ const INPUT_ESC = new RegExp(
 const PASTE_START = '[200~'
 const PASTE_END = '[201~'
 
-/** One submitted prompt: its text plus a live xterm marker (absent for prompts
- *  seeded from a restored/resumed chat — those jump by text search instead). */
+/** One submitted prompt: its text plus a live xterm marker. Prompts seeded from a
+ *  restored/resumed chat start with neither marker nor line; they are located in
+ *  the replayed buffer on demand (see resolveRestoredPrompts) so their minimap
+ *  tick syncs to the terminal's actual lines instead of sitting at line -1. */
 interface PromptRec {
   text: string
   marker?: IMarker
+  /** buffer line a restored prompt was last located at (fallback when no marker) */
+  cachedLine?: number
+  /** restored prompt already located (or confirmed absent); re-armed when the
+   *  buffer grows so newly-replayed lines get another chance to match */
+  noLocate?: boolean
 }
 // Per-pane prompt records (drives the session summary + the prompt minimap).
 const promptHistory = new Map<string, PromptRec[]>()
+// Buffer length at which a pane's restored prompts were last resolved to lines —
+// when the buffer grows we re-attempt to place any still-unlocated prompts.
+const promptResolveLen = new Map<string, number>()
 // Pane → pinned agent session id, so submitted prompts persist under the chat
 // and reappear as minimap ticks when that chat is restored or resumed.
 const paneSessionId = new Map<string, string>()
@@ -507,13 +517,13 @@ export interface PaneMatch {
  * Scan a pane's whole buffer (scrollback included) for `query`, case-insensitive.
  * Returns up to `max` matching lines — used by the workspace-wide search panel.
  */
-export function findMatchesInPane(paneId: string, query: string, max = 40): PaneMatch[] {
+export function findMatchesInPane(paneId: string, query: string, max = 40, from = 0): PaneMatch[] {
   const entry = pool.get(paneId)
   if (!entry || !query) return []
   const needle = query.toLowerCase()
   const buf = entry.term.buffer.active
   const out: PaneMatch[] = []
-  for (let i = 0; i < buf.length && out.length < max; i++) {
+  for (let i = Math.max(0, from); i < buf.length && out.length < max; i++) {
     const line = buf.getLine(i)
     if (!line) continue
     const text = line.translateToString(true)
@@ -943,6 +953,14 @@ export function repaintTerminal(paneId: string): void {
 }
 
 /**
+ * Repaint every live terminal — used when the window becomes visible again or
+ * the OS resumes from sleep, where xterm can otherwise show a blank viewport.
+ */
+export function repaintAllTerminals(): void {
+  for (const id of pool.keys()) repaintTerminal(id)
+}
+
+/**
  * Note a user wheel gesture inside a pane. An upward scroll is an explicit
  * "stop following the tail", so we detach immediately. We can't rely on the
  * onScroll viewport-delta alone: while an agent streams, the per-write re-pin
@@ -1106,18 +1124,79 @@ export interface PromptMark {
 }
 
 /**
+ * Sync restored prompts to the terminal's actual lines. A prompt seeded from a
+ * saved/resumed chat has no live marker, so it would report line -1 and the
+ * minimap couldn't tell which one is in view. Here we locate each such prompt's
+ * text in the replayed scrollback (in order, so duplicates don't all collapse to
+ * the first hit) and attach a tracking xterm marker — keeping its tick aligned as
+ * the buffer scrolls and trims. Re-armed whenever the buffer grows so lines that
+ * replay later still get placed. Cheap: each prompt is searched at most once per
+ * buffer-growth, and already-marked (live) prompts are skipped.
+ */
+function resolveRestoredPrompts(paneId: string): void {
+  const entry = pool.get(paneId)
+  if (!entry) return
+  const recs = promptHistory.get(paneId)
+  if (!recs?.length) return
+  const buf = entry.term.buffer.active
+  if (buf.length === 0) return
+
+  const len = buf.length
+  if (promptResolveLen.get(paneId) !== len) {
+    for (const r of recs) if (!r.marker) r.noLocate = false
+    promptResolveLen.set(paneId, len)
+  }
+
+  const cursorAbs = buf.baseY + buf.cursorY
+  let from = 0
+  for (const r of recs) {
+    if (r.marker && r.marker.line >= 0) {
+      from = r.marker.line + 1
+      continue
+    }
+    if (r.noLocate) {
+      if (r.cachedLine != null) from = r.cachedLine + 1
+      continue
+    }
+    const needle = r.text.replace(/\s+/g, ' ').trim().slice(0, 24)
+    if (!needle) {
+      r.noLocate = true
+      continue
+    }
+    const hit = findMatchesInPane(paneId, needle, 1, from)[0]
+    if (!hit) {
+      r.noLocate = true
+      continue
+    }
+    r.cachedLine = hit.line
+    try {
+      // Markers track scroll/trim; a far-above-cursor offset is fine. Falls back
+      // to the cached line if the buffer isn't ready to register one.
+      const marker = entry.term.registerMarker(hit.line - cursorAbs)
+      if (marker && marker.line >= 0) r.marker = marker
+    } catch {
+      /* keep the cached line */
+    }
+    r.noLocate = true
+    from = hit.line + 1
+  }
+}
+
+/**
  * Snapshot of a pane's prompts plus the current viewport/buffer extent —
  * everything the prompt minimap needs to draw ticks and highlight the one in
- * view. Includes restored prompts (line -1). Returns null if not mounted.
+ * view. Restored prompts are first synced to their real buffer lines; any still
+ * unlocated report line -1 (jumped to by text search instead). Null if unmounted.
  */
 export function getPromptMap(
   paneId: string
 ): { marks: PromptMark[]; viewportY: number; length: number; rows: number } | null {
   const entry = pool.get(paneId)
   if (!entry) return null
+  resolveRestoredPrompts(paneId)
   const buf = entry.term.buffer.active
   const marks = (promptHistory.get(paneId) ?? []).map((r) => ({
-    line: r.marker?.line ?? -1,
+    line: r.marker?.line ?? r.cachedLine ?? -1,
     text: r.text
   }))
   return { marks, viewportY: buf.viewportY, length: buf.length, rows: entry.term.rows }
@@ -1169,6 +1248,7 @@ export function disposeTerminal(paneId: string): void {
   pool.delete(paneId)
   inputLines.delete(paneId)
   promptHistory.delete(paneId)
+  promptResolveLen.delete(paneId)
   paneSessionId.delete(paneId)
   pendingPrompts.delete(paneId)
   pasting.delete(paneId)

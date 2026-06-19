@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, powerMonitor } from 'electron'
 import { join } from 'path'
 import { IPC } from '@shared/types'
 import { registerIpc, type IpcContext } from './ipc'
@@ -15,6 +15,36 @@ let ipc: IpcContext | null = null
 /** The window IPC/dialogs/updater should target: the focused one, else any. */
 function getFocusedWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
+}
+
+/**
+ * Recover from the two ways a window goes black:
+ *  1. the renderer process dying (a crash, or OOM after a long multi-pane
+ *     session) — Chromium leaves the window painted black with no recovery, so
+ *     we reload it (budgeted, to avoid a reload storm if it dies on load);
+ *  2. the renderer hanging — logged so a recurrence is diagnosable.
+ * GPU-surface loss (the other black-screen cause, common after sleep) is handled
+ * separately on `powerMonitor` resume + `child-process-gone`.
+ */
+function attachCrashRecovery(win: BrowserWindow): void {
+  const wc = win.webContents
+  let reloads = 0
+  wc.on('render-process-gone', (_e, details) => {
+    console.error('[recover] renderer gone:', details.reason, details.exitCode)
+    if (win.isDestroyed()) return
+    if (reloads < 3) {
+      reloads += 1
+      setTimeout(() => {
+        if (!win.isDestroyed()) wc.reload()
+      }, 400)
+    }
+  })
+  // A clean load means the renderer is healthy again — refill the reload budget.
+  wc.on('did-finish-load', () => {
+    reloads = 0
+  })
+  wc.on('unresponsive', () => console.warn('[recover] renderer unresponsive'))
+  wc.on('responsive', () => console.warn('[recover] renderer responsive again'))
 }
 
 function createWindow(opts: { secondary?: boolean } = {}): BrowserWindow {
@@ -59,6 +89,8 @@ function createWindow(opts: { secondary?: boolean } = {}): BrowserWindow {
   win.once('ready-to-show', reveal)
   win.webContents.once('did-finish-load', reveal)
   setTimeout(reveal, 3000)
+
+  attachCrashRecovery(win)
 
   // Tell the renderer when the OS maximize state flips so the title-bar
   // maximize/restore button can stay in sync.
@@ -134,6 +166,12 @@ function setupJumpList(): void {
 // shares the generic "Electron" data dir with other unpackaged Electron apps.
 app.setName('URterminal')
 
+// After a few GPU-process crashes Chromium gives up and disables the GPU for the
+// rest of the run, which can leave the window stuck on a black frame. Keep it
+// recreating the GPU process instead (paired with the resume/crash repaint
+// handlers below). Must be set before the app is ready.
+app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
+
 // Single-instance lock — only in the packaged app. Launching the .exe again
 // focuses the existing window instead of opening a duplicate. Skipped in dev
 // because electron-vite spawns a fresh Electron on every hot-restart.
@@ -160,6 +198,27 @@ app.whenReady().then(() => {
   ipcMain.on(IPC.windowOpenNew, () => createWindow({ secondary: true }))
   createWindow()
   initAutoUpdate(getFocusedWindow)
+
+  // After the machine wakes from sleep/hibernate the GPU surface can come back
+  // blank (Chromium keeps the last black frame). Force every window to repaint
+  // and tell the renderer to repaint its terminals, which can render blank once
+  // their backing surface is recreated.
+  const repaintAll = (): void => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (w.isDestroyed()) continue
+      w.webContents.invalidate()
+      w.webContents.send('window:repaint')
+    }
+  }
+  powerMonitor.on('resume', repaintAll)
+  // If the GPU process itself crashes, Chromium spins up a new one — nudge a
+  // full repaint so the window doesn't stay stuck on the dead surface.
+  app.on('child-process-gone', (_e, details) => {
+    if (details.type === 'GPU') {
+      console.error('[recover] GPU process gone:', details.reason)
+      repaintAll()
+    }
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

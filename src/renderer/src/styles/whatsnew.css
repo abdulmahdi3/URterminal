@@ -3424,3 +3424,123 @@
     opacity: 0.72;
   }
 }
+
+/* sessions browser demo (0.13.0) — faceted rail + rows with layout thumbnails */
+.wn-demo-sesb {
+  display: flex;
+  gap: 10px;
+  padding: 11px;
+}
+.wn-sesb-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 50px;
+  padding-right: 10px;
+  border-right: 1px solid var(--border);
+}
+.wn-sesb-nav {
+  height: 13px;
+  border-radius: 4px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-faint);
+}
+.wn-sesb-nav.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.wn-sesb-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.wn-sesb-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 10px;
+}
+.wn-sesb-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wn-sesb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-faint);
+  opacity: 0;
+  transform: translateX(-6px);
+  animation: wn-sshm-in 0.4s ease forwards;
+  animation-delay: var(--d, 0ms);
+}
+.wn-sesb-thumb {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 1.5px;
+  width: 22px;
+  height: 16px;
+  padding: 1.5px;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+}
+.wn-sesb-cell {
+  flex: 1;
+  border-radius: 1.5px;
+  background: var(--border-strong);
+}
+.wn-sesb-cell.k-c {
+  background: #c9a25c;
+}
+.wn-sesb-cell.k-s {
+  background: #79b389;
+}
+.wn-sesb-cell.k-h {
+  background: #5ba29b;
+}
+.wn-sesb-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wn-sesb-star {
+  flex: none;
+  color: var(--accent);
+  fill: var(--accent);
+  animation: wn-se-pin 2.6s ease-in-out infinite;
+}
+.wn-sesb-meta {
+  flex: none;
+  font-size: 9px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wn-sesb-row,
+  .wn-sesb-star {
+    animation: none;
+  }
+  .wn-sesb-row {
+    opacity: 1;
+    transform: none;
+  }
+}

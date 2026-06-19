@@ -59,6 +59,7 @@ import { useAgentDoctor } from './hooks/useAgentDoctor'
 import { useNotificationFeed } from './hooks/useNotificationFeed'
 import { useStreamData } from './hooks/useStreamData'
 import { useOpenRouterStream } from './hooks/useOpenRouterStream'
+import { repaintAllTerminals } from './lib/terminalPool'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
 import { primeOsInfo } from './lib/osInfo'
@@ -97,6 +98,23 @@ export default function App(): JSX.Element {
     }
     if (cls) document.body.classList.add(cls)
   }, [appTheme])
+
+  // Repaint terminals when the window becomes visible again or the OS resumes
+  // from sleep — xterm can otherwise show a blank viewport after its backing
+  // surface is recreated, which reads as a "black screen".
+  useEffect(() => {
+    const repaint = (): void => {
+      if (!document.hidden) repaintAllTerminals()
+    }
+    document.addEventListener('visibilitychange', repaint)
+    window.addEventListener('focus', repaint)
+    const offRepaint = window.api.onRepaint(repaint)
+    return () => {
+      document.removeEventListener('visibilitychange', repaint)
+      window.removeEventListener('focus', repaint)
+      offRepaint()
+    }
+  }, [])
 
   useEffect(() => {
     // Expose zoom control so the main process can zoom a pane for screenshots

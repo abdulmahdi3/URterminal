@@ -23,7 +23,12 @@ function sanitize(panes: Record<string, Pane>): Record<string, Pane> {
   const out: Record<string, Pane> = {}
   for (const [id, p] of Object.entries(panes)) {
     const clone: Pane = { ...p } // keeps pipeTargets, telegramChatId, notes, etc.
-    if (clone.shell) clone.shell = { shell: clone.shell.shell, args: clone.shell.args }
+    // Keep the SSH target, working dir and startup command so a restored SSH pane
+    // reconnects instead of opening a plain local shell — drop only runtime ptyId.
+    if (clone.shell) {
+      const { ptyId: _ptyId, ...shell } = clone.shell
+      clone.shell = shell
+    }
     // keep the pinned sessionId (chat resume) + sshTarget; only the runtime ptyId is dropped
     if (clone.agent)
       clone.agent = {

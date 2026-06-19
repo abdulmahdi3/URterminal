@@ -2,8 +2,21 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
 import type { MosaicNode } from 'react-mosaic-component'
+import { createDragDropManager } from 'dnd-core'
+import { MultiBackend } from 'react-dnd-multi-backend'
+import { HTML5toTouch } from 'rdndmb-html5-to-touch'
 import { getLeaves, moveLeafToEdge, pruneLayout, type DropEdge } from '@renderer/lib/mosaicTree'
 import { confirmPaneClose } from '@renderer/lib/paneClose'
+
+// react-mosaic's <Mosaic> builds its OWN <DndProvider backend={MultiBackend}>
+// on every mount. Toggling zoom unmounts/remounts the Mosaic, and react-dnd
+// schedules each backend's setup()/teardown() asynchronously — so the remounted
+// Mosaic's backend.setup() can run before the previous one has torn down,
+// hitting react-dnd's "Cannot have two MultiBackends at the same time" guard
+// (it flags a global on setup) and blanking the whole app. Handing every mount
+// this one shared manager means there is only ever a single backend instance,
+// so that guard can never trip across zoom toggles.
+const dndManager = createDragDropManager(MultiBackend, undefined, HTML5toTouch)
 
 /** Minimum percentage either side of a split may occupy (prevents tiny panes). */
 const MIN_SPLIT_PCT = 20
@@ -757,6 +770,9 @@ export default function Workspace(): JSX.Element {
   return (
     <Mosaic<string>
       className="mosaic-urterminal"
+      // Shared manager — see dndManager above; prevents the "two MultiBackends"
+      // crash when zoom toggling remounts the Mosaic.
+      dragAndDropManager={dndManager}
       value={layout}
       onChange={(node: MosaicNode<string> | null) => setLayout(clampSplits(node))}
       renderTile={(id, path) => (

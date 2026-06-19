@@ -92,6 +92,13 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
   // down before the error ever rendered — the "connecting then the pane just
   // vanishes" bug. On failure we keep the pane open so the user can read why.
   let failed = false
+  // Distinguish a deliberate end (you typed `exit`, the remote shell reported an
+  // exit status) from a dropped link (network change, or the laptop slept and
+  // the TCP socket died). Only a deliberate end closes the pane; a drop keeps it
+  // open with a notice — otherwise a hibernate makes the pane just vanish on
+  // resume with nothing telling you it disconnected.
+  let cleanExit = false
+  let exitCode = 0
 
   const emitData = (d: string): void => dataCbs.forEach((cb) => cb(d))
   const emitExit = (code: number): void => {
@@ -106,6 +113,24 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
     failed = true
     emitData(`\r\n\x1b[31m${msg}\x1b[0m\r\n`)
     if (hint) emitData(`\x1b[90m${hint}\x1b[0m\r\n`)
+  }
+  // A dropped connection (not a deliberate `exit`): say so in yellow and leave
+  // the pane open. Reuses `failed` so any trailing close events don't reprint or
+  // emit an exit; nulls `stream` so post-drop keystrokes harmlessly buffer.
+  const disconnectNotice = (): void => {
+    if (failed || exited) return
+    failed = true
+    stream = null
+    emitData(`\r\n\x1b[33mDisconnected from ${opts.host}.\x1b[0m\r\n`)
+    emitData(
+      '\x1b[90mThe connection dropped — likely a network change or the computer went to sleep. This pane was left open; reconnect from the SSH manager.\x1b[0m\r\n'
+    )
+  }
+  // Decide a session's fate when its channel/connection closes: a clean shell
+  // exit tears the pane down (as before); anything else is treated as a drop.
+  const endSession = (): void => {
+    if (cleanExit) emitExit(exitCode)
+    else disconnectNotice()
   }
 
   // Servers that drive auth through keyboard-interactive (common for password
@@ -127,13 +152,20 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
       pending.length = 0
       s.on('data', (d: Buffer) => emitData(d.toString('utf8')))
       s.stderr?.on('data', (d: Buffer) => emitData(d.toString('utf8')))
+      // The remote shell ended on its own terms (you typed `exit`, ran out of
+      // input, etc.) and reports a status — mark it so the close below closes
+      // the pane instead of treating it as a drop.
+      s.on('exit', (code: number | null) => {
+        cleanExit = true
+        exitCode = typeof code === 'number' ? code : 0
+      })
       s.on('close', () => {
         try {
           conn.end()
         } catch {
           /* noop */
         }
-        emitExit(0)
+        endSession()
       })
     })
   })
@@ -143,10 +175,11 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
       'Check the address (use user@host — a bare host defaults to your local username), the password, and that the server is reachable.'
     )
   )
-  // A close that isn't the tail of a failure (remote shell ended / user
-  // disconnected) closes the pane as usual; after a failure we leave it open.
+  // A close that isn't the tail of a failure: a deliberate `exit` closes the
+  // pane as usual; a dropped link (hibernate / network loss) keeps it open with
+  // a notice instead of vanishing.
   conn.on('close', () => {
-    if (!failed) emitExit(0)
+    if (!failed) endSession()
   })
 
   // Load the private key (if configured). A read failure isn't fatal — ssh2 can
@@ -192,6 +225,9 @@ export function createSshPty(opts: SshConnectOpts): PtyLike {
       }
     },
     kill: () => {
+      // The pane is being torn down on purpose — treat the close conn.end()
+      // triggers as a clean exit, not a drop.
+      cleanExit = true
       try {
         conn.end()
       } catch {

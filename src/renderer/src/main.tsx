@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import ErrorBoundary from './components/ErrorBoundary'
 import { useWorkspace } from './store/workspace'
 import { useUi } from './store/ui'
 import '@fontsource/inter/400.css'
@@ -15,6 +16,7 @@ import './styles/workspace.css'
 import './styles/sidebar.css'
 import './styles/statusbar.css'
 import './styles/palette.css'
+import './styles/sessions.css'
 import './styles/settings.css'
 import './styles/notes.css'
 import './styles/whatsnew.css'
@@ -34,6 +36,8 @@ dbg.__ui = useUi
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )
