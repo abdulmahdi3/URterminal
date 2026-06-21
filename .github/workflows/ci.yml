@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: this workflow only reads the checked-out code.
+permissions:
+  contents: read
+
 jobs:
   check:
     # Windows-first app: node-pty ships Windows prebuilts and the smoke harness

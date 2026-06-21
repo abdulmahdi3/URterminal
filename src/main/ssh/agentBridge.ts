@@ -135,6 +135,7 @@ export class SshAgentBridge {
         })
         .catch((e: Error) => {
           res.statusCode = 502
+          res.setHeader('content-type', 'text/plain; charset=utf-8')
           res.end(`urssh error: ${e.message}`)
         })
     })

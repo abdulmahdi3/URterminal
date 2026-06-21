@@ -26,6 +26,16 @@ const OAUTH_REDIRECT_URI = `http://localhost:${OAUTH_PORT}/callback`
 const OAUTH_SCOPE = 'tasks:write tasks:read'
 const API_BASE = 'https://api.ticktick.com/open/v1'
 
+/** Escape a string for safe interpolation into HTML text/attribute content. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export class TickTickError extends Error {
   constructor(message: string, readonly status?: number) {
     super(message)
@@ -101,7 +111,11 @@ export class TickTickClient {
           `<!doctype html><html><body style="font-family:sans-serif;padding:40px;text-align:center">${body}</body></html>`
         if (err) {
           res.setHeader('content-type', 'text/html')
-          res.end(html(`<h2>TickTick authorization failed</h2><p>${err}</p><p>You can close this tab.</p>`))
+          res.end(
+            html(
+              `<h2>TickTick authorization failed</h2><p>${escapeHtml(err)}</p><p>You can close this tab.</p>`
+            )
+          )
           server.close()
           reject(new TickTickError(`TickTick rejected: ${err}`))
           return

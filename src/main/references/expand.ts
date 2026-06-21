@@ -25,6 +25,38 @@ function cap(s: string, label: string): string {
   return s.length > MAX_BYTES ? s.slice(0, MAX_BYTES) + `\n…[${label} truncated]` : s
 }
 
+const ENTITIES: Record<string, string> = {
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  '#39': "'"
+}
+
+/** Best-effort HTML → plain text (not a sanitizer; output is never rendered). */
+function htmlToText(html: string): string {
+  // Drop script/style blocks with a matcher tolerant of attributes and of
+  // whitespace inside the closing tag (a lazy `.*?</script>` is bypassable).
+  let s = html
+    .replace(/<script\b[^<]*(?:(?!<\/script\s*>)<[^<]*)*<\/script\s*>/gi, ' ')
+    .replace(/<style\b[^<]*(?:(?!<\/style\s*>)<[^<]*)*<\/style\s*>/gi, ' ')
+  // Strip remaining tags, repeating until stable so overlapping leftovers
+  // like "<scr<b>ipt>" can't reconstruct a tag after a single pass.
+  let prev: string
+  do {
+    prev = s
+    s = s.replace(/<[^>]*>/g, ' ')
+  } while (s !== prev)
+  // Decode a handful of entities in ONE pass, so "&amp;lt;" stays "&lt;"
+  // rather than being double-unescaped into "<".
+  s = s.replace(/&(nbsp|amp|lt|gt|quot|#39);/g, (_, e: string) => ENTITIES[e])
+  return s
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n\s*\n+/g, '\n\n')
+    .trim()
+}
+
 function runGit(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
@@ -72,19 +104,10 @@ async function expandUrl(url: string): Promise<ExpandResult> {
   } catch (e) {
     return { ok: false, error: `Fetch failed: ${(e as Error).message}` }
   }
-  // Crude HTML → text: drop script/style, strip tags, collapse whitespace.
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n\s*\n\s*\n+/g, '\n\n')
-    .trim()
-  return { ok: true, content: `Content of ${url}:\n\n${cap(text, 'page')}` }
+  // Crude HTML → text. The result is dropped into a prompt as plain text,
+  // never rendered as HTML, but we still strip robustly so malformed markup
+  // can't slip tags through.
+  return { ok: true, content: `Content of ${url}:\n\n${cap(htmlToText(html), 'page')}` }
 }
 
 export async function expandReference(ref: string, cwd: string): Promise<ExpandResult> {
