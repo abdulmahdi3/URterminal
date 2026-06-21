@@ -31,7 +31,7 @@
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.3",
     "grammy": "^1.30.0",
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^1.21.0",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
