@@ -1,0 +1,30 @@
+# Dependabot version updates — https://docs.github.com/code-security/dependabot
+# Security updates are enabled separately and always run; this file controls the
+# routine "keep dependencies current" PRs.
+version: 2
+updates:
+  # ---- npm (the app) ----
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    # Batch routine minor/patch bumps into a few PRs instead of one per package.
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # electron is pinned at 29 — node-pty has no win32 prebuild above ~29.
+      - dependency-name: "electron"
+        update-types: ["version-update:semver-major"]
+      # vite is capped at 7.
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+
+  # ---- GitHub Actions (ci.yml / release.yml) ----
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
