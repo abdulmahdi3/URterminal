@@ -4,6 +4,9 @@ import type { SnippetItem } from '@shared/types'
 export const APP_THEMES = ['dark', 'light', 'amoled', 'ocean', 'forest', 'dusk', 'custom'] as const
 export type AppTheme = (typeof APP_THEMES)[number]
 
+/** Which scope the unified search palette opens on. */
+export type SearchScope = 'pane' | 'all' | 'history'
+
 interface UiState {
   showSettings: boolean
   showCommandPalette: boolean
@@ -19,8 +22,6 @@ interface UiState {
   showOpenRouter: boolean
   /** "run a command in all shells" prompt open */
   showRunCommand: boolean
-  /** cross-session search (search past conversations) overlay open */
-  showSessionSearch: boolean
   /** insert-context-reference (@diff/@url/@file) prompt open */
   showInsertReference: boolean
   /** MCP server config modal open */
@@ -44,8 +45,10 @@ interface UiState {
   zoomedPaneId: string | null
   /** panes currently being dragged onto a workspace tab (null = no drag in progress) */
   draggingPaneIds: string[] | null
-  /** scrollback search bar visible (operates on the active pane) */
+  /** unified search palette open (this pane / all panes / past conversations) */
   searchOpen: boolean
+  /** which scope the search palette is showing */
+  searchScope: SearchScope
   /** snippet awaiting {{variable}} values before insertion (null = none) */
   fillSnippet: SnippetItem | null
   /** save-as-template modal open for this pane id (null = closed) */
@@ -79,8 +82,6 @@ interface UiState {
   setShowAgentDoctor: (v: boolean) => void
   setShowOpenRouter: (v: boolean) => void
   setShowRunCommand: (v: boolean) => void
-  setShowSessionSearch: (v: boolean) => void
-  toggleSessionSearch: () => void
   setShowInsertReference: (v: boolean) => void
   setShowMcp: (v: boolean) => void
   setShowDelegate: (v: boolean) => void
@@ -94,6 +95,9 @@ interface UiState {
   setZoomedPaneId: (id: string | null) => void
   setDraggingPanes: (ids: string[] | null) => void
   setSearchOpen: (v: boolean) => void
+  /** open the search palette on a given scope (exclusive — closes other overlays) */
+  openSearch: (scope?: SearchScope) => void
+  setSearchScope: (s: SearchScope) => void
   setFillSnippet: (s: SnippetItem | null) => void
   setSavingTemplatePaneId: (id: string | null) => void
   setShowSshPrompt: (v: boolean) => void
@@ -118,7 +122,6 @@ const ALL_CLOSED = {
   showQuickSwitch: false,
   showAgentDoctor: false,
   showRunCommand: false,
-  showSessionSearch: false,
   showInsertReference: false,
   showMcp: false,
   showDelegate: false,
@@ -131,6 +134,7 @@ const ALL_CLOSED = {
   showSshPrompt: false,
   showNotes: false,
   showOpenRouter: false,
+  searchOpen: false,
   linkingPaneId: null as string | null
 }
 
@@ -144,7 +148,6 @@ export const useUi = create<UiState>((set, get) => ({
   showQuickSwitch: false,
   showAgentDoctor: false,
   showRunCommand: false,
-  showSessionSearch: false,
   showInsertReference: false,
   showMcp: false,
   showDelegate: false,
@@ -159,6 +162,7 @@ export const useUi = create<UiState>((set, get) => ({
   zoomedPaneId: null,
   draggingPaneIds: null,
   searchOpen: false,
+  searchScope: 'pane',
   fillSnippet: null,
   savingTemplatePaneId: null,
   showSshPrompt: false,
@@ -202,12 +206,6 @@ export const useUi = create<UiState>((set, get) => ({
     set(v ? { ...ALL_CLOSED, showOpenRouter: true } : { showOpenRouter: false }),
   setShowRunCommand: (v) =>
     set(v ? { ...ALL_CLOSED, showRunCommand: true } : { showRunCommand: false }),
-  setShowSessionSearch: (v) =>
-    set(v ? { ...ALL_CLOSED, showSessionSearch: true } : { showSessionSearch: false }),
-  toggleSessionSearch: () =>
-    set((s) =>
-      s.showSessionSearch ? { showSessionSearch: false } : { ...ALL_CLOSED, showSessionSearch: true }
-    ),
   setShowInsertReference: (v) =>
     set(v ? { ...ALL_CLOSED, showInsertReference: true } : { showInsertReference: false }),
   setShowMcp: (v) => set(v ? { ...ALL_CLOSED, showMcp: true } : { showMcp: false }),
@@ -224,6 +222,8 @@ export const useUi = create<UiState>((set, get) => ({
   setZoomedPaneId: (id) => set({ zoomedPaneId: id }),
   setDraggingPanes: (ids) => set({ draggingPaneIds: ids && ids.length ? ids : null }),
   setSearchOpen: (v) => set({ searchOpen: v }),
+  openSearch: (scope) => set({ ...ALL_CLOSED, searchOpen: true, searchScope: scope ?? 'pane' }),
+  setSearchScope: (s) => set({ searchScope: s }),
   setFillSnippet: (s) => set({ fillSnippet: s }),
   setSavingTemplatePaneId: (id) => set({ savingTemplatePaneId: id }),
   setShowSshPrompt: (v) => set(v ? { ...ALL_CLOSED, showSshPrompt: true } : { showSshPrompt: false }),
@@ -250,6 +250,7 @@ export const useUi = create<UiState>((set, get) => ({
       showSshPrompt: false,
       showNotes: false,
       showOpenRouter: false,
+      searchOpen: false,
       linkingPaneId: null
     })
 }))

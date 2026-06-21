@@ -239,7 +239,7 @@ export default function Sidebar(): JSX.Element {
   const setShowTasks = useUi((s) => s.setShowTasks)
   const setShowRooms = useUi((s) => s.setShowRooms)
   const setShowTimeline = useUi((s) => s.setShowTimeline)
-  const toggleSessionSearch = useUi((s) => s.toggleSessionSearch)
+  const openSearch = useUi((s) => s.openSearch)
   const toggleNotes = useUi((s) => s.toggleNotes)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
   const openSettings = useUi((s) => s.openSettings)
@@ -313,7 +313,7 @@ export default function Sidebar(): JSX.Element {
             <Row icon={<KanbanSquare size={18} />} label="Task board" onClick={() => setShowTasks(true)} />
             <Row icon={<DoorOpen size={18} />} label="Rooms" onClick={() => setShowRooms(true)} />
             <Row icon={<GitBranch size={18} />} label="Build timeline" onClick={() => setShowTimeline(true)} />
-            <Row icon={<History size={18} />} label="Search history" onClick={toggleSessionSearch} />
+            <Row icon={<History size={18} />} label="Search history" onClick={() => openSearch('history')} />
             <Row icon={<NotebookPen size={18} />} label="Notes" onClick={toggleNotes} />
           </div>
         </div>

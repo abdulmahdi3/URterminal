@@ -161,7 +161,7 @@ export function getCommands(): Command[] {
       title: 'Search past conversations…',
       group: 'Panes',
       shortcut: 'Ctrl+Shift+F',
-      run: () => ui().toggleSessionSearch()
+      run: () => ui().openSearch('history')
     },
     {
       id: 'nav.prevPrompt',
@@ -329,7 +329,7 @@ export function getCommands(): Command[] {
       title: 'Search scrollback in active pane',
       group: 'Panes',
       shortcut: 'Ctrl+F',
-      run: () => ui().setSearchOpen(true)
+      run: () => ui().openSearch('pane')
     },
     {
       id: 'pane.zoom',

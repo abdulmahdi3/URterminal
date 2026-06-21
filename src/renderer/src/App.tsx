@@ -18,7 +18,6 @@ import QuickSwitcher from './components/QuickSwitcher'
 import AgentDoctorModal from './components/AgentDoctorModal'
 import OpenRouterModal from './components/OpenRouterModal'
 import RunCommandModal from './components/RunCommandModal'
-import SessionSearchModal from './components/SessionSearchModal'
 import InsertReferenceModal from './components/InsertReferenceModal'
 import McpModal from './components/McpModal'
 import DelegateModal from './components/DelegateModal'
@@ -31,7 +30,7 @@ import BuildTimelineModal from './components/BuildTimelineModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
-import SearchBar from './components/SearchBar'
+import SearchPalette from './components/SearchPalette'
 import Toaster from './components/Toaster'
 import CopiedFlash from './components/CopiedFlash'
 import SelectionTranslate from './components/SelectionTranslate'
@@ -168,7 +167,6 @@ export default function App(): JSX.Element {
       <AgentDoctorModal />
       <OpenRouterModal />
       <RunCommandModal />
-      <SessionSearchModal />
       <InsertReferenceModal />
       <McpModal />
       <DelegateModal />
@@ -179,7 +177,7 @@ export default function App(): JSX.Element {
       <TaskBoardModal />
       <BuildTimelineModal />
       <WhatsNewModal />
-      <SearchBar />
+      <SearchPalette />
       <ShortcutsModal />
       <ConfirmDialog />
       <Toaster />

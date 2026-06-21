@@ -76,7 +76,6 @@ export function useHotkeys(): void {
           ui.showQuickSwitch ||
           ui.showAgentDoctor ||
           ui.showRunCommand ||
-          ui.showSessionSearch ||
           ui.showInsertReference ||
           ui.showMcp ||
           ui.showDelegate ||
