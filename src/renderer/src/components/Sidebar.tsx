@@ -3,10 +3,6 @@ import clsx from 'clsx'
 import {
   Plus,
   X,
-  Network,
-  KanbanSquare,
-  DoorOpen,
-  GitBranch,
   History,
   Settings,
   NotebookPen,
@@ -235,10 +231,6 @@ export default function Sidebar(): JSX.Element {
   const draggingPaneIds = useUi((s) => s.draggingPaneIds)
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
 
-  const setShowBridge = useUi((s) => s.setShowBridge)
-  const setShowTasks = useUi((s) => s.setShowTasks)
-  const setShowRooms = useUi((s) => s.setShowRooms)
-  const setShowTimeline = useUi((s) => s.setShowTimeline)
   const openSearch = useUi((s) => s.openSearch)
   const toggleNotes = useUi((s) => s.toggleNotes)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
@@ -309,10 +301,6 @@ export default function Sidebar(): JSX.Element {
           <Section title="Tools" />
           <div className="sb-group">
             <SessionsMenu />
-            <Row icon={<Network size={18} />} label="BridgeMemory" onClick={() => setShowBridge(true)} />
-            <Row icon={<KanbanSquare size={18} />} label="Task board" onClick={() => setShowTasks(true)} />
-            <Row icon={<DoorOpen size={18} />} label="Rooms" onClick={() => setShowRooms(true)} />
-            <Row icon={<GitBranch size={18} />} label="Build timeline" onClick={() => setShowTimeline(true)} />
             <Row icon={<History size={18} />} label="Search history" onClick={() => openSearch('history')} />
             <Row icon={<NotebookPen size={18} />} label="Notes" onClick={toggleNotes} />
           </div>

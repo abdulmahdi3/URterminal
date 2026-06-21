@@ -220,33 +220,6 @@ export function getCommands(): Command[] {
       run: () => ui().setShowMcp(true)
     },
     {
-      id: 'app.bridge',
-      title: 'BridgeMemory: project notes & links…',
-      group: 'App',
-      shortcut: 'Ctrl+Shift+M',
-      run: () => ui().setShowBridge(true)
-    },
-    {
-      id: 'app.rooms',
-      title: 'Open a Room: Command · Swarm · Review…',
-      group: 'App',
-      shortcut: 'Ctrl+Shift+R',
-      run: () => ui().setShowRooms(true)
-    },
-    {
-      id: 'app.tasks',
-      title: 'Task board (this project)…',
-      group: 'App',
-      shortcut: 'Ctrl+Shift+B',
-      run: () => ui().setShowTasks(true)
-    },
-    {
-      id: 'app.timeline',
-      title: 'Build timeline (watch the loop)…',
-      group: 'App',
-      run: () => ui().setShowTimeline(true)
-    },
-    {
       id: 'ssh.connect',
       title: 'SSH connections manager…',
       group: 'Panes',

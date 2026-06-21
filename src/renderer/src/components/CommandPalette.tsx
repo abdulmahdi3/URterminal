@@ -61,10 +61,6 @@ interface Section {
 
 /** Newest features, pinned to the top of a cold-open palette (most recent first). */
 const NEW_FEATURE_IDS = [
-  'app.timeline',
-  'app.tasks',
-  'app.rooms',
-  'app.bridge',
   'pane.newStream',
   'pane.reviewDiff'
 ]

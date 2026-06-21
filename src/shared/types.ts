@@ -2,7 +2,6 @@
 // Keep this free of any node/electron/dom imports so all processes can use it.
 
 import type { DiffHunk } from './diff'
-export type { BridgeNote, BridgeNode, BridgeEdge, BridgeGraphData } from './bridge'
 
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama' | 'lmstudio'
 
@@ -1070,14 +1069,6 @@ export const IPC = {
   // mcp: read/write the project .mcp.json that agents load
   mcpRead: 'mcp:read',
   mcpWrite: 'mcp:write',
-  // BridgeMemory: local-first `.bridgememory/` wikilinked notes hub
-  bridgeList: 'bridge:list', // (cwd) → { dir, exists, notes }
-  bridgeSave: 'bridge:save', // ({cwd, slug, title, content}) → { ok, slug }
-  bridgeDelete: 'bridge:delete', // ({cwd, slug}) → ok
-  bridgeReveal: 'bridge:reveal', // (cwd) → open the hub folder in the OS
-  bridgeConnect: 'bridge:connect', // (cwd) → register the MCP server in .mcp.json
-  bridgeTasksRead: 'bridge:tasks-read', // (cwd) → raw task board JSON
-  bridgeTasksWrite: 'bridge:tasks-write', // ({cwd, board}) → { ok }
   // webhook: post a message to a Discord/Slack incoming webhook (from main, no CORS)
   webhookPost: 'webhook:post',
 

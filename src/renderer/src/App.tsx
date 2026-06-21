@@ -23,10 +23,6 @@ import McpModal from './components/McpModal'
 import DelegateModal from './components/DelegateModal'
 import OrchestratorModal from './components/OrchestratorModal'
 import DiffReviewModal from './components/DiffReviewModal'
-import BridgeMemoryModal from './components/BridgeMemoryModal'
-import RoomsModal from './components/RoomsModal'
-import TaskBoardModal from './components/TaskBoardModal'
-import BuildTimelineModal from './components/BuildTimelineModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
 import UpdateToast from './components/UpdateToast'
@@ -172,10 +168,6 @@ export default function App(): JSX.Element {
       <DelegateModal />
       <OrchestratorModal />
       <DiffReviewModal />
-      <BridgeMemoryModal />
-      <RoomsModal />
-      <TaskBoardModal />
-      <BuildTimelineModal />
       <WhatsNewModal />
       <SearchPalette />
       <ShortcutsModal />
