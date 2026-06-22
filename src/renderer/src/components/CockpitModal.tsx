@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 import { useUi } from '../store/ui'
 import { useWorkspace } from '../store/workspace'
-import { useUregant } from '../store/uregant'
+import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
+import type { UrPlan, UrGateResult } from '@shared/uregant'
 import { useUregantPulls } from '../store/uregantPulls'
 import { getEnabled, toggleEnabled } from '../lib/uregantEnabled'
 import { getEvalScores, setEvalScore } from '../lib/uregantEval'
@@ -31,7 +32,7 @@ type CockpitTab = 'mission' | 'route' | 'registry' | 'cost' | 'handoffs'
 
 const TABS: { id: CockpitTab; label: string; ready?: boolean }[] = [
   { id: 'mission', label: 'Mission control', ready: true },
-  { id: 'route', label: 'Route' },
+  { id: 'route', label: 'Route', ready: true },
   { id: 'registry', label: 'Registry', ready: true },
   { id: 'cost', label: 'Cost' },
   { id: 'handoffs', label: 'Handoffs', ready: true }
@@ -70,6 +71,8 @@ export default function CockpitModal(): JSX.Element | null {
           <MissionView />
         ) : tab === 'handoffs' ? (
           <HandoffsView />
+        ) : tab === 'route' ? (
+          <RouteView />
         ) : (
           <ComingSoon tab={tab} />
         )}
@@ -535,6 +538,169 @@ function HandoffsView(): JSX.Element {
         <p className="ck-model-note">
           The live agent↔agent run timeline (who handed what to whom, with shared-memory writes)
           arrives with Phase 4 — the Route tab. For now this shows the crew available for handoffs.
+        </p>
+      </section>
+    </div>
+  )
+}
+
+function RouteView(): JSX.Element {
+  const [goal, setGoal] = useState('')
+  const [model, setModel] = useState(UREGANT_DEFAULT_MODEL)
+  const [models, setModels] = useState<string[]>([])
+  const [plan, setPlan] = useState<UrPlan | null>(null)
+  const [planning, setPlanning] = useState(false)
+  const [planErr, setPlanErr] = useState<string | null>(null)
+  const [gate, setGate] = useState<UrGateResult[] | null>(null)
+  const [gating, setGating] = useState(false)
+
+  const activeId = useWorkspace((s) => s.activePaneId)
+  const panes = useWorkspace((s) => s.panes)
+  const active = activeId ? panes[activeId] : undefined
+  const cwd = active?.agent?.cwd || active?.shell?.cwd || ''
+
+  useEffect(() => {
+    void window.api.discoverModels('ollama').then((m) => {
+      setModels(m)
+      if (m.length && !m.includes(model)) {
+        setModel(m.includes(UREGANT_DEFAULT_MODEL) ? UREGANT_DEFAULT_MODEL : m[0])
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const doPlan = async (): Promise<void> => {
+    if (!goal.trim() || planning) return
+    setPlanning(true)
+    setPlanErr(null)
+    setPlan(null)
+    setGate(null)
+    try {
+      const r = await window.api.uregant.planProject({ goal: goal.trim(), model })
+      if (r.ok && r.plan) setPlan(r.plan)
+      else setPlanErr(r.error ?? 'planning failed')
+    } finally {
+      setPlanning(false)
+    }
+  }
+
+  const runWithUregant = (): void => {
+    if (!plan) return
+    const prompt =
+      `Goal: ${goal.trim()}\n\nPlan:\n` +
+      plan.steps.map((s, i) => `${i + 1}. [${s.role}] ${s.instruction}`).join('\n') +
+      '\n\nExecute this plan step by step using your tools. Call done() with a summary when finished.'
+    const id = useWorkspace.getState().addPane('uregant', undefined, { label: 'Route' })
+    if (!id) return
+    useWorkspace.getState().setActive(id)
+    useUregant.getState().setModel(id, model)
+    useUi.getState().setShowCockpit(false)
+    window.setTimeout(() => useUregant.getState().send(id, prompt), 150)
+  }
+
+  const doGate = async (): Promise<void> => {
+    if (gating) return
+    setGating(true)
+    setGate(null)
+    try {
+      setGate(await window.api.uregant.runGate(cwd))
+    } finally {
+      setGating(false)
+    }
+  }
+
+  return (
+    <div className="cockpit-body">
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3>Route — goal → plan → ship</h3>
+        </div>
+        <textarea
+          className="input mono"
+          style={{ width: '100%', minHeight: 64, padding: 8 }}
+          placeholder="Describe the goal, e.g. 'add an inline diff-review modal with apply/revert'"
+          value={goal}
+          onChange={(e) => setGoal(e.target.value)}
+        />
+        <div className="ck-route-controls">
+          <div className="cockpit-tabs">
+            <button className="cockpit-tab active" title="run the plan as one crew (sequential)">
+              Sequential
+            </button>
+            <button className="cockpit-tab" disabled title="coming in a later slice">
+              Parallel<span className="cockpit-soon">soon</span>
+            </button>
+            <button className="cockpit-tab" disabled title="coming in a later slice">
+              Race<span className="cockpit-soon">soon</span>
+            </button>
+          </div>
+          {models.length > 0 && (
+            <select
+              className="input mono"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              style={{ fontSize: 11, padding: '2px 6px' }}
+            >
+              {models.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          )}
+          <button className="btn" disabled={!goal.trim() || planning} onClick={() => void doPlan()}>
+            {planning ? 'Planning…' : 'Plan'}
+          </button>
+        </div>
+        {planErr && <div className="ck-eval ck-eval-bad">⚠ {planErr}</div>}
+
+        {plan && (
+          <>
+            {plan.summary && <p className="ck-model-note">{plan.summary}</p>}
+            <div className="ck-models">
+              {plan.steps.map((s, i) => (
+                <div key={i} className="ck-model">
+                  <div className="ck-model-main">
+                    <div className="ck-model-name">
+                      {i + 1}. {s.role}
+                    </div>
+                    <div className="ck-model-note">{s.instruction}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="ck-route-controls">
+              <button
+                className="btn"
+                style={{ background: 'var(--accent, #3a7afe)', color: '#fff' }}
+                onClick={runWithUregant}
+              >
+                Run with Uregant
+              </button>
+              <button className="btn" disabled={gating} onClick={() => void doGate()}>
+                {gating ? 'Checking…' : 'Run Definition of Done'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {gate && (
+          <div className="ck-models" style={{ marginTop: 8 }}>
+            {gate.map((g, i) => (
+              <div key={i} className="ck-model">
+                <div className="ck-model-main">
+                  <div className="ck-model-name">
+                    {g.ok ? '✅' : '⛔'} {g.name}
+                  </div>
+                  <div className="ck-model-note">{g.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="ck-model-note">
+          Slice 1: plan + sequential run + Definition of Done. Parallel/race fan-out, merge &amp; ship
+          land next.
         </p>
       </section>
     </div>

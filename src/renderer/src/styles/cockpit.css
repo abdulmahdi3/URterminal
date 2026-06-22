@@ -315,3 +315,12 @@
 .ck-eval-bad {
   color: #e6a55a;
 }
+
+/* route controls row */
+.ck-route-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}

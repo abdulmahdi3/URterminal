@@ -184,3 +184,24 @@ export interface UrEvalResult {
   note: string
 }
 
+// ---- Phase 4: Route / Project Crew (OC2) ----
+
+/** One planned step assigned to a crew role. */
+export interface UrPlanStep {
+  role: string
+  instruction: string
+}
+
+/** A project plan produced by the planner from a goal. */
+export interface UrPlan {
+  steps: UrPlanStep[]
+  summary?: string
+}
+
+/** One Definition-of-Done gate result (a project script run). */
+export interface UrGateResult {
+  name: string
+  ok: boolean
+  detail: string
+}
+

@@ -63,7 +63,9 @@ import type {
   UrExecRequest,
   UrExecResult,
   UrPullProgress,
-  UrEvalResult
+  UrEvalResult,
+  UrPlan,
+  UrGateResult
 } from '@shared/uregant'
 import type { HardwareInfo } from '@shared/uregantModels'
 
@@ -154,6 +156,9 @@ const api = {
     evalModel: (model: string): Promise<UrEvalResult> => ipcRenderer.invoke(IPC.uregantEval, model),
     connectCrew: (cwd: string): Promise<{ ok: boolean; port?: number; agents?: number; error?: string }> =>
       ipcRenderer.invoke(IPC.uregantConnectCrew, cwd),
+    planProject: (req: { goal: string; model: string }): Promise<{ ok: boolean; plan?: UrPlan; error?: string }> =>
+      ipcRenderer.invoke(IPC.uregantPlanProject, req),
+    runGate: (cwd: string): Promise<UrGateResult[]> => ipcRenderer.invoke(IPC.uregantRunGate, cwd),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

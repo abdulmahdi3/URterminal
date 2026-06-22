@@ -1082,6 +1082,8 @@ export const IPC = {
   uregantPullProgress: 'uregant:pull-progress', // main -> renderer (event): pull progress
   uregantEval: 'uregant:eval', // renderer -> main (invoke): tool-call fidelity probe
   uregantConnectCrew: 'uregant:connect-crew', // renderer -> main (invoke): register the MCP bridge in a folder
+  uregantPlanProject: 'uregant:plan-project', // renderer -> main (invoke): planner → step plan
+  uregantRunGate: 'uregant:run-gate', // renderer -> main (invoke): Definition-of-Done gate
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot
