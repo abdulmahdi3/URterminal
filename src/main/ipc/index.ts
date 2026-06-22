@@ -29,6 +29,7 @@ import { detectHardware } from '../uregant/hardware'
 import { pullModel, cancelPull } from '../uregant/install'
 import { evalModel } from '../uregant/eval'
 import { registerCrewMcp, writeControlConfig } from '../uregant/crew'
+import { installCrewAgents } from '../uregant/crewAgents'
 import { generateControlToken } from '../control/server'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
@@ -641,7 +642,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     if (!port || !token) return { ok: false, error: 'Could not start the control server.' }
     writeControlConfig(port, token)
     const res = registerCrewMcp(cwd)
-    return res.ok ? { ok: true, port } : { ok: false, error: res.error }
+    if (!res.ok) return { ok: false, error: res.error }
+    const agents = installCrewAgents(cwd)
+    return { ok: true, port, agents: agents.installed }
   })
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)

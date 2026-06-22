@@ -17,6 +17,8 @@ import {
   type UrToolQuality
 } from '@shared/uregantModels'
 import { DEFAULT_MODELS } from '@shared/providers'
+import { UREGANT_CREW } from '@shared/uregantCrew'
+import { getAutoCrew, setAutoCrew } from '../lib/uregantAutoCrew'
 import '../styles/cockpit.css'
 
 /**
@@ -32,7 +34,7 @@ const TABS: { id: CockpitTab; label: string; ready?: boolean }[] = [
   { id: 'route', label: 'Route' },
   { id: 'registry', label: 'Registry', ready: true },
   { id: 'cost', label: 'Cost' },
-  { id: 'handoffs', label: 'Handoffs' }
+  { id: 'handoffs', label: 'Handoffs', ready: true }
 ]
 
 export default function CockpitModal(): JSX.Element | null {
@@ -66,6 +68,8 @@ export default function CockpitModal(): JSX.Element | null {
           <RegistryView />
         ) : tab === 'mission' ? (
           <MissionView />
+        ) : tab === 'handoffs' ? (
+          <HandoffsView />
         ) : (
           <ComingSoon tab={tab} />
         )}
@@ -412,8 +416,15 @@ function AgentsSection(): JSX.Element {
   const activeId = useWorkspace((s) => s.activePaneId)
   const active = activeId ? panes[activeId] : undefined
   const cwd = active?.agent?.cwd || active?.shell?.cwd || ''
-  const [result, setResult] = useState<{ ok: boolean; port?: number; error?: string } | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; port?: number; agents?: number; error?: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [auto, setAuto] = useState(() => getAutoCrew())
+
+  const toggleAuto = (): void => {
+    const next = !auto
+    setAuto(next)
+    setAutoCrew(next)
+  }
 
   const connect = async (): Promise<void> => {
     if (!cwd) return
@@ -427,13 +438,20 @@ function AgentsSection(): JSX.Element {
 
   return (
     <section className="settings-section">
-      <div className="settings-section-head">
+      <div className="settings-section-head ck-head-row">
         <h3>Claude Crew</h3>
+        <button
+          className={clsx('ck-toggle', auto && 'on')}
+          onClick={toggleAuto}
+          title="Auto-connect when a Claude pane opens in a folder"
+        >
+          {auto ? 'Auto-connect: On' : 'Auto-connect: Off'}
+        </button>
       </div>
       <p className="ck-model-note">
-        Give Claude control of URterminal&apos;s panes via MCP. Connect a folder, then open a{' '}
-        <span className="ck-mono">claude</span> pane in it — Claude gets tools to list / open / write /
-        read / close panes.
+        Give Claude control of URterminal&apos;s panes via MCP, and install a per-role crew into the
+        folder&apos;s <span className="ck-mono">.claude/agents</span>. Then open a{' '}
+        <span className="ck-mono">claude</span> pane there and @-invoke a role.
       </p>
       <div className="ck-model">
         <div className="ck-model-main">
@@ -453,8 +471,8 @@ function AgentsSection(): JSX.Element {
           {result &&
             (result.ok ? (
               <div className="ck-eval ck-eval-ok">
-                ✓ Connected — control server on port {result.port}. Wrote .mcp.json. Open a{' '}
-                <span className="ck-mono">claude</span> pane in this folder.
+                ✓ Connected on port {result.port} · installed {result.agents ?? 0} crew agents +
+                .mcp.json. Open a <span className="ck-mono">claude</span> pane here.
               </div>
             ) : (
               <div className="ck-eval ck-eval-bad">⚠ {result.error}</div>
@@ -466,10 +484,60 @@ function AgentsSection(): JSX.Element {
           </button>
         </div>
       </div>
-      <p className="ck-model-note">
-        Full per-role crew (planner / coder / security…) with skills + memory lands in the next slice.
-      </p>
+
+      <h3 className="ck-cloud-title">Crew roster</h3>
+      <div className="ck-models">
+        {UREGANT_CREW.map((c) => (
+          <div key={c.name} className="ck-model">
+            <div className="ck-model-main">
+              <div className="ck-model-name">
+                {c.role}
+                <span className="ck-tag">{c.name}</span>
+                <span className="ck-tag">{c.model}</span>
+                <span className="ck-tag">{c.tools}</span>
+              </div>
+              <div className="ck-model-note">{c.blurb}</div>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
+  )
+}
+
+function HandoffsView(): JSX.Element {
+  return (
+    <div className="cockpit-body">
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3>Handoffs</h3>
+        </div>
+        <p className="ck-model-note">
+          Agents coordinate by handing work to each other and keeping shared notes. Open a connected{' '}
+          <span className="ck-mono">claude</span> pane, give it a goal, and it delegates to the crew via
+          the Task tool — each role keeps its own memory in{' '}
+          <span className="ck-mono">.claude/agent-memory/&lt;role&gt;/</span>.
+        </p>
+        <div className="ck-models">
+          {UREGANT_CREW.map((c) => (
+            <div key={c.name} className="ck-model">
+              <div className="ck-model-main">
+                <div className="ck-model-name">
+                  {c.role}
+                  <span className="ck-tag">{c.name}</span>
+                  <span className="ck-tag">{c.model}</span>
+                </div>
+                <div className="ck-model-note">{c.blurb}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="ck-model-note">
+          The live agent↔agent run timeline (who handed what to whom, with shared-memory writes)
+          arrives with Phase 4 — the Route tab. For now this shows the crew available for handoffs.
+        </p>
+      </section>
+    </div>
   )
 }
 

@@ -56,6 +56,7 @@ import { useNotificationFeed } from './hooks/useNotificationFeed'
 import { useStreamData } from './hooks/useStreamData'
 import { useOpenRouterStream } from './hooks/useOpenRouterStream'
 import { useUregantStream } from './hooks/useUregantStream'
+import { useUregantAutoCrew } from './hooks/useUregantAutoCrew'
 import { repaintAllTerminals } from './lib/terminalPool'
 import { refreshWslDistros } from './lib/shells'
 import { refreshAgentAvailability } from './lib/agents'
@@ -85,6 +86,7 @@ export default function App(): JSX.Element {
   useStreamData()
   useOpenRouterStream()
   useUregantStream()
+  useUregantAutoCrew()
 
   // Mirror the theme class onto <body> too, so popovers/menus that portal out
   // of the .app root (HeaderPopover, etc.) still inherit the themed CSS vars
