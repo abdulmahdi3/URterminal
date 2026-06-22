@@ -63,6 +63,7 @@ import type {
   UrExecRequest,
   UrExecResult
 } from '@shared/uregant'
+import type { HardwareInfo } from '@shared/uregantModels'
 
 /** Subscribe helper that returns an unsubscribe fn and strips the IpcRenderer event arg. */
 function on<T>(channel: string, cb: (payload: T) => void): () => void {
@@ -143,6 +144,7 @@ const api = {
     toolResult: (callId: string, result: UrToolResult): void =>
       ipcRenderer.send(IPC.uregantToolResult, { callId, result }),
     exec: (req: UrExecRequest): Promise<UrExecResult> => ipcRenderer.invoke(IPC.uregantExec, req),
+    hardware: (): Promise<HardwareInfo> => ipcRenderer.invoke(IPC.uregantHardware),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

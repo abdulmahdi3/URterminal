@@ -25,6 +25,7 @@ import type {
 } from '@shared/types'
 import { applyPatch } from '@shared/diff'
 import { runCommand } from '../uregant/exec'
+import { detectHardware } from '../uregant/hardware'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
 import { stripAnsi } from '../learning/ansi'
@@ -614,6 +615,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.on(IPC.uregantResync, (_e, paneId: string) => urResync(paneId, emit))
   ipcMain.on(IPC.uregantToolResult, (_e, msg: UrToolResultMsg) => urToolResult(msg.callId, msg.result))
   ipcMain.handle(IPC.uregantExec, (_e, req: UrExecRequest) => runCommand(req))
+  ipcMain.handle(IPC.uregantHardware, () => detectHardware())
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )

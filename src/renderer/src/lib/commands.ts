@@ -220,6 +220,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowMcp(true)
     },
     {
+      id: 'app.cockpit',
+      title: 'Open Uregant Cockpit (Registry / models)…',
+      group: 'App',
+      shortcut: 'Ctrl+Shift+U',
+      run: () => ui().setShowCockpit(true)
+    },
+    {
       id: 'ssh.connect',
       title: 'SSH connections manager…',
       group: 'Panes',

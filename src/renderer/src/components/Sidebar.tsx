@@ -3,7 +3,6 @@ import clsx from 'clsx'
 import {
   Plus,
   X,
-  History,
   Settings,
   NotebookPen,
   Command as CommandIcon
@@ -231,7 +230,6 @@ export default function Sidebar(): JSX.Element {
   const draggingPaneIds = useUi((s) => s.draggingPaneIds)
   const setDraggingPanes = useUi((s) => s.setDraggingPanes)
 
-  const openSearch = useUi((s) => s.openSearch)
   const toggleNotes = useUi((s) => s.toggleNotes)
   const toggleCommandPalette = useUi((s) => s.toggleCommandPalette)
   const openSettings = useUi((s) => s.openSettings)
@@ -301,7 +299,6 @@ export default function Sidebar(): JSX.Element {
           <Section title="Tools" />
           <div className="sb-group">
             <SessionsMenu />
-            <Row icon={<History size={18} />} label="Search history" onClick={() => openSearch('history')} />
             <Row icon={<NotebookPen size={18} />} label="Notes" onClick={toggleNotes} />
           </div>
         </div>

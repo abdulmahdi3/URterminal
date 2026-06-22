@@ -22,6 +22,7 @@ import InsertReferenceModal from './components/InsertReferenceModal'
 import McpModal from './components/McpModal'
 import DelegateModal from './components/DelegateModal'
 import OrchestratorModal from './components/OrchestratorModal'
+import CockpitModal from './components/CockpitModal'
 import DiffReviewModal from './components/DiffReviewModal'
 import WhatsNewModal from './components/WhatsNewModal'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -169,6 +170,7 @@ export default function App(): JSX.Element {
       <McpModal />
       <DelegateModal />
       <OrchestratorModal />
+      <CockpitModal />
       <DiffReviewModal />
       <WhatsNewModal />
       <SearchPalette />

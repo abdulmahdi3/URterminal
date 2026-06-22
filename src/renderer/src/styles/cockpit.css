@@ -1,0 +1,213 @@
+/* Uregant Cockpit (Phase 2) — Registry surface. Reuses .settings-* layout. */
+
+.modal.cockpit {
+  width: 980px;
+  max-width: 94vw;
+  height: 720px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.cockpit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cockpit-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.cockpit-tab {
+  background: transparent;
+  border: none;
+  border-radius: var(--r-md, 8px);
+  color: var(--text-dim);
+  font-size: var(--fs-sm, 13px);
+  font-weight: 500;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cockpit-tab:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+}
+.cockpit-tab.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.cockpit-soon {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.5;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.cockpit-soon-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.ck-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* hardware banner */
+.ck-hw {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 8px);
+  background: var(--bg-elev-2);
+  font-size: 12.5px;
+  color: var(--text);
+}
+.ck-hw-item {
+  white-space: nowrap;
+}
+
+/* model rows */
+.ck-models {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ck-model {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--r-md, 8px);
+  background: var(--bg-elev-1, var(--bg-elev-2));
+}
+.ck-model.ck-fit-recommended {
+  border-left-color: #3fcaa0;
+}
+.ck-model.ck-fit-tight {
+  border-left-color: #e8b339;
+}
+.ck-model.ck-fit-overload {
+  border-left-color: #e6873a;
+}
+.ck-model.ck-fit-cant-run,
+.ck-model.ck-fit-no-disk {
+  border-left-color: #e0563f;
+  opacity: 0.7;
+}
+.ck-model-main {
+  min-width: 0;
+}
+.ck-model-name {
+  font-weight: 650;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ck-model-note {
+  color: var(--text-dim);
+  font-size: 11.5px;
+  margin-top: 3px;
+}
+.ck-model-reason {
+  font-size: 11px;
+  margin-top: 3px;
+  opacity: 0.75;
+}
+.ck-mono {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+}
+.ck-model-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ck-tag {
+  font-size: 10px;
+  font-family: var(--mono, monospace);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-dim);
+}
+.ck-verified {
+  color: #6fc99a;
+  border-color: #2f5d45;
+}
+.ck-atlas {
+  color: #e6a55a;
+  border-color: #5d4a2c;
+}
+.ck-badge {
+  font-size: 11px;
+  font-weight: 600;
+}
+.ck-badge.ck-fit-recommended {
+  color: #3fcaa0;
+}
+.ck-badge.ck-fit-tight {
+  color: #e8b339;
+}
+.ck-badge.ck-fit-overload {
+  color: #e6873a;
+}
+.ck-badge.ck-fit-cant-run,
+.ck-badge.ck-fit-no-disk {
+  color: #e0563f;
+}
+.ck-badge.ck-fit-unknown {
+  color: var(--text-dim);
+}
+.ck-installed {
+  font-size: 11.5px;
+  color: #6fc99a;
+  font-weight: 600;
+}
+
+/* cloud section */
+.ck-cloud-title {
+  margin-top: 18px;
+}
+.ck-cloud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ck-cloud-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ck-cloud-prov {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  min-width: 80px;
+}

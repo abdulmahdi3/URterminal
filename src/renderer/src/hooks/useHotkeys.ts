@@ -79,6 +79,7 @@ export function useHotkeys(): void {
           ui.showInsertReference ||
           ui.showMcp ||
           ui.showDelegate ||
+          ui.showCockpit ||
           ui.linkingPaneId
         ) {
           ui.closeOverlays()

@@ -669,7 +669,7 @@ NOTE  fold existing store/orchestrator.ts + OrchestratorModal.tsx into Uregant a
    onboarding gate, basic Uregant pane (Manual mode). → a smart terminal you chat with that drives
    panes **safely**.
 2. **VRAM detect + catalog + crew budget + 1-click install** (Bring-Your-Own-Model, server-fetched
-   catalog, eval probe).
+   catalog, eval probe) → builds the **Registry · Models** tab (OC3, see §22) with fit/overload badges.
 3. **Claude Crew** — subagent definitions + concurrency invariant + regression test + MCP server +
    Launch Console hook + memory reconciliation.
 4. **Project Crew pipeline** — install-on-demand + verify-and-fix loop + **`run_gate()` DoD** +
@@ -701,6 +701,26 @@ phases get a fix-note entry.
 - Whether to ship Phase 1–2 Windows-only and backfill Mac/Linux detect, or block on cross-platform.
 
 ---
+
+## 22. Design reference — orchestrator surfaces (OC1–OC5)
+
+Source mockups: `C:\Users\rog\Downloads\orcuregant\OC1–OC5.png`. They reframe Uregant from a single
+pane into a **multi-tab orchestrator cockpit** with five views (top-bar tabs: Mission control · Route
+· Registry · Cost · Handoffs):
+
+| Screen | Surface | Maps to |
+|---|---|---|
+| **OC1 Mission Control** | home dashboard — live agent board (status / progress / pause / handoff) + model list + spend, all at a glance | new home view tying together Phases 2–4 + §14 |
+| **OC2 Route** | one goal → plan → fan out to many agents/models (**Parallel / Sequential / Race**) → **Merge** (conflict-resolve) → **Ship (approve & commit)**; right rail shows changed files / conflicts / shared-memory writes | **Phase 4** Project Crew + `run_gate()` (§6); adds merge + strategy + ship gate |
+| **OC3 Registry** | one place to enable/configure **Models, Agents, MCP servers, Connectors, Memory, Secrets vault**; per-model context / $-per-M / latency + enable toggle | **Phase 2** (Models) + Phase 3 (Agents/MCP) + §5.2 memory + §11.3 secrets |
+| **OC4 Cost & usage** | spend by model/agent/workspace, projected vs budget, **spend-rate alert + hard-cap auto-pause** | **§14** cost governance |
+| **OC5 Handoffs** | agent↔agent transfers (role→role, logged) + **shared memory** files + **@mention** human steering + Approve / Reassign / Pause | **Phase 3/4** coordination; §5.2 shared memory, §10 steering |
+
+**Key decision this surfaces:** Uregant is more than the Phase-1 chat pane — it's a **full tabbed
+workspace**. The pane is the "talk to one agent" entry point; these five tabs are the orchestration
+cockpit. Phases 2–4 build the tabs. **Phase 2 = the Registry · Models tab** (the foundation every
+other screen reads from) with the §4.1 VRAM fit/overload badges for local models and
+context/$/latency for cloud models.
 
 ## Sources
 

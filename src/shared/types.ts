@@ -1076,6 +1076,7 @@ export const IPC = {
   uregantResync: 'uregant:resync',
   uregantToolResult: 'uregant:tool-result', // renderer -> main: result of a dispatched pane tool
   uregantExec: 'uregant:exec', // renderer -> main (invoke): headless run_command
+  uregantHardware: 'uregant:hardware', // renderer -> main (invoke): detect GPU/VRAM/RAM/disk
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot
