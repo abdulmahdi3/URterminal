@@ -303,3 +303,15 @@
 .ck-status-idle {
   color: var(--text-dim);
 }
+
+/* eval (tool-call fidelity) score */
+.ck-eval {
+  font-size: 11px;
+  margin-top: 3px;
+}
+.ck-eval-ok {
+  color: #6fc99a;
+}
+.ck-eval-bad {
+  color: #e6a55a;
+}

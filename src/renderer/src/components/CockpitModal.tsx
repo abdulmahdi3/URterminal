@@ -5,6 +5,7 @@ import { useWorkspace } from '../store/workspace'
 import { useUregant } from '../store/uregant'
 import { useUregantPulls } from '../store/uregantPulls'
 import { getEnabled, toggleEnabled } from '../lib/uregantEnabled'
+import { getEvalScores, setEvalScore } from '../lib/uregantEval'
 import type { OrModelInfo } from '@shared/types'
 import {
   UREGANT_CATALOG,
@@ -201,6 +202,8 @@ function ModelsSection(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState<Set<string>>(() => getEnabled())
   const [orModels, setOrModels] = useState<OrModelInfo[]>([])
+  const [evals, setEvals] = useState(() => getEvalScores())
+  const [evalRunning, setEvalRunning] = useState<Set<string>>(new Set())
   const pulls = useUregantPulls((s) => s.byTag)
 
   const refresh = async (): Promise<void> => {
@@ -236,6 +239,25 @@ function ModelsSection(): JSX.Element {
   }
   const toggle = (id: string): void => setEnabled(new Set(toggleEnabled(id)))
 
+  const installedTag = (tag: string): string => {
+    const base = tag.split(':')[0]
+    for (const m of installed) if (m === tag || m.split(':')[0] === base) return m
+    return tag
+  }
+  const runEval = async (catalogTag: string): Promise<void> => {
+    setEvalRunning((s) => new Set(s).add(catalogTag))
+    try {
+      const res = await window.api.uregant.evalModel(installedTag(catalogTag))
+      setEvals(setEvalScore(catalogTag, res))
+    } finally {
+      setEvalRunning((s) => {
+        const n = new Set(s)
+        n.delete(catalogTag)
+        return n
+      })
+    }
+  }
+
   const ranked = UREGANT_CATALOG.map((m) => ({ m, fit: fitBadge(m, hw) })).sort(
     (a, b) => FIT_RANK[a.fit.fit] - FIT_RANK[b.fit.fit] || a.m.minVramGb - b.m.minVramGb
   )
@@ -258,6 +280,7 @@ function ModelsSection(): JSX.Element {
           const pull = pulls[m.ollamaTag]
           const pulling = pull && !pull.done
           const pct = pull?.total ? Math.round(((pull.completed ?? 0) / pull.total) * 100) : null
+          const ev = evals[m.ollamaTag]
           return (
             <div key={m.ollamaTag} className={clsx('ck-model', `ck-fit-${fit.fit}`)}>
               <div className="ck-model-main">
@@ -288,6 +311,12 @@ function ModelsSection(): JSX.Element {
                 ) : (
                   <div className="ck-model-reason">{fit.reason}</div>
                 )}
+                {ev && (
+                  <div className={clsx('ck-eval', ev.ok ? 'ck-eval-ok' : 'ck-eval-bad')}>
+                    {ev.ok ? '✓ ' : '⚠ '}
+                    {ev.note}
+                  </div>
+                )}
               </div>
               <div className="ck-model-side">
                 <span className={clsx('ck-badge', `ck-fit-${fit.fit}`)}>{FIT_LABEL[fit.fit]}</span>
@@ -299,6 +328,14 @@ function ModelsSection(): JSX.Element {
                   <>
                     <span className="ck-installed">✓ Installed</span>
                     <Toggle on={enabled.has(m.ollamaTag)} onClick={() => toggle(m.ollamaTag)} />
+                    <button
+                      className="btn"
+                      disabled={evalRunning.has(m.ollamaTag)}
+                      title="Test tool-calling fidelity"
+                      onClick={() => void runEval(m.ollamaTag)}
+                    >
+                      {evalRunning.has(m.ollamaTag) ? 'Testing…' : 'Test'}
+                    </button>
                   </>
                 ) : (
                   <button

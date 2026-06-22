@@ -176,3 +176,11 @@ export interface UrPullProgress {
   error?: string
 }
 
+/** Result of a model tool-call-fidelity eval probe (Phase 2, §16). */
+export interface UrEvalResult {
+  ok: boolean
+  toolCalled: boolean
+  latencyMs: number
+  note: string
+}
+

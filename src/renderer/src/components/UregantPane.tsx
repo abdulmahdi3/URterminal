@@ -3,6 +3,7 @@ import type { Pane } from '@shared/types'
 import type { UrAutonomy } from '@shared/uregant'
 import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
 import { useWorkspace } from '../store/workspace'
+import { getEnabled } from '../lib/uregantEnabled'
 
 /**
  * Uregant pane (Slice 2–3) — chat with the local orchestrator, watch it stream,
@@ -104,6 +105,17 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
     )
   }
 
+  // picker shows the user's enabled models (Registry toggles); falls back to all
+  // installed if nothing is enabled, and always includes the current model.
+  const pickList = ((): string[] => {
+    const en = getEnabled()
+    if (en.size === 0) return models
+    const base = (s: string): string => s.split(':')[0]
+    const filtered = models.filter((m) => en.has(m) || [...en].some((e) => base(e) === base(m)))
+    const list = filtered.length ? filtered : models
+    return !model || list.includes(model) ? list : [model, ...list]
+  })()
+
   return (
     <div className="stream-pane ur-pane" dir="ltr">
       <div className="stream-head">
@@ -117,7 +129,7 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
             style={{ marginLeft: 8, fontSize: 11, padding: '2px 6px' }}
             title="Local model driving Uregant"
           >
-            {models.map((m) => (
+            {pickList.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

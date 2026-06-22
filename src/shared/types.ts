@@ -1080,6 +1080,7 @@ export const IPC = {
   uregantPull: 'uregant:pull', // renderer -> main: start `ollama pull <tag>`
   uregantPullCancel: 'uregant:pull-cancel', // renderer -> main: cancel a pull
   uregantPullProgress: 'uregant:pull-progress', // main -> renderer (event): pull progress
+  uregantEval: 'uregant:eval', // renderer -> main (invoke): tool-call fidelity probe
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot
