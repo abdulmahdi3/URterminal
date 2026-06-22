@@ -1084,6 +1084,8 @@ export const IPC = {
   uregantConnectCrew: 'uregant:connect-crew', // renderer -> main (invoke): register the MCP bridge in a folder
   uregantPlanProject: 'uregant:plan-project', // renderer -> main (invoke): planner → step plan
   uregantRunGate: 'uregant:run-gate', // renderer -> main (invoke): Definition-of-Done gate
+  uregantChangedFiles: 'uregant:changed-files', // renderer -> main (invoke): git status --porcelain
+  uregantCommit: 'uregant:commit', // renderer -> main (invoke): ship = git add -A + commit
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot

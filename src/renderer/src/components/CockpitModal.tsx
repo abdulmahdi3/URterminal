@@ -553,6 +553,11 @@ function RouteView(): JSX.Element {
   const [planErr, setPlanErr] = useState<string | null>(null)
   const [gate, setGate] = useState<UrGateResult[] | null>(null)
   const [gating, setGating] = useState(false)
+  const [strategy, setStrategy] = useState<'sequential' | 'parallel'>('sequential')
+  const [changedF, setChangedF] = useState<string[] | null>(null)
+  const [shipMsg, setShipMsg] = useState('')
+  const [shipResult, setShipResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [shipping, setShipping] = useState(false)
 
   const activeId = useWorkspace((s) => s.activePaneId)
   const panes = useWorkspace((s) => s.panes)
@@ -584,18 +589,45 @@ function RouteView(): JSX.Element {
     }
   }
 
-  const runWithUregant = (): void => {
+  const run = (): void => {
     if (!plan) return
-    const prompt =
-      `Goal: ${goal.trim()}\n\nPlan:\n` +
-      plan.steps.map((s, i) => `${i + 1}. [${s.role}] ${s.instruction}`).join('\n') +
-      '\n\nExecute this plan step by step using your tools. Call done() with a summary when finished.'
+    useUi.getState().setShowCockpit(false)
+    if (strategy === 'parallel') {
+      plan.steps.slice(0, 8).forEach((s, i) => {
+        const id = useWorkspace.getState().addPane('uregant', undefined, { label: `${s.role} ${i + 1}` })
+        if (!id) return
+        useUregant.getState().setModel(id, model)
+        const stepPrompt = `Goal: ${goal.trim()}\n\nYour step (role: ${s.role}): ${s.instruction}\n\nExecute it using your tools. Call done() when finished.`
+        window.setTimeout(() => useUregant.getState().send(id, stepPrompt), 150 + i * 80)
+      })
+      return
+    }
     const id = useWorkspace.getState().addPane('uregant', undefined, { label: 'Route' })
     if (!id) return
     useWorkspace.getState().setActive(id)
     useUregant.getState().setModel(id, model)
-    useUi.getState().setShowCockpit(false)
+    const prompt =
+      `Goal: ${goal.trim()}\n\nPlan:\n` +
+      plan.steps.map((s, i) => `${i + 1}. [${s.role}] ${s.instruction}`).join('\n') +
+      '\n\nExecute this plan step by step using your tools. Call done() with a summary when finished.'
     window.setTimeout(() => useUregant.getState().send(id, prompt), 150)
+  }
+
+  const loadChanged = async (): Promise<void> => {
+    setChangedF(await window.api.uregant.changedFiles(cwd))
+  }
+  const ship = async (): Promise<void> => {
+    if (!cwd || shipping) return
+    const message = shipMsg.trim() || `Uregant: ${goal.trim()}`
+    setShipping(true)
+    setShipResult(null)
+    try {
+      const r = await window.api.uregant.commit({ cwd, message })
+      setShipResult(r)
+      if (r.ok) void loadChanged()
+    } finally {
+      setShipping(false)
+    }
   }
 
   const doGate = async (): Promise<void> => {
@@ -624,11 +656,19 @@ function RouteView(): JSX.Element {
         />
         <div className="ck-route-controls">
           <div className="cockpit-tabs">
-            <button className="cockpit-tab active" title="run the plan as one crew (sequential)">
+            <button
+              className={clsx('cockpit-tab', strategy === 'sequential' && 'active')}
+              onClick={() => setStrategy('sequential')}
+              title="one agent works the whole plan"
+            >
               Sequential
             </button>
-            <button className="cockpit-tab" disabled title="coming in a later slice">
-              Parallel<span className="cockpit-soon">soon</span>
+            <button
+              className={clsx('cockpit-tab', strategy === 'parallel' && 'active')}
+              onClick={() => setStrategy('parallel')}
+              title="one agent per step, all at once (shared working tree)"
+            >
+              Parallel
             </button>
             <button className="cockpit-tab" disabled title="coming in a later slice">
               Race<span className="cockpit-soon">soon</span>
@@ -673,34 +713,80 @@ function RouteView(): JSX.Element {
               <button
                 className="btn"
                 style={{ background: 'var(--accent, #3a7afe)', color: '#fff' }}
-                onClick={runWithUregant}
+                onClick={run}
               >
-                Run with Uregant
+                {strategy === 'parallel' ? `Run ${plan.steps.length} agents` : 'Run with Uregant'}
+              </button>
+            </div>
+
+            <h3 className="ck-cloud-title">Ship</h3>
+            <div className="ck-route-controls">
+              <button className="btn" disabled={!cwd} onClick={() => void loadChanged()}>
+                Changed files
               </button>
               <button className="btn" disabled={gating} onClick={() => void doGate()}>
                 {gating ? 'Checking…' : 'Run Definition of Done'}
               </button>
             </div>
+
+            {changedF &&
+              (changedF.length ? (
+                <div className="ck-models">
+                  {changedF.map((f, i) => (
+                    <div key={i} className="ck-model">
+                      <div className="ck-model-main">
+                        <div className="ck-model-note ck-mono">{f}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="settings-empty">Working tree clean.</p>
+              ))}
+
+            {gate && (
+              <div className="ck-models" style={{ marginTop: 8 }}>
+                {gate.map((g, i) => (
+                  <div key={i} className="ck-model">
+                    <div className="ck-model-main">
+                      <div className="ck-model-name">
+                        {g.ok ? '✅' : '⛔'} {g.name}
+                      </div>
+                      <div className="ck-model-note">{g.detail}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="ck-route-controls">
+              <input
+                className="input mono"
+                value={shipMsg}
+                onChange={(e) => setShipMsg(e.target.value)}
+                placeholder="commit message"
+                style={{ flex: 1, minWidth: 200, padding: '4px 8px' }}
+              />
+              <button
+                className="btn"
+                style={{ background: '#3fcaa0', color: '#06281e' }}
+                disabled={!cwd || shipping}
+                onClick={() => void ship()}
+              >
+                {shipping ? 'Shipping…' : 'Ship (commit)'}
+              </button>
+            </div>
+            {shipResult &&
+              (shipResult.ok ? (
+                <div className="ck-eval ck-eval-ok">✓ Committed.</div>
+              ) : (
+                <div className="ck-eval ck-eval-bad">⚠ {shipResult.error}</div>
+              ))}
           </>
         )}
-
-        {gate && (
-          <div className="ck-models" style={{ marginTop: 8 }}>
-            {gate.map((g, i) => (
-              <div key={i} className="ck-model">
-                <div className="ck-model-main">
-                  <div className="ck-model-name">
-                    {g.ok ? '✅' : '⛔'} {g.name}
-                  </div>
-                  <div className="ck-model-note">{g.detail}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
         <p className="ck-model-note">
-          Slice 1: plan + sequential run + Definition of Done. Parallel/race fan-out, merge &amp; ship
-          land next.
+          Parallel runs one agent per step (shared working tree — best for independent steps). Race +
+          isolated worktrees &amp; auto-merge land in a later slice.
         </p>
       </section>
     </div>

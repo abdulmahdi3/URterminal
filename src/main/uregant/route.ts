@@ -109,3 +109,29 @@ export async function runGate(cwd: string): Promise<UrGateResult[]> {
   }
   return out
 }
+
+/** Working-tree changes (git status --porcelain), for the Ship rail. */
+export async function changedFiles(cwd: string): Promise<string[]> {
+  if (!cwd || !existsSync(cwd)) return []
+  const res = await runCommand({ command: 'git status --porcelain', cwd, timeoutMs: 20_000 })
+  if (!res.ok) return []
+  return res.stdout
+    .split('\n')
+    .map((l) => l.replace(/\r$/, ''))
+    .filter((l) => l.trim())
+    .slice(0, 300)
+}
+
+function sanitizeMsg(m: string): string {
+  return m.replace(/["`$\\]/g, '').replace(/\r?\n/g, ' ').trim().slice(0, 200) || 'Uregant changes'
+}
+
+/** Ship = stage everything and commit (never pushes — that's hard-denied). */
+export async function commitChanges(cwd: string, message: string): Promise<{ ok: boolean; error?: string }> {
+  if (!cwd || !existsSync(cwd)) return { ok: false, error: 'No folder.' }
+  const add = await runCommand({ command: 'git add -A', cwd, timeoutMs: 60_000 })
+  if (!add.ok) return { ok: false, error: (add.error || add.stderr || 'git add failed').slice(0, 300) }
+  const commit = await runCommand({ command: `git commit -m "${sanitizeMsg(message)}"`, cwd, timeoutMs: 60_000 })
+  if (!commit.ok) return { ok: false, error: (commit.stderr || commit.error || 'git commit failed').slice(0, 300) }
+  return { ok: true }
+}

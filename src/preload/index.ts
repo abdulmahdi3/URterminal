@@ -159,6 +159,9 @@ const api = {
     planProject: (req: { goal: string; model: string }): Promise<{ ok: boolean; plan?: UrPlan; error?: string }> =>
       ipcRenderer.invoke(IPC.uregantPlanProject, req),
     runGate: (cwd: string): Promise<UrGateResult[]> => ipcRenderer.invoke(IPC.uregantRunGate, cwd),
+    changedFiles: (cwd: string): Promise<string[]> => ipcRenderer.invoke(IPC.uregantChangedFiles, cwd),
+    commit: (req: { cwd: string; message: string }): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.uregantCommit, req),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

@@ -30,7 +30,7 @@ import { pullModel, cancelPull } from '../uregant/install'
 import { evalModel } from '../uregant/eval'
 import { registerCrewMcp, writeControlConfig } from '../uregant/crew'
 import { installCrewAgents } from '../uregant/crewAgents'
-import { planProject, runGate } from '../uregant/route'
+import { planProject, runGate, changedFiles, commitChanges } from '../uregant/route'
 import { generateControlToken } from '../control/server'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
@@ -651,6 +651,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     planProject(settings.getOllamaBaseUrl(), req.model, req.goal)
   )
   ipcMain.handle(IPC.uregantRunGate, (_e, cwd: string) => runGate(cwd))
+  ipcMain.handle(IPC.uregantChangedFiles, (_e, cwd: string) => changedFiles(cwd))
+  ipcMain.handle(IPC.uregantCommit, (_e, req: { cwd: string; message: string }) =>
+    commitChanges(req.cwd, req.message)
+  )
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )
