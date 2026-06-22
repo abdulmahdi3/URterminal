@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { useUi } from '../store/ui'
 import { useWorkspace } from '../store/workspace'
 import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
-import type { UrPlan, UrGateResult } from '@shared/uregant'
+import type { UrPlan, UrGateResult, UrWorktree, UrMergeResult } from '@shared/uregant'
 import { useUregantPulls } from '../store/uregantPulls'
 import { getEnabled, toggleEnabled } from '../lib/uregantEnabled'
 import { getEvalScores, setEvalScore } from '../lib/uregantEval'
@@ -554,6 +554,10 @@ function RouteView(): JSX.Element {
   const [gate, setGate] = useState<UrGateResult[] | null>(null)
   const [gating, setGating] = useState(false)
   const [strategy, setStrategy] = useState<'sequential' | 'parallel'>('sequential')
+  const [isolate, setIsolate] = useState(false)
+  const [worktrees, setWorktrees] = useState<UrWorktree[] | null>(null)
+  const [merging, setMerging] = useState(false)
+  const [mergeResults, setMergeResults] = useState<UrMergeResult[] | null>(null)
   const [changedF, setChangedF] = useState<string[] | null>(null)
   const [shipMsg, setShipMsg] = useState('')
   const [shipResult, setShipResult] = useState<{ ok: boolean; error?: string } | null>(null)
@@ -589,8 +593,31 @@ function RouteView(): JSX.Element {
     }
   }
 
-  const run = (): void => {
+  const run = async (): Promise<void> => {
     if (!plan) return
+    if (strategy === 'parallel' && isolate) {
+      if (!cwd) {
+        setPlanErr('Isolated runs need a pane open in a git folder.')
+        return
+      }
+      const r = await window.api.uregant.createWorktrees({ cwd, labels: plan.steps.slice(0, 8).map((s) => s.role) })
+      if (!r.ok) {
+        setPlanErr(r.error ?? 'Could not create worktrees.')
+        return
+      }
+      setWorktrees(r.worktrees)
+      setMergeResults(null)
+      useUi.getState().setShowCockpit(false)
+      r.worktrees.forEach((w, i) => {
+        const step = plan.steps[i]
+        const id = useWorkspace.getState().addPane('uregant', undefined, { label: `${w.label} ⑂` })
+        if (!id) return
+        useUregant.getState().setModel(id, model)
+        const p = `Goal: ${goal.trim()}\n\nWork ONLY inside this directory: ${w.path}\nPass cwd="${w.path}" to every run_command and edit only files there.\n\nYour step (role: ${step.role}): ${step.instruction}\n\nExecute it, then call done().`
+        window.setTimeout(() => useUregant.getState().send(id, p), 150 + i * 80)
+      })
+      return
+    }
     useUi.getState().setShowCockpit(false)
     if (strategy === 'parallel') {
       plan.steps.slice(0, 8).forEach((s, i) => {
@@ -611,6 +638,27 @@ function RouteView(): JSX.Element {
       plan.steps.map((s, i) => `${i + 1}. [${s.role}] ${s.instruction}`).join('\n') +
       '\n\nExecute this plan step by step using your tools. Call done() with a summary when finished.'
     window.setTimeout(() => useUregant.getState().send(id, prompt), 150)
+  }
+
+  const doMerge = async (): Promise<void> => {
+    if (!worktrees || merging) return
+    setMerging(true)
+    try {
+      const res = await window.api.uregant.mergeWorktrees({ cwd, worktrees })
+      setMergeResults(res)
+      if (res.every((r) => r.ok)) {
+        await window.api.uregant.cleanupWorktrees({ cwd, worktrees })
+        setWorktrees(null)
+      }
+    } finally {
+      setMerging(false)
+    }
+  }
+  const discardWorktrees = async (): Promise<void> => {
+    if (!worktrees) return
+    await window.api.uregant.cleanupWorktrees({ cwd, worktrees })
+    setWorktrees(null)
+    setMergeResults(null)
   }
 
   const loadChanged = async (): Promise<void> => {
@@ -674,6 +722,11 @@ function RouteView(): JSX.Element {
               Race<span className="cockpit-soon">soon</span>
             </button>
           </div>
+          {strategy === 'parallel' && (
+            <label className="ck-iso-label" title="each agent works in its own git worktree, then merge">
+              <input type="checkbox" checked={isolate} onChange={(e) => setIsolate(e.target.checked)} /> isolate
+            </label>
+          )}
           {models.length > 0 && (
             <select
               className="input mono"
@@ -713,11 +766,60 @@ function RouteView(): JSX.Element {
               <button
                 className="btn"
                 style={{ background: 'var(--accent, #3a7afe)', color: '#fff' }}
-                onClick={run}
+                onClick={() => void run()}
               >
-                {strategy === 'parallel' ? `Run ${plan.steps.length} agents` : 'Run with Uregant'}
+                {strategy === 'parallel'
+                  ? `Run ${Math.min(plan.steps.length, 8)} agents${isolate ? ' (isolated)' : ''}`
+                  : 'Run with Uregant'}
               </button>
             </div>
+
+            {worktrees && (
+              <>
+                <h3 className="ck-cloud-title">Worktrees</h3>
+                <div className="ck-models">
+                  {worktrees.map((w, i) => (
+                    <div key={i} className="ck-model">
+                      <div className="ck-model-main">
+                        <div className="ck-model-name">
+                          {w.label}
+                          <span className="ck-tag">{w.branch}</span>
+                        </div>
+                        <div className="ck-model-note ck-mono">{w.path}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="ck-route-controls">
+                  <button className="btn" disabled={merging} onClick={() => void doMerge()}>
+                    {merging ? 'Merging…' : 'Merge worktrees'}
+                  </button>
+                  <button className="btn" disabled={merging} onClick={() => void discardWorktrees()}>
+                    Discard
+                  </button>
+                </div>
+              </>
+            )}
+            {mergeResults && (
+              <div className="ck-models">
+                {mergeResults.map((m, i) => (
+                  <div key={i} className={clsx('ck-model', `ck-fit-${m.ok ? 'recommended' : 'cant-run'}`)}>
+                    <div className="ck-model-main">
+                      <div className="ck-model-name">
+                        {m.ok ? '✅' : '⛔'} {m.label}
+                      </div>
+                      <div className="ck-model-note">
+                        {m.ok
+                          ? 'merged'
+                          : m.conflicts.length
+                            ? `conflicts: ${m.conflicts.join(', ')}`
+                            : m.error ?? 'failed'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <h3 className="ck-cloud-title">Ship</h3>
             <div className="ck-route-controls">

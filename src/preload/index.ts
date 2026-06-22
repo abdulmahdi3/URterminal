@@ -65,7 +65,9 @@ import type {
   UrPullProgress,
   UrEvalResult,
   UrPlan,
-  UrGateResult
+  UrGateResult,
+  UrWorktree,
+  UrMergeResult
 } from '@shared/uregant'
 import type { HardwareInfo } from '@shared/uregantModels'
 
@@ -162,6 +164,12 @@ const api = {
     changedFiles: (cwd: string): Promise<string[]> => ipcRenderer.invoke(IPC.uregantChangedFiles, cwd),
     commit: (req: { cwd: string; message: string }): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.uregantCommit, req),
+    createWorktrees: (req: { cwd: string; labels: string[] }): Promise<{ ok: boolean; worktrees: UrWorktree[]; error?: string }> =>
+      ipcRenderer.invoke(IPC.uregantCreateWorktrees, req),
+    mergeWorktrees: (req: { cwd: string; worktrees: UrWorktree[] }): Promise<UrMergeResult[]> =>
+      ipcRenderer.invoke(IPC.uregantMergeWorktrees, req),
+    cleanupWorktrees: (req: { cwd: string; worktrees: UrWorktree[] }): Promise<void> =>
+      ipcRenderer.invoke(IPC.uregantCleanupWorktrees, req),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

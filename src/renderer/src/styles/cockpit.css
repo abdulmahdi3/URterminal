@@ -324,3 +324,10 @@
   flex-wrap: wrap;
   margin: 10px 0;
 }
+.ck-iso-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

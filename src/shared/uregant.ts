@@ -205,3 +205,19 @@ export interface UrGateResult {
   detail: string
 }
 
+/** An isolated git worktree for one parallel agent. */
+export interface UrWorktree {
+  path: string
+  branch: string
+  label: string
+}
+
+/** Result of merging one worktree branch back into the base branch. */
+export interface UrMergeResult {
+  branch: string
+  label: string
+  ok: boolean
+  conflicts: string[]
+  error?: string
+}
+

@@ -1086,6 +1086,9 @@ export const IPC = {
   uregantRunGate: 'uregant:run-gate', // renderer -> main (invoke): Definition-of-Done gate
   uregantChangedFiles: 'uregant:changed-files', // renderer -> main (invoke): git status --porcelain
   uregantCommit: 'uregant:commit', // renderer -> main (invoke): ship = git add -A + commit
+  uregantCreateWorktrees: 'uregant:create-worktrees', // renderer -> main (invoke): isolate parallel agents
+  uregantMergeWorktrees: 'uregant:merge-worktrees', // renderer -> main (invoke): merge branches back
+  uregantCleanupWorktrees: 'uregant:cleanup-worktrees', // renderer -> main (invoke): remove worktrees
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot

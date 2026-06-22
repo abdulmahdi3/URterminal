@@ -31,9 +31,10 @@ import { evalModel } from '../uregant/eval'
 import { registerCrewMcp, writeControlConfig } from '../uregant/crew'
 import { installCrewAgents } from '../uregant/crewAgents'
 import { planProject, runGate, changedFiles, commitChanges } from '../uregant/route'
+import { createWorktrees, mergeWorktrees, cleanupWorktrees } from '../uregant/worktree'
 import { generateControlToken } from '../control/server'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
-import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
+import type { UrExecRequest, UrStartRequest, UrToolResultMsg, UrWorktree } from '@shared/uregant'
 import { stripAnsi } from '../learning/ansi'
 import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget, tcpPing } from '../ssh/sshPty'
@@ -654,6 +655,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.uregantChangedFiles, (_e, cwd: string) => changedFiles(cwd))
   ipcMain.handle(IPC.uregantCommit, (_e, req: { cwd: string; message: string }) =>
     commitChanges(req.cwd, req.message)
+  )
+  ipcMain.handle(IPC.uregantCreateWorktrees, (_e, req: { cwd: string; labels: string[] }) =>
+    createWorktrees(req.cwd, req.labels, Date.now())
+  )
+  ipcMain.handle(IPC.uregantMergeWorktrees, (_e, req: { cwd: string; worktrees: UrWorktree[] }) =>
+    mergeWorktrees(req.cwd, req.worktrees)
+  )
+  ipcMain.handle(IPC.uregantCleanupWorktrees, (_e, req: { cwd: string; worktrees: UrWorktree[] }) =>
+    cleanupWorktrees(req.cwd, req.worktrees)
   )
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
