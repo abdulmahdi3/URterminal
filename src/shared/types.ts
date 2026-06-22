@@ -1077,6 +1077,9 @@ export const IPC = {
   uregantToolResult: 'uregant:tool-result', // renderer -> main: result of a dispatched pane tool
   uregantExec: 'uregant:exec', // renderer -> main (invoke): headless run_command
   uregantHardware: 'uregant:hardware', // renderer -> main (invoke): detect GPU/VRAM/RAM/disk
+  uregantPull: 'uregant:pull', // renderer -> main: start `ollama pull <tag>`
+  uregantPullCancel: 'uregant:pull-cancel', // renderer -> main: cancel a pull
+  uregantPullProgress: 'uregant:pull-progress', // main -> renderer (event): pull progress
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot

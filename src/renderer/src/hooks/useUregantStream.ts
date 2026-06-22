@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useUregant } from '../store/uregant'
+import { useUregantPulls } from '../store/uregantPulls'
 import { executeTool } from '../lib/uregantTools'
 
 /**
@@ -18,10 +19,12 @@ export function useUregantStream(): void {
       const result = await executeTool({ function: { name: e.name, arguments: e.args } })
       window.api.uregant.toolResult(e.callId, result)
     })
+    const offPull = window.api.uregant.onPullProgress((e) => useUregantPulls.getState()._progress(e))
     return () => {
       offDelta()
       offState()
       offExec()
+      offPull()
     }
   }, [])
 }

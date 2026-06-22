@@ -166,3 +166,13 @@ export interface UrToolResultMsg {
   result: UrToolResult
 }
 
+/** main -> renderer: `ollama pull` progress for a model tag (Phase 2). */
+export interface UrPullProgress {
+  tag: string
+  status: string
+  completed?: number
+  total?: number
+  done?: boolean
+  error?: string
+}
+

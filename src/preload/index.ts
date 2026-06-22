@@ -61,7 +61,8 @@ import type {
   UrStartRequest,
   UrToolResult,
   UrExecRequest,
-  UrExecResult
+  UrExecResult,
+  UrPullProgress
 } from '@shared/uregant'
 import type { HardwareInfo } from '@shared/uregantModels'
 
@@ -145,6 +146,10 @@ const api = {
       ipcRenderer.send(IPC.uregantToolResult, { callId, result }),
     exec: (req: UrExecRequest): Promise<UrExecResult> => ipcRenderer.invoke(IPC.uregantExec, req),
     hardware: (): Promise<HardwareInfo> => ipcRenderer.invoke(IPC.uregantHardware),
+    pull: (tag: string): void => ipcRenderer.send(IPC.uregantPull, tag),
+    cancelPull: (tag: string): void => ipcRenderer.send(IPC.uregantPullCancel, tag),
+    onPullProgress: (cb: (e: UrPullProgress) => void): (() => void) =>
+      on<UrPullProgress>(IPC.uregantPullProgress, cb),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

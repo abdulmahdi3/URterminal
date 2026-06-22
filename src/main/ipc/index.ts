@@ -26,6 +26,7 @@ import type {
 import { applyPatch } from '@shared/diff'
 import { runCommand } from '../uregant/exec'
 import { detectHardware } from '../uregant/hardware'
+import { pullModel, cancelPull } from '../uregant/install'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
 import { stripAnsi } from '../learning/ansi'
@@ -616,6 +617,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.on(IPC.uregantToolResult, (_e, msg: UrToolResultMsg) => urToolResult(msg.callId, msg.result))
   ipcMain.handle(IPC.uregantExec, (_e, req: UrExecRequest) => runCommand(req))
   ipcMain.handle(IPC.uregantHardware, () => detectHardware())
+  ipcMain.on(IPC.uregantPull, (_e, tag: string) => {
+    void pullModel(settings.getOllamaBaseUrl(), tag, {
+      progress: (t, p) => emit(IPC.uregantPullProgress, { tag: t, ...p })
+    })
+  })
+  ipcMain.on(IPC.uregantPullCancel, (_e, tag: string) => cancelPull(tag))
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )

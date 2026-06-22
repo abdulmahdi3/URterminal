@@ -96,3 +96,28 @@ export const FIT_RANK: Record<UrFit, number> = {
   'no-disk': 4,
   'cant-run': 5
 }
+
+// ---- Cloud models (Phase 2, Slice 2). Static metadata for direct providers;
+// OpenRouter pricing is fetched live via the OpenRouter models API. Prices are
+// USD per 1M tokens (approximate, for display/comparison). ----
+
+export type UrCloudProvider = 'anthropic' | 'openai' | 'gemini'
+
+export interface UrCloudModel {
+  provider: UrCloudProvider
+  name: string
+  id: string
+  ctxK: number
+  inPerM?: number
+  outPerM?: number
+}
+
+export const UREGANT_CLOUD_CATALOG: UrCloudModel[] = [
+  { provider: 'anthropic', name: 'Claude Opus 4.x', id: 'claude-opus-4-7', ctxK: 200, inPerM: 15, outPerM: 75 },
+  { provider: 'anthropic', name: 'Claude Sonnet 4.x', id: 'claude-sonnet-4-6', ctxK: 200, inPerM: 3, outPerM: 15 },
+  { provider: 'anthropic', name: 'Claude Haiku 4.x', id: 'claude-haiku-4-5-20251001', ctxK: 200, inPerM: 0.8, outPerM: 4 },
+  { provider: 'openai', name: 'GPT-4o', id: 'gpt-4o', ctxK: 128, inPerM: 5, outPerM: 15 },
+  { provider: 'openai', name: 'GPT-4o mini', id: 'gpt-4o-mini', ctxK: 128, inPerM: 0.15, outPerM: 0.6 },
+  { provider: 'gemini', name: 'Gemini 2.0 Flash', id: 'gemini-2.0-flash', ctxK: 1000, inPerM: 0.1, outPerM: 0.4 },
+  { provider: 'gemini', name: 'Gemini 1.5 Pro', id: 'gemini-1.5-pro', ctxK: 2000, inPerM: 1.25, outPerM: 5 }
+]
