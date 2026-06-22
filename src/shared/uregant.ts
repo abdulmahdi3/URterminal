@@ -205,6 +205,24 @@ export interface UrGateResult {
   detail: string
 }
 
+/** Per-model spend/usage aggregate (Phase 4 / §14 Cost). */
+export interface CostByModel {
+  model: string
+  prompt: number
+  completion: number
+  costUsd: number
+  runs: number
+}
+
+/** Spend summary from the ledger for the Cost tab. */
+export interface CostSummary {
+  totalCostUsd: number
+  totalTokens: number
+  todayCostUsd: number
+  todayTokens: number
+  byModel: CostByModel[]
+}
+
 /** An isolated git worktree for one parallel agent. */
 export interface UrWorktree {
   path: string

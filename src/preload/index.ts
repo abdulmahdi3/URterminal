@@ -67,7 +67,8 @@ import type {
   UrPlan,
   UrGateResult,
   UrWorktree,
-  UrMergeResult
+  UrMergeResult,
+  CostSummary
 } from '@shared/uregant'
 import type { HardwareInfo } from '@shared/uregantModels'
 
@@ -170,6 +171,7 @@ const api = {
       ipcRenderer.invoke(IPC.uregantMergeWorktrees, req),
     cleanupWorktrees: (req: { cwd: string; worktrees: UrWorktree[] }): Promise<void> =>
       ipcRenderer.invoke(IPC.uregantCleanupWorktrees, req),
+    costSummary: (): Promise<CostSummary> => ipcRenderer.invoke(IPC.uregantCostSummary),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

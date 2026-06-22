@@ -3,7 +3,8 @@ import clsx from 'clsx'
 import { useUi } from '../store/ui'
 import { useWorkspace } from '../store/workspace'
 import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
-import type { UrPlan, UrGateResult, UrWorktree, UrMergeResult } from '@shared/uregant'
+import type { UrPlan, UrGateResult, UrWorktree, UrMergeResult, CostSummary } from '@shared/uregant'
+import { useClaudeUsage, formatResetIn } from '../store/claudeUsage'
 import { useUregantPulls } from '../store/uregantPulls'
 import { getEnabled, toggleEnabled } from '../lib/uregantEnabled'
 import { getEvalScores, setEvalScore } from '../lib/uregantEval'
@@ -34,7 +35,7 @@ const TABS: { id: CockpitTab; label: string; ready?: boolean }[] = [
   { id: 'mission', label: 'Mission control', ready: true },
   { id: 'route', label: 'Route', ready: true },
   { id: 'registry', label: 'Registry', ready: true },
-  { id: 'cost', label: 'Cost' },
+  { id: 'cost', label: 'Cost', ready: true },
   { id: 'handoffs', label: 'Handoffs', ready: true }
 ]
 
@@ -73,6 +74,8 @@ export default function CockpitModal(): JSX.Element | null {
           <HandoffsView />
         ) : tab === 'route' ? (
           <RouteView />
+        ) : tab === 'cost' ? (
+          <CostView />
         ) : (
           <ComingSoon tab={tab} />
         )}
@@ -889,6 +892,138 @@ function RouteView(): JSX.Element {
         <p className="ck-model-note">
           Parallel runs one agent per step (shared working tree — best for independent steps). Race +
           isolated worktrees &amp; auto-merge land in a later slice.
+        </p>
+      </section>
+    </div>
+  )
+}
+
+function UsageBar({ label, w }: { label: string; w: { percent: number; resetInMs: number } | null }): JSX.Element {
+  if (!w) {
+    return (
+      <div className="ck-model">
+        <div className="ck-model-main">
+          <div className="ck-model-note">{label}: n/a</div>
+        </div>
+      </div>
+    )
+  }
+  const color = w.percent >= 90 ? '#e0563f' : w.percent >= 70 ? '#e8b339' : undefined
+  return (
+    <div className="ck-model">
+      <div className="ck-model-main">
+        <div className="ck-model-name">
+          {label}
+          <span className="ck-tag">{w.percent}%</span>
+          <span className="ck-tag">resets {formatResetIn(w.resetInMs)}</span>
+        </div>
+        <div className="ck-progress" style={{ marginTop: 6 }}>
+          <div className="ck-progress-bar" style={{ width: `${w.percent}%`, background: color }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CostView(): JSX.Element {
+  const [summary, setSummary] = useState<CostSummary | null>(null)
+  const [budget, setBudget] = useState<number>(() => {
+    const v = Number(localStorage.getItem('uregant.budget'))
+    return Number.isFinite(v) && v > 0 ? v : 0
+  })
+  const claude = useClaudeUsage()
+
+  useEffect(() => {
+    void window.api.uregant.costSummary().then(setSummary)
+    void useClaudeUsage.getState().sample()
+  }, [])
+
+  const setBudgetVal = (n: number): void => {
+    setBudget(n)
+    try {
+      localStorage.setItem('uregant.budget', String(n))
+    } catch {
+      /* ignore */
+    }
+  }
+  const usd = (n: number): string => '$' + n.toFixed(n >= 1 ? 2 : 4)
+  const tok = (n: number): string => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n))
+  const pct = budget > 0 ? Math.min(100, Math.round(((summary?.totalCostUsd ?? 0) / budget) * 100)) : 0
+
+  return (
+    <div className="cockpit-body">
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3>Cost &amp; usage</h3>
+        </div>
+        <div className="ck-tiles">
+          <Tile value={usd(summary?.todayCostUsd ?? 0)} label="Spend today" />
+          <Tile value={usd(summary?.totalCostUsd ?? 0)} label="Spend total" />
+          <Tile value={tok(summary?.totalTokens ?? 0)} label="Tokens total" />
+        </div>
+
+        <h3 className="ck-cloud-title">Claude plan usage</h3>
+        {claude.ok ? (
+          <div className="ck-models">
+            <UsageBar label="5-hour window" w={claude.fiveHour} />
+            <UsageBar label="7-day window" w={claude.sevenDay} />
+          </div>
+        ) : (
+          <p className="ck-model-note">
+            Claude plan usage unavailable — sign in to the <span className="ck-mono">claude</span> CLI
+            to see your 5h / 7d limits.
+          </p>
+        )}
+
+        <h3 className="ck-cloud-title">By model</h3>
+        {summary && summary.byModel.length ? (
+          <div className="ck-models">
+            {summary.byModel.map((m) => (
+              <div key={m.model} className="ck-model">
+                <div className="ck-model-main">
+                  <div className="ck-model-name">
+                    {m.model}
+                    <span className="ck-tag">{m.runs} runs</span>
+                  </div>
+                  <div className="ck-model-note">
+                    {tok(m.prompt + m.completion)} tokens · {m.costUsd > 0 ? usd(m.costUsd) : 'free (local)'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="settings-empty">No usage recorded yet — run Uregant or an OpenRouter chat.</p>
+        )}
+
+        <h3 className="ck-cloud-title">Budget</h3>
+        <div className="ck-route-controls">
+          <input
+            className="input mono"
+            type="number"
+            min={0}
+            value={budget || ''}
+            placeholder="monthly budget ($)"
+            onChange={(e) => setBudgetVal(Number(e.target.value) || 0)}
+            style={{ width: 170, padding: '4px 8px' }}
+          />
+          {budget > 0 && (
+            <span className="ck-model-note">
+              {usd(summary?.totalCostUsd ?? 0)} / {usd(budget)} ({pct}%)
+            </span>
+          )}
+        </div>
+        {budget > 0 && (
+          <div className="ck-progress">
+            <div
+              className="ck-progress-bar"
+              style={{ width: `${pct}%`, background: pct >= 100 ? '#e0563f' : undefined }}
+            />
+          </div>
+        )}
+        <p className="ck-model-note">
+          Local models are free; OpenRouter cost is tracked per turn; Claude plan usage is
+          account-global (from Anthropic). Hard-cap auto-pause lands later.
         </p>
       </section>
     </div>

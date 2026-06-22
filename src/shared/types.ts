@@ -1089,6 +1089,7 @@ export const IPC = {
   uregantCreateWorktrees: 'uregant:create-worktrees', // renderer -> main (invoke): isolate parallel agents
   uregantMergeWorktrees: 'uregant:merge-worktrees', // renderer -> main (invoke): merge branches back
   uregantCleanupWorktrees: 'uregant:cleanup-worktrees', // renderer -> main (invoke): remove worktrees
+  uregantCostSummary: 'uregant:cost-summary', // renderer -> main (invoke): spend ledger summary
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot

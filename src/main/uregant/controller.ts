@@ -18,6 +18,7 @@ import { wrapUntrusted } from './untrusted'
 import { decideBatch } from './policy'
 import { audit } from './audit'
 import { createCheckpoint, restoreCheckpoint } from './checkpoint'
+import { recordUsage } from './ledger'
 
 type Emit = (channel: string, payload: unknown) => void
 type RunStatus = 'idle' | 'streaming' | 'awaiting-approval' | 'executing'
@@ -170,6 +171,10 @@ async function drive(run: UrRun, emit: Emit): Promise<void> {
     run.error = turnError
     emitState(run, emit)
     return
+  }
+
+  if (result.usage) {
+    recordUsage(run.model, result.usage.promptTokens ?? 0, result.usage.completionTokens ?? 0, 0)
   }
 
   run.messages.push({

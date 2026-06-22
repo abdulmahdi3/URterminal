@@ -32,6 +32,7 @@ import { registerCrewMcp, writeControlConfig } from '../uregant/crew'
 import { installCrewAgents } from '../uregant/crewAgents'
 import { planProject, runGate, changedFiles, commitChanges } from '../uregant/route'
 import { createWorktrees, mergeWorktrees, cleanupWorktrees } from '../uregant/worktree'
+import { recordUsage, costSummary } from '../uregant/ledger'
 import { generateControlToken } from '../control/server'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg, UrWorktree } from '@shared/uregant'
@@ -594,9 +595,20 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       /* notifications unavailable — the in-app toast already covered it */
     }
   })
+  const orCostModel = new Map<string, string>()
   const orEmit: ChatEmit = {
     delta: (paneId, delta) => emit(IPC.openrouterDelta, { paneId, delta }),
-    done: (paneId, usage, finishReason) => emit(IPC.openrouterDone, { paneId, usage, finishReason }),
+    done: (paneId, usage, finishReason) => {
+      if (usage) {
+        recordUsage(
+          orCostModel.get(paneId) ?? 'openrouter',
+          usage.promptTokens ?? 0,
+          usage.completionTokens ?? 0,
+          usage.costUsd ?? 0
+        )
+      }
+      emit(IPC.openrouterDone, { paneId, usage, finishReason })
+    },
     error: (paneId, message) => emit(IPC.openrouterError, { paneId, message })
   }
   ipcMain.handle(IPC.openrouterSend, (_e, req: OrSendRequest) => {
@@ -608,6 +620,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
       )
       return
     }
+    orCostModel.set(req.paneId, req.model)
     void streamOpenRouter(key, req, orEmit)
   })
   ipcMain.on(IPC.openrouterStop, (_e, paneId: string) => stopOpenRouter(paneId))
@@ -665,6 +678,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   ipcMain.handle(IPC.uregantCleanupWorktrees, (_e, req: { cwd: string; worktrees: UrWorktree[] }) =>
     cleanupWorktrees(req.cwd, req.worktrees)
   )
+  ipcMain.handle(IPC.uregantCostSummary, () => costSummary())
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )
