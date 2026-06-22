@@ -4,6 +4,7 @@ import type { UrAutonomy } from '@shared/uregant'
 import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
 import { useWorkspace } from '../store/workspace'
 import { getEnabled } from '../lib/uregantEnabled'
+import { voiceAvailable, getVoiceOut, setVoiceOut } from '../lib/voice'
 
 /**
  * Uregant pane (Slice 2–3) — chat with the local orchestrator, watch it stream,
@@ -21,6 +22,7 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
   const [models, setModels] = useState<string[]>([])
   const [probing, setProbing] = useState(true)
   const [input, setInput] = useState('')
+  const [voiceOn, setVoiceOn] = useState(getVoiceOut())
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const model = c?.model ?? pane.uregant?.model ?? UREGANT_DEFAULT_MODEL
@@ -152,6 +154,20 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
           <option value="auto-safe">Auto-safe</option>
           <option value="full-auto">Full-auto</option>
         </select>
+        {voiceAvailable() && (
+          <button
+            className="btn"
+            onClick={() => {
+              const next = !voiceOn
+              setVoiceOn(next)
+              setVoiceOut(next)
+            }}
+            title={voiceOn ? 'Uregant speaks replies (on) — click to mute' : 'Speak replies aloud'}
+            style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px', opacity: voiceOn ? 1 : 0.55 }}
+          >
+            {voiceOn ? '🔊' : '🔇'}
+          </button>
+        )}
       </div>
 
       <div className="stream-scroll" ref={scrollRef}>

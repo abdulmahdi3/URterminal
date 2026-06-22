@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useUregant } from '../store/uregant'
 import { useUregantPulls } from '../store/uregantPulls'
 import { executeTool } from '../lib/uregantTools'
+import { maybeSpeakState } from '../lib/voice'
 
 /**
  * Mounts ONCE at app root (App.tsx). Routes the main-process loop's events:
@@ -14,7 +15,10 @@ import { executeTool } from '../lib/uregantTools'
 export function useUregantStream(): void {
   useEffect(() => {
     const offDelta = window.api.uregant.onDelta((e) => useUregant.getState()._delta(e.paneId, e.delta))
-    const offState = window.api.uregant.onState((e) => useUregant.getState()._state(e))
+    const offState = window.api.uregant.onState((e) => {
+      useUregant.getState()._state(e)
+      maybeSpeakState(e)
+    })
     const offExec = window.api.uregant.onExecTool(async (e) => {
       const result = await executeTool({ function: { name: e.name, arguments: e.args } })
       window.api.uregant.toolResult(e.callId, result)
