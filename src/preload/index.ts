@@ -68,7 +68,8 @@ import type {
   UrGateResult,
   UrWorktree,
   UrMergeResult,
-  CostSummary
+  CostSummary,
+  UrSttStatus
 } from '@shared/uregant'
 import type { HardwareInfo } from '@shared/uregantModels'
 
@@ -172,6 +173,11 @@ const api = {
     cleanupWorktrees: (req: { cwd: string; worktrees: UrWorktree[] }): Promise<void> =>
       ipcRenderer.invoke(IPC.uregantCleanupWorktrees, req),
     costSummary: (): Promise<CostSummary> => ipcRenderer.invoke(IPC.uregantCostSummary),
+    sttStatus: (): Promise<UrSttStatus> => ipcRenderer.invoke(IPC.uregantSttStatus),
+    setSttConfig: (req: { binary: string; model: string }): Promise<UrSttStatus> =>
+      ipcRenderer.invoke(IPC.uregantSetSttConfig, req),
+    transcribe: (req: { wav: ArrayBuffer; lang: string }): Promise<{ ok: boolean; text?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC.uregantTranscribe, req),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

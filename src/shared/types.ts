@@ -1090,6 +1090,9 @@ export const IPC = {
   uregantMergeWorktrees: 'uregant:merge-worktrees', // renderer -> main (invoke): merge branches back
   uregantCleanupWorktrees: 'uregant:cleanup-worktrees', // renderer -> main (invoke): remove worktrees
   uregantCostSummary: 'uregant:cost-summary', // renderer -> main (invoke): spend ledger summary
+  uregantSttStatus: 'uregant:stt-status', // renderer -> main (invoke): whisper.cpp availability
+  uregantSetSttConfig: 'uregant:set-stt-config', // renderer -> main (invoke): set whisper binary/model
+  uregantTranscribe: 'uregant:transcribe', // renderer -> main (invoke): WAV -> text
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot

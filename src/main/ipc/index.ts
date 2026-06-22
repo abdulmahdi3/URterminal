@@ -33,6 +33,7 @@ import { installCrewAgents } from '../uregant/crewAgents'
 import { planProject, runGate, changedFiles, commitChanges } from '../uregant/route'
 import { createWorktrees, mergeWorktrees, cleanupWorktrees } from '../uregant/worktree'
 import { recordUsage, costSummary } from '../uregant/ledger'
+import { detectStt, setSttConfig, transcribe } from '../uregant/stt'
 import { generateControlToken } from '../control/server'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg, UrWorktree } from '@shared/uregant'
@@ -679,6 +680,13 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     cleanupWorktrees(req.cwd, req.worktrees)
   )
   ipcMain.handle(IPC.uregantCostSummary, () => costSummary())
+  ipcMain.handle(IPC.uregantSttStatus, () => detectStt())
+  ipcMain.handle(IPC.uregantSetSttConfig, (_e, req: { binary: string; model: string }) =>
+    setSttConfig(req.binary, req.model)
+  )
+  ipcMain.handle(IPC.uregantTranscribe, (_e, req: { wav: ArrayBuffer; lang: string }) =>
+    transcribe(req.wav, req.lang)
+  )
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )

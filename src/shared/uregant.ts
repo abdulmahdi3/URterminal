@@ -223,6 +223,14 @@ export interface CostSummary {
   byModel: CostByModel[]
 }
 
+/** Local whisper.cpp STT availability (Phase 5 voice input). */
+export interface UrSttStatus {
+  ok: boolean
+  binary?: string
+  model?: string
+  error?: string
+}
+
 /** An isolated git worktree for one parallel agent. */
 export interface UrWorktree {
   path: string

@@ -4,7 +4,8 @@ import type { UrAutonomy } from '@shared/uregant'
 import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
 import { useWorkspace } from '../store/workspace'
 import { getEnabled } from '../lib/uregantEnabled'
-import { voiceAvailable, getVoiceOut, setVoiceOut } from '../lib/voice'
+import { voiceAvailable, getVoiceOut, setVoiceOut, getVoiceLang } from '../lib/voice'
+import { Recorder } from '../lib/audio'
 
 /**
  * Uregant pane (Slice 2–3) — chat with the local orchestrator, watch it stream,
@@ -23,6 +24,13 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
   const [probing, setProbing] = useState(true)
   const [input, setInput] = useState('')
   const [voiceOn, setVoiceOn] = useState(getVoiceOut())
+  const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const [sttSetup, setSttSetup] = useState(false)
+  const [binPath, setBinPath] = useState('')
+  const [modelPath, setModelPath] = useState('')
+  const [sttErr, setSttErr] = useState<string | null>(null)
+  const recRef = useRef<Recorder | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const model = c?.model ?? pane.uregant?.model ?? UREGANT_DEFAULT_MODEL
@@ -76,6 +84,54 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
     if (!t || streaming || pending) return
     setInput('')
     useUregant.getState().send(pane.id, t)
+  }
+
+  const toggleMic = async (): Promise<void> => {
+    if (transcribing) return
+    if (recording) {
+      setRecording(false)
+      setTranscribing(true)
+      try {
+        const wav = await recRef.current?.stop()
+        recRef.current = null
+        if (wav) {
+          const r = await window.api.uregant.transcribe({ wav, lang: getVoiceLang() })
+          if (r.ok && r.text) setInput((prev) => (prev ? prev + ' ' : '') + r.text)
+          else setSttErr(r.error ?? 'transcription failed')
+        }
+      } catch (e) {
+        setSttErr((e as Error).message)
+      } finally {
+        setTranscribing(false)
+      }
+      return
+    }
+    const st = await window.api.uregant.sttStatus()
+    if (!st.ok) {
+      setSttErr(st.error ?? 'Voice input unavailable.')
+      if (st.binary) setBinPath(st.binary)
+      setSttSetup(true)
+      return
+    }
+    setSttErr(null)
+    try {
+      const rec = new Recorder()
+      await rec.start()
+      recRef.current = rec
+      setRecording(true)
+    } catch (e) {
+      setSttErr('Microphone error: ' + (e as Error).message)
+    }
+  }
+
+  const saveStt = async (): Promise<void> => {
+    const st = await window.api.uregant.setSttConfig({ binary: binPath, model: modelPath })
+    if (st.ok) {
+      setSttSetup(false)
+      setSttErr(null)
+    } else {
+      setSttErr(st.error ?? 'Still not configured.')
+    }
   }
 
   // ---- onboarding gate: Ollama unreachable / no models ----
@@ -168,7 +224,63 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
             {voiceOn ? '🔊' : '🔇'}
           </button>
         )}
+        <button
+          className="btn"
+          onClick={() => void toggleMic()}
+          disabled={streaming || transcribing}
+          title={recording ? 'Stop & transcribe' : 'Speak to Uregant (voice input)'}
+          style={{
+            marginLeft: 8,
+            fontSize: 11,
+            padding: '2px 8px',
+            ...(recording ? { background: '#e0563f', color: '#fff' } : {})
+          }}
+        >
+          {transcribing ? '…' : recording ? '⏺' : '🎤'}
+        </button>
       </div>
+
+      {(sttSetup || sttErr) && (
+        <div style={sttBarStyle}>
+          {sttErr && <div className="or-err" style={{ marginBottom: sttSetup ? 8 : 0 }}>{sttErr}</div>}
+          {sttSetup && (
+            <>
+              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+                Voice input uses local <b>whisper.cpp</b>. Point Uregant at the binary and a ggml model:
+              </div>
+              <input
+                className="input mono"
+                placeholder="whisper.cpp binary (e.g. whisper-cli.exe)"
+                value={binPath}
+                onChange={(e) => setBinPath(e.target.value)}
+                style={sttInputStyle}
+              />
+              <input
+                className="input mono"
+                placeholder="model path (e.g. ggml-base.bin)"
+                value={modelPath}
+                onChange={(e) => setModelPath(e.target.value)}
+                style={sttInputStyle}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn" onClick={() => setSttSetup(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn"
+                  style={{ background: 'var(--accent, #3a7afe)', color: '#fff' }}
+                  onClick={() => void saveStt()}
+                >
+                  Save
+                </button>
+              </div>
+              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
+                whisper.cpp: github.com/ggerganov/whisper.cpp · models: huggingface.co/ggerganov/whisper.cpp
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="stream-scroll" ref={scrollRef}>
         {messages.length === 0 && !c?.streamingText && (
@@ -308,6 +420,17 @@ const cmdStyle: React.CSSProperties = {
   padding: '6px 10px',
   margin: '8px 0 0',
   fontSize: 12
+}
+const sttBarStyle: React.CSSProperties = {
+  padding: '8px 10px',
+  borderBottom: '1px solid var(--line, #333)',
+  background: 'var(--panel-2, rgba(255,255,255,0.03))'
+}
+const sttInputStyle: React.CSSProperties = {
+  width: '100%',
+  fontSize: 11,
+  padding: '4px 8px',
+  marginTop: 6
 }
 
 function truncate(s: string): string {
