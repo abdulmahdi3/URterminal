@@ -1081,6 +1081,7 @@ export const IPC = {
   uregantPullCancel: 'uregant:pull-cancel', // renderer -> main: cancel a pull
   uregantPullProgress: 'uregant:pull-progress', // main -> renderer (event): pull progress
   uregantEval: 'uregant:eval', // renderer -> main (invoke): tool-call fidelity probe
+  uregantConnectCrew: 'uregant:connect-crew', // renderer -> main (invoke): register the MCP bridge in a folder
   // main -> renderer events:
   uregantDelta: 'uregant:delta', // live assistant text
   uregantState: 'uregant:state', // authoritative run snapshot

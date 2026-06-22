@@ -28,6 +28,8 @@ import { runCommand } from '../uregant/exec'
 import { detectHardware } from '../uregant/hardware'
 import { pullModel, cancelPull } from '../uregant/install'
 import { evalModel } from '../uregant/eval'
+import { registerCrewMcp, writeControlConfig } from '../uregant/crew'
+import { generateControlToken } from '../control/server'
 import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
 import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
 import { stripAnsi } from '../learning/ansi'
@@ -625,6 +627,22 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
   ipcMain.on(IPC.uregantPullCancel, (_e, tag: string) => cancelPull(tag))
   ipcMain.handle(IPC.uregantEval, (_e, model: string) => evalModel(settings.getOllamaBaseUrl(), model))
+  ipcMain.handle(IPC.uregantConnectCrew, async (_e, cwd: string) => {
+    if (!cwd) return { ok: false, error: 'This pane has no folder.' }
+    const before = settings.getPrefs()
+    const prefsPatch: { controlServerEnabled?: boolean; controlServerToken?: string } = {}
+    if (!before.controlServerEnabled) prefsPatch.controlServerEnabled = true
+    if (!before.controlServerToken) prefsPatch.controlServerToken = generateControlToken()
+    if (Object.keys(prefsPatch).length) settings.patch({ prefs: prefsPatch })
+    const status = (await startControl()) as { running?: boolean; port?: number } | undefined
+    const prefs = settings.getPrefs()
+    const token = prefs.controlServerToken
+    const port = status?.port ?? prefs.controlServerPort
+    if (!port || !token) return { ok: false, error: 'Could not start the control server.' }
+    writeControlConfig(port, token)
+    const res = registerCrewMcp(cwd)
+    return res.ok ? { ok: true, port } : { ok: false, error: res.error }
+  })
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )

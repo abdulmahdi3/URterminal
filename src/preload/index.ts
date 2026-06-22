@@ -152,6 +152,8 @@ const api = {
     onPullProgress: (cb: (e: UrPullProgress) => void): (() => void) =>
       on<UrPullProgress>(IPC.uregantPullProgress, cb),
     evalModel: (model: string): Promise<UrEvalResult> => ipcRenderer.invoke(IPC.uregantEval, model),
+    connectCrew: (cwd: string): Promise<{ ok: boolean; port?: number; error?: string }> =>
+      ipcRenderer.invoke(IPC.uregantConnectCrew, cwd),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
     onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
     onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>

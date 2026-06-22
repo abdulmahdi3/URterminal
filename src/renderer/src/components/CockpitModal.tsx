@@ -164,7 +164,7 @@ function RegistryView(): JSX.Element {
   const [section, setSection] = useState<RegistrySection>('models')
   const SECTIONS: { id: RegistrySection; label: string; ready?: boolean }[] = [
     { id: 'models', label: 'Models', ready: true },
-    { id: 'agents', label: 'Agents' },
+    { id: 'agents', label: 'Agents', ready: true },
     { id: 'mcp', label: 'MCP servers' },
     { id: 'memory', label: 'Memory' },
     { id: 'secrets', label: 'Secrets vault' }
@@ -188,6 +188,8 @@ function RegistryView(): JSX.Element {
       <div className="settings-content">
         {section === 'models' ? (
           <ModelsSection />
+        ) : section === 'agents' ? (
+          <AgentsSection />
         ) : (
           <p className="settings-empty">Coming in a later phase.</p>
         )}
@@ -400,6 +402,72 @@ function ModelsSection(): JSX.Element {
       <p className="ck-model-note">
         Cloud prices are USD per 1M tokens. OpenRouter rows fill in live when a key is set (Settings →
         Providers). Per-role assignment + agents/MCP/memory tabs land in later phases.
+      </p>
+    </section>
+  )
+}
+
+function AgentsSection(): JSX.Element {
+  const panes = useWorkspace((s) => s.panes)
+  const activeId = useWorkspace((s) => s.activePaneId)
+  const active = activeId ? panes[activeId] : undefined
+  const cwd = active?.agent?.cwd || active?.shell?.cwd || ''
+  const [result, setResult] = useState<{ ok: boolean; port?: number; error?: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const connect = async (): Promise<void> => {
+    if (!cwd) return
+    setBusy(true)
+    try {
+      setResult(await window.api.uregant.connectCrew(cwd))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="settings-section">
+      <div className="settings-section-head">
+        <h3>Claude Crew</h3>
+      </div>
+      <p className="ck-model-note">
+        Give Claude control of URterminal&apos;s panes via MCP. Connect a folder, then open a{' '}
+        <span className="ck-mono">claude</span> pane in it — Claude gets tools to list / open / write /
+        read / close panes.
+      </p>
+      <div className="ck-model">
+        <div className="ck-model-main">
+          <div className="ck-model-name">
+            uregant-panes
+            <span className="ck-tag">MCP bridge</span>
+          </div>
+          <div className="ck-model-note">
+            {cwd ? (
+              <>
+                Active folder: <span className="ck-mono">{cwd}</span>
+              </>
+            ) : (
+              'Focus an agent/shell pane that has a folder first.'
+            )}
+          </div>
+          {result &&
+            (result.ok ? (
+              <div className="ck-eval ck-eval-ok">
+                ✓ Connected — control server on port {result.port}. Wrote .mcp.json. Open a{' '}
+                <span className="ck-mono">claude</span> pane in this folder.
+              </div>
+            ) : (
+              <div className="ck-eval ck-eval-bad">⚠ {result.error}</div>
+            ))}
+        </div>
+        <div className="ck-model-side">
+          <button className="btn" disabled={!cwd || busy} onClick={() => void connect()}>
+            {busy ? 'Connecting…' : 'Connect'}
+          </button>
+        </div>
+      </div>
+      <p className="ck-model-note">
+        Full per-role crew (planner / coder / security…) with skills + memory lands in the next slice.
       </p>
     </section>
   )
