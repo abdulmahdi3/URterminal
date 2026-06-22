@@ -12,7 +12,7 @@ import { useWorkspace } from '../store/workspace'
 export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
   const c = useUregant((s) => s.byPane[pane.id])
   const streaming = c?.streaming ?? false
-  const convo = c?.convo ?? []
+  const messages = c?.messages ?? []
   const pending = c?.pending ?? null
   const updatePane = useWorkspace((s) => s.updatePane)
 
@@ -49,6 +49,8 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
 
   useEffect(() => {
     void probe()
+    // re-attach to any in-flight run owned by main (survives a renderer reload)
+    useUregant.getState().resync(pane.id)
     // probe once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -56,7 +58,7 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [convo.length, c?.streamingText, pending])
+  }, [messages.length, c?.streamingText, pending])
 
   const send = (): void => {
     const t = input.trim()
@@ -121,13 +123,13 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
       </div>
 
       <div className="stream-scroll" ref={scrollRef}>
-        {convo.length === 0 && !c?.streamingText && (
+        {messages.length === 0 && !c?.streamingText && (
           <div className="stream-empty">
             Tell Uregant what to do — it opens panes, runs commands, and drives your terminal. ({model})
           </div>
         )}
 
-        {convo.map((m, i) => {
+        {messages.map((m, i) => {
           if (m.role === 'user') {
             return (
               <div key={i} className="stream-prompt">

@@ -1065,15 +1065,19 @@ export const IPC = {
   openrouterDone: 'openrouter:done', // main -> renderer (event)
   openrouterError: 'openrouter:error', // main -> renderer (event)
 
-  // uregant: local AI orchestrator — tool-calling chat loop over Ollama.
-  // delta/tool-call/done/error are main -> renderer events keyed by paneId.
-  uregantChat: 'uregant:chat',
+  // uregant: local AI orchestrator — loop controller lives in MAIN (uregant/controller.ts).
+  // renderer -> main commands:
+  uregantStart: 'uregant:start',
+  uregantApprove: 'uregant:approve',
+  uregantDeny: 'uregant:deny',
   uregantStop: 'uregant:stop',
+  uregantResync: 'uregant:resync',
+  uregantToolResult: 'uregant:tool-result', // renderer -> main: result of a dispatched pane tool
   uregantExec: 'uregant:exec', // renderer -> main (invoke): headless run_command
-  uregantDelta: 'uregant:delta', // main -> renderer (event)
-  uregantToolCall: 'uregant:tool-call', // main -> renderer (event)
-  uregantDone: 'uregant:done', // main -> renderer (event)
-  uregantError: 'uregant:error', // main -> renderer (event)
+  // main -> renderer events:
+  uregantDelta: 'uregant:delta', // live assistant text
+  uregantState: 'uregant:state', // authoritative run snapshot
+  uregantExecTool: 'uregant:exec-tool', // run a pane tool, reply via uregant:tool-result
   // prompts: durable per-chat prompt history (rebuilds the prompt minimap on restore)
   promptsGet: 'prompts:get',
   promptsAppend: 'prompts:append',

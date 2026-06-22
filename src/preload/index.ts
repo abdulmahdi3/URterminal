@@ -56,10 +56,10 @@ import type {
 } from '@shared/types'
 import type {
   UrDeltaEvent,
-  UrDoneEvent,
-  UrErrorEvent,
-  UrToolCallEvent,
-  UrChatSend,
+  UrStateEvent,
+  UrExecToolEvent,
+  UrStartRequest,
+  UrToolResult,
   UrExecRequest,
   UrExecResult
 } from '@shared/uregant'
@@ -135,14 +135,18 @@ const api = {
     onError: (cb: (e: OrErrorEvent) => void): (() => void) => on<OrErrorEvent>(IPC.openrouterError, cb)
   },
   uregant: {
-    chat: (req: UrChatSend): Promise<void> => ipcRenderer.invoke(IPC.uregantChat, req),
+    start: (req: UrStartRequest): void => ipcRenderer.send(IPC.uregantStart, req),
+    approve: (paneId: string): void => ipcRenderer.send(IPC.uregantApprove, paneId),
+    deny: (paneId: string): void => ipcRenderer.send(IPC.uregantDeny, paneId),
     stop: (paneId: string): void => ipcRenderer.send(IPC.uregantStop, paneId),
+    resync: (paneId: string): void => ipcRenderer.send(IPC.uregantResync, paneId),
+    toolResult: (callId: string, result: UrToolResult): void =>
+      ipcRenderer.send(IPC.uregantToolResult, { callId, result }),
     exec: (req: UrExecRequest): Promise<UrExecResult> => ipcRenderer.invoke(IPC.uregantExec, req),
     onDelta: (cb: (e: UrDeltaEvent) => void): (() => void) => on<UrDeltaEvent>(IPC.uregantDelta, cb),
-    onToolCall: (cb: (e: UrToolCallEvent) => void): (() => void) =>
-      on<UrToolCallEvent>(IPC.uregantToolCall, cb),
-    onDone: (cb: (e: UrDoneEvent) => void): (() => void) => on<UrDoneEvent>(IPC.uregantDone, cb),
-    onError: (cb: (e: UrErrorEvent) => void): (() => void) => on<UrErrorEvent>(IPC.uregantError, cb)
+    onState: (cb: (e: UrStateEvent) => void): (() => void) => on<UrStateEvent>(IPC.uregantState, cb),
+    onExecTool: (cb: (e: UrExecToolEvent) => void): (() => void) =>
+      on<UrExecToolEvent>(IPC.uregantExecTool, cb)
   },
   installAgent: (command: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.agentsInstall, command),

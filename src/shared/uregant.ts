@@ -128,3 +128,36 @@ export interface UrExecResult {
  */
 export type UrChatSend = Omit<UrChatRequest, 'baseUrl'>
 
+// ---- Slice 4: loop controller in main. renderer <-> main protocol ----
+
+/** renderer -> main: begin/continue a run with the user's text. */
+export interface UrStartRequest {
+  paneId: string
+  model: string
+  text: string
+}
+
+/** main -> renderer: authoritative run snapshot the renderer mirrors and renders. */
+export interface UrStateEvent {
+  paneId: string
+  messages: UrChatMessage[]
+  streaming: boolean
+  pending: UrToolCall[] | null
+  error: string | null
+  model: string
+}
+
+/** main -> renderer: execute a pane tool and reply with uregant:tool-result. */
+export interface UrExecToolEvent {
+  paneId: string
+  callId: string
+  name: string
+  args: Record<string, unknown>
+}
+
+/** renderer -> main: the result of a dispatched pane tool. */
+export interface UrToolResultMsg {
+  callId: string
+  result: UrToolResult
+}
+

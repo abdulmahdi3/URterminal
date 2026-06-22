@@ -24,10 +24,9 @@ import type {
   SshCredential
 } from '@shared/types'
 import { applyPatch } from '@shared/diff'
-import { streamUregant, stopUregant } from '../uregant/llm'
-import type { UregantEmit } from '../uregant/llm'
 import { runCommand } from '../uregant/exec'
-import type { UrChatSend, UrExecRequest } from '@shared/uregant'
+import { urStart, urApprove, urDeny, urStop, urResync, urToolResult } from '../uregant/controller'
+import type { UrExecRequest, UrStartRequest, UrToolResultMsg } from '@shared/uregant'
 import { stripAnsi } from '../learning/ansi'
 import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget, tcpPing } from '../ssh/sshPty'
@@ -605,22 +604,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
   })
   ipcMain.on(IPC.openrouterStop, (_e, paneId: string) => stopOpenRouter(paneId))
 
-  // uregant: local AI orchestrator — tool-calling chat loop over Ollama.
-  const urEmit: UregantEmit = {
-    delta: (paneId, delta) => emit(IPC.uregantDelta, { paneId, delta }),
-    toolCalls: (paneId, calls) => emit(IPC.uregantToolCall, { paneId, calls }),
-    done: (paneId, result) => emit(IPC.uregantDone, { paneId, result }),
-    error: (paneId, message) => emit(IPC.uregantError, { paneId, message })
-  }
-  ipcMain.handle(IPC.uregantChat, (_e, req: UrChatSend) => {
-    const baseUrl = settings.getOllamaBaseUrl()
-    if (!baseUrl) {
-      urEmit.error(req.paneId, 'No Ollama server configured. Set the Ollama base URL in Settings.')
-      return
-    }
-    void streamUregant({ ...req, baseUrl }, urEmit)
-  })
-  ipcMain.on(IPC.uregantStop, (_e, paneId: string) => stopUregant(paneId))
+  // uregant: local AI orchestrator — loop controller lives in main (uregant/controller.ts).
+  ipcMain.on(IPC.uregantStart, (_e, req: UrStartRequest) =>
+    urStart(req.paneId, req.model, settings.getOllamaBaseUrl(), req.text, emit)
+  )
+  ipcMain.on(IPC.uregantApprove, (_e, paneId: string) => urApprove(paneId, emit))
+  ipcMain.on(IPC.uregantDeny, (_e, paneId: string) => urDeny(paneId, emit))
+  ipcMain.on(IPC.uregantStop, (_e, paneId: string) => urStop(paneId, emit))
+  ipcMain.on(IPC.uregantResync, (_e, paneId: string) => urResync(paneId, emit))
+  ipcMain.on(IPC.uregantToolResult, (_e, msg: UrToolResultMsg) => urToolResult(msg.callId, msg.result))
   ipcMain.handle(IPC.uregantExec, (_e, req: UrExecRequest) => runCommand(req))
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
