@@ -8,7 +8,7 @@
  * responding to uregant:exec-tool. No loop logic lives here anymore.
  */
 import { create } from 'zustand'
-import type { UrChatMessage, UrToolCall, UrStateEvent } from '@shared/uregant'
+import type { UrChatMessage, UrToolCall, UrStateEvent, UrAutonomy } from '@shared/uregant'
 
 export const UREGANT_DEFAULT_MODEL = 'qwen3.5:latest'
 
@@ -20,11 +20,13 @@ export interface UrPaneView {
   pending: UrToolCall[] | null
   error: string | null
   model: string
+  autonomy: UrAutonomy
 }
 
 interface UrState {
   byPane: Record<string, UrPaneView>
   setModel: (paneId: string, model: string) => void
+  setAutonomy: (paneId: string, autonomy: UrAutonomy) => void
   send: (paneId: string, text: string) => void
   approve: (paneId: string) => void
   deny: (paneId: string) => void
@@ -37,7 +39,7 @@ interface UrState {
 }
 
 function blank(): UrPaneView {
-  return { messages: [], streamingText: '', streaming: false, pending: null, error: null, model: UREGANT_DEFAULT_MODEL }
+  return { messages: [], streamingText: '', streaming: false, pending: null, error: null, model: UREGANT_DEFAULT_MODEL, autonomy: 'manual' }
 }
 
 export const useUregant = create<UrState>((set, get) => {
@@ -49,10 +51,14 @@ export const useUregant = create<UrState>((set, get) => {
 
     setModel: (paneId, model) => patch(paneId, (p) => ({ ...p, model })),
 
+    setAutonomy: (paneId, autonomy) => patch(paneId, (p) => ({ ...p, autonomy })),
+
     send: (paneId, text) => {
       const t = text.trim()
       if (!t) return
-      const model = get().byPane[paneId]?.model ?? UREGANT_DEFAULT_MODEL
+      const view = get().byPane[paneId]
+      const model = view?.model ?? UREGANT_DEFAULT_MODEL
+      const autonomy = view?.autonomy ?? 'manual'
       // optimistic: show the user message + busy state until main's snapshot lands
       patch(paneId, (p) => ({
         ...p,
@@ -60,7 +66,7 @@ export const useUregant = create<UrState>((set, get) => {
         streaming: true,
         error: null
       }))
-      window.api.uregant.start({ paneId, model, text: t })
+      window.api.uregant.start({ paneId, model, text: t, autonomy })
     },
 
     approve: (paneId) => {
@@ -97,6 +103,7 @@ export const useUregant = create<UrState>((set, get) => {
         pending: e.pending,
         error: e.error,
         model: e.model || p.model,
+        autonomy: e.autonomy || p.autonomy,
         // a fresh snapshot is authoritative — the in-progress delta is now either
         // committed into messages or superseded
         streamingText: ''

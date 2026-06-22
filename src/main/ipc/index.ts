@@ -606,7 +606,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
 
   // uregant: local AI orchestrator — loop controller lives in main (uregant/controller.ts).
   ipcMain.on(IPC.uregantStart, (_e, req: UrStartRequest) =>
-    urStart(req.paneId, req.model, settings.getOllamaBaseUrl(), req.text, emit)
+    urStart(req.paneId, req.model, settings.getOllamaBaseUrl(), req.text, req.autonomy, emit)
   )
   ipcMain.on(IPC.uregantApprove, (_e, paneId: string) => urApprove(paneId, emit))
   ipcMain.on(IPC.uregantDeny, (_e, paneId: string) => urDeny(paneId, emit))

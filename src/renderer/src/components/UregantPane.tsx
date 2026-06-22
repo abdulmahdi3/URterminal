@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { Pane } from '@shared/types'
+import type { UrAutonomy } from '@shared/uregant'
 import { useUregant, UREGANT_DEFAULT_MODEL } from '../store/uregant'
 import { useWorkspace } from '../store/workspace'
 
@@ -22,10 +23,16 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const model = c?.model ?? pane.uregant?.model ?? UREGANT_DEFAULT_MODEL
+  const autonomy: UrAutonomy = c?.autonomy ?? pane.uregant?.autonomy ?? 'manual'
 
   const chooseModel = (m: string): void => {
     useUregant.getState().setModel(pane.id, m)
     updatePane(pane.id, { uregant: { ...pane.uregant, model: m } })
+  }
+
+  const chooseAutonomy = (a: UrAutonomy): void => {
+    useUregant.getState().setAutonomy(pane.id, a)
+    updatePane(pane.id, { uregant: { ...pane.uregant, autonomy: a } })
   }
 
   const probe = useCallback(async (): Promise<void> => {
@@ -49,6 +56,7 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
 
   useEffect(() => {
     void probe()
+    if (pane.uregant?.autonomy) useUregant.getState().setAutonomy(pane.id, pane.uregant.autonomy)
     // re-attach to any in-flight run owned by main (survives a renderer reload)
     useUregant.getState().resync(pane.id)
     // probe once on mount
@@ -120,6 +128,18 @@ export default function UregantPane({ pane }: { pane: Pane }): JSX.Element {
             {probing ? 'checking Ollama…' : model}
           </span>
         )}
+        <select
+          className="input mono"
+          value={autonomy}
+          onChange={(e) => chooseAutonomy(e.target.value as UrAutonomy)}
+          disabled={streaming}
+          style={{ marginLeft: 8, fontSize: 11, padding: '2px 6px' }}
+          title="Autonomy — how much Uregant may do without asking"
+        >
+          <option value="manual">Manual</option>
+          <option value="auto-safe">Auto-safe</option>
+          <option value="full-auto">Full-auto</option>
+        </select>
       </div>
 
       <div className="stream-scroll" ref={scrollRef}>

@@ -79,6 +79,30 @@ export const UR_TOOLS: UrToolSpec[] = [
   {
     type: 'function',
     function: {
+      name: 'checkpoint',
+      description: 'Snapshot a git repo (working tree) before risky edits; returns a checkpoint id to roll back to.',
+      parameters: {
+        type: 'object',
+        properties: { cwd: { type: 'string', description: 'repo path' } },
+        required: ['cwd']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rollback',
+      description: 'Restore tracked files in a git repo to a previous checkpoint id (from the checkpoint tool).',
+      parameters: {
+        type: 'object',
+        properties: { cwd: { type: 'string' }, checkpoint: { type: 'string', description: 'id from checkpoint' } },
+        required: ['cwd', 'checkpoint']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'done',
       description: 'Finish the task and report a short summary to the user. Call this when the goal is achieved.',
       parameters: {

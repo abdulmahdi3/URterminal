@@ -96,6 +96,8 @@ export interface OpenRouterPaneState {
 export interface UregantPaneState {
   /** Ollama model id driving the loop, e.g. "qwen3.5:latest" */
   model?: string
+  /** persisted autonomy level for this pane */
+  autonomy?: 'manual' | 'auto-safe' | 'full-auto'
 }
 
 /** A single checkable item in a pane's to-do list. */

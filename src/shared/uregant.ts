@@ -130,11 +130,15 @@ export type UrChatSend = Omit<UrChatRequest, 'baseUrl'>
 
 // ---- Slice 4: loop controller in main. renderer <-> main protocol ----
 
+/** Autonomy level governing which actions auto-run vs need approval (§11.5). */
+export type UrAutonomy = 'manual' | 'auto-safe' | 'full-auto'
+
 /** renderer -> main: begin/continue a run with the user's text. */
 export interface UrStartRequest {
   paneId: string
   model: string
   text: string
+  autonomy: UrAutonomy
 }
 
 /** main -> renderer: authoritative run snapshot the renderer mirrors and renders. */
@@ -145,6 +149,7 @@ export interface UrStateEvent {
   pending: UrToolCall[] | null
   error: string | null
   model: string
+  autonomy: UrAutonomy
 }
 
 /** main -> renderer: execute a pane tool and reply with uregant:tool-result. */
