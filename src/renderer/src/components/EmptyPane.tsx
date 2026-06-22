@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
-import { Clock, RotateCcw, Sparkles } from 'lucide-react'
+import { Clock, RotateCcw, Sparkles, Bot } from 'lucide-react'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useSessions } from '@renderer/store/sessions'
 import { getShellSpecs, refreshWslDistros, type ShellSpec } from '@renderer/lib/shells'
@@ -66,6 +66,20 @@ export default function EmptyPane({ paneId }: { paneId: string }): JSX.Element {
             >
               <Sparkles size={20} />
               <span className="empty-card-label">Claude (stream)</span>
+            </button>
+          </div>
+        </section>
+
+        <section className="empty-group">
+          <div className="empty-group-title">Orchestrator</div>
+          <div className="empty-grid">
+            <button
+              className="empty-card"
+              title="Uregant — local AI that drives your panes by chat"
+              onClick={() => setPaneType(paneId, 'uregant', { label: 'Uregant' })}
+            >
+              <Bot size={20} />
+              <span className="empty-card-label">Uregant</span>
             </button>
           </div>
         </section>

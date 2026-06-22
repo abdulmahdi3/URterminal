@@ -24,6 +24,10 @@ import type {
   SshCredential
 } from '@shared/types'
 import { applyPatch } from '@shared/diff'
+import { streamUregant, stopUregant } from '../uregant/llm'
+import type { UregantEmit } from '../uregant/llm'
+import { runCommand } from '../uregant/exec'
+import type { UrChatSend, UrExecRequest } from '@shared/uregant'
 import { stripAnsi } from '../learning/ansi'
 import { spawn } from 'child_process'
 import { createSshPty, parseSshTarget, tcpPing } from '../ssh/sshPty'
@@ -600,6 +604,24 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcContext {
     void streamOpenRouter(key, req, orEmit)
   })
   ipcMain.on(IPC.openrouterStop, (_e, paneId: string) => stopOpenRouter(paneId))
+
+  // uregant: local AI orchestrator — tool-calling chat loop over Ollama.
+  const urEmit: UregantEmit = {
+    delta: (paneId, delta) => emit(IPC.uregantDelta, { paneId, delta }),
+    toolCalls: (paneId, calls) => emit(IPC.uregantToolCall, { paneId, calls }),
+    done: (paneId, result) => emit(IPC.uregantDone, { paneId, result }),
+    error: (paneId, message) => emit(IPC.uregantError, { paneId, message })
+  }
+  ipcMain.handle(IPC.uregantChat, (_e, req: UrChatSend) => {
+    const baseUrl = settings.getOllamaBaseUrl()
+    if (!baseUrl) {
+      urEmit.error(req.paneId, 'No Ollama server configured. Set the Ollama base URL in Settings.')
+      return
+    }
+    void streamUregant({ ...req, baseUrl }, urEmit)
+  })
+  ipcMain.on(IPC.uregantStop, (_e, paneId: string) => stopUregant(paneId))
+  ipcMain.handle(IPC.uregantExec, (_e, req: UrExecRequest) => runCommand(req))
   ipcMain.handle(IPC.openrouterModels, () =>
     fetchOpenRouterModels(settings.getApiKey('openrouter')?.trim() || undefined)
   )

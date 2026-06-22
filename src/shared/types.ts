@@ -14,7 +14,7 @@ export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'oll
  */
 export type AgentRuntimeStatus = 'ready' | 'signin' | 'update' | 'missing'
 
-export type PaneType = 'ai' | 'shell' | 'empty' | 'stream' | 'openrouter'
+export type PaneType = 'ai' | 'shell' | 'empty' | 'stream' | 'openrouter' | 'uregant'
 
 export interface ShellPaneState {
   shell: string
@@ -92,6 +92,12 @@ export interface OpenRouterPaneState {
   temperature?: number
 }
 
+/** State for a Uregant local-orchestrator pane. */
+export interface UregantPaneState {
+  /** Ollama model id driving the loop, e.g. "qwen3.5:latest" */
+  model?: string
+}
+
 /** A single checkable item in a pane's to-do list. */
 export interface TodoItem {
   id: string
@@ -107,6 +113,7 @@ export interface Pane {
   shell?: ShellPaneState
   stream?: StreamPaneState
   openrouter?: OpenRouterPaneState
+  uregant?: UregantPaneState
   /** chat id this pane forwards output to, if linked */
   telegramChatId?: string
   /** pane IDs this pane pipes its output into (supports fan-out to multiple) */
@@ -1057,6 +1064,16 @@ export const IPC = {
   openrouterDelta: 'openrouter:delta', // main -> renderer (event)
   openrouterDone: 'openrouter:done', // main -> renderer (event)
   openrouterError: 'openrouter:error', // main -> renderer (event)
+
+  // uregant: local AI orchestrator — tool-calling chat loop over Ollama.
+  // delta/tool-call/done/error are main -> renderer events keyed by paneId.
+  uregantChat: 'uregant:chat',
+  uregantStop: 'uregant:stop',
+  uregantExec: 'uregant:exec', // renderer -> main (invoke): headless run_command
+  uregantDelta: 'uregant:delta', // main -> renderer (event)
+  uregantToolCall: 'uregant:tool-call', // main -> renderer (event)
+  uregantDone: 'uregant:done', // main -> renderer (event)
+  uregantError: 'uregant:error', // main -> renderer (event)
   // prompts: durable per-chat prompt history (rebuilds the prompt minimap on restore)
   promptsGet: 'prompts:get',
   promptsAppend: 'prompts:append',

@@ -198,6 +198,9 @@ function makePane(type: PaneType, defaults: PaneDefaults, init?: PaneInit): Pane
     const model = init?.orModel || defaults.openrouterModel || DEFAULT_MODELS.openrouter[0]
     base.title = init?.label ?? 'OpenRouter'
     base.openrouter = { model, messages: [] }
+  } else if (type === 'uregant') {
+    base.title = init?.label ?? 'Uregant'
+    base.uregant = {}
   } else {
     base.title = `Pane ${paneCounter}`
   }
@@ -442,7 +445,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => {
       const existing = s.panes[id]
       if (!existing) return s
-      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined, stream: undefined, openrouter: undefined }
+      const replacement: Pane = { ...existing, type, agent: undefined, shell: undefined, stream: undefined, openrouter: undefined, uregant: undefined }
       if (type === 'ai') {
         const command = init?.agentCommand ?? DEFAULT_AGENT
         replacement.agent = withSessionId({ command })
@@ -459,6 +462,9 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       } else if (type === 'openrouter') {
         replacement.openrouter = { model: init?.orModel || DEFAULT_MODELS.openrouter[0], messages: [] }
         replacement.title = init?.label ?? 'OpenRouter'
+      } else if (type === 'uregant') {
+        replacement.uregant = {}
+        replacement.title = init?.label ?? 'Uregant'
       }
       return { panes: { ...s.panes, [id]: replacement } }
     }),
